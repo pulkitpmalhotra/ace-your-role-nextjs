@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { apiService } from '../services/api';
 import { speechService } from '../services/speech';
 import { CheckCircle, Star } from 'lucide-react';
+import EnhancedFeedback from './EnhancedFeedback';
 
 function RoleplaySession({ scenario, userEmail, onEndSession }) {
   const [sessionState, setSessionState] = useState('starting');
