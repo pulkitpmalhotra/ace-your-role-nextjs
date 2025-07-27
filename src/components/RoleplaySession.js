@@ -691,3 +691,135 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
                       👤 You (speaking...)
                     </div>
                     {currentTranscript}
+                  </div>
+                )}
+                
+                <div ref={conversationEndRef} />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Sidebar - only show on larger screens */}
+        {window.innerWidth > 768 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {/* Scenario Info */}
+            <div style={{
+              backgroundColor: 'white',
+              borderRadius: '12px',
+              padding: '20px',
+              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+            }}>
+              <h3 style={{ 
+                fontSize: '1.1rem', 
+                fontWeight: '600', 
+                marginBottom: '12px',
+                color: '#1f2937'
+              }}>
+                Scenario Details
+              </h3>
+              <div style={{ fontSize: '0.9rem', color: '#6b7280', lineHeight: '1.5' }}>
+                <p style={{ marginBottom: '8px' }}>
+                  <strong>Description:</strong> {scenario.description}
+                </p>
+                <p style={{ marginBottom: '8px' }}>
+                  <strong>Character:</strong> {scenario.character_name}
+                </p>
+                <p style={{ marginBottom: '8px' }}>
+                  <strong>Personality:</strong> {scenario.character_personality}
+                </p>
+                <p style={{ margin: 0 }}>
+                  <strong>Difficulty:</strong> {scenario.difficulty}
+                </p>
+              </div>
+            </div>
+
+            {/* Tips */}
+            <div style={{
+              backgroundColor: '#f0f9ff',
+              border: '1px solid #0ea5e9',
+              borderRadius: '12px',
+              padding: '20px'
+            }}>
+              <h3 style={{ 
+                fontSize: '1.1rem', 
+                fontWeight: '600', 
+                marginBottom: '12px',
+                color: '#0c4a6e'
+              }}>
+                💡 Tips for Success
+              </h3>
+              <ul style={{ 
+                fontSize: '0.9rem', 
+                color: '#075985',
+                paddingLeft: '16px',
+                margin: 0
+              }}>
+                <li>Speak clearly and at normal pace</li>
+                <li>Ask questions to understand needs</li>
+                <li>Listen to objections carefully</li>
+                <li>Focus on benefits, not just features</li>
+                <li>Stay professional and confident</li>
+              </ul>
+            </div>
+
+            {/* Session Stats */}
+            <div style={{
+              backgroundColor: 'white',
+              borderRadius: '12px',
+              padding: '20px',
+              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+            }}>
+              <h3 style={{ 
+                fontSize: '1.1rem', 
+                fontWeight: '600', 
+                marginBottom: '12px',
+                color: '#1f2937'
+              }}>
+                📊 Session Stats
+              </h3>
+              <div style={{ fontSize: '0.9rem', color: '#6b7280' }}>
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between',
+                  marginBottom: '8px'
+                }}>
+                  <span>Exchanges:</span>
+                  <span style={{ fontWeight: '600' }}>
+                    {Math.floor(conversation.length / 2)}
+                  </span>
+                </div>
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between',
+                  marginBottom: '8px'
+                }}>
+                  <span>Duration:</span>
+                  <span style={{ fontWeight: '600' }}>
+                    {Math.floor((Date.now() - startTime.getTime()) / 60000)}m
+                  </span>
+                </div>
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between'
+                }}>
+                  <span>Status:</span>
+                  <span style={{ 
+                    fontWeight: '600',
+                    color: getStatusColor()
+                  }}>
+                    {sessionState === 'listening' ? 'Active' : 
+                     sessionState === 'processing' ? 'Thinking' :
+                     sessionState === 'ai-speaking' ? 'AI Speaking' : 'Ready'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default RoleplaySession;
