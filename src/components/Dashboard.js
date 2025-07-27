@@ -119,3 +119,188 @@ function Dashboard({ userEmail, onStartSession }) {
           alignItems: 'center', 
           justifyContent: 'center',
           gap: '10px',
+          color: '#888',
+          fontSize: '0.9rem'
+        }}>
+          <User size={16} />
+          <span>{userEmail}</span>
+        </div>
+      </div>
+
+      {/* Scenarios Grid */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
+        gap: '24px',
+        marginBottom: '40px'
+      }}>
+        {scenarios.map((scenario) => (
+          <div
+            key={scenario.id}
+            style={{
+              backgroundColor: 'white',
+              borderRadius: '12px',
+              padding: '24px',
+              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+              border: '1px solid #e5e7eb',
+              transition: 'all 0.3s ease',
+              cursor: 'pointer'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'translateY(-4px)';
+              e.currentTarget.style.boxShadow = '0 8px 25px rgba(0, 0, 0, 0.15)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
+            }}
+          >
+            {/* Scenario Header */}
+            <div style={{ marginBottom: '16px' }}>
+              <div style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'flex-start',
+                marginBottom: '12px'
+              }}>
+                <h3 style={{ 
+                  fontSize: '1.25rem', 
+                  fontWeight: '600', 
+                  margin: 0,
+                  color: '#1f2937',
+                  lineHeight: '1.3'
+                }}>
+                  {scenario.title}
+                </h3>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  backgroundColor: getDifficultyColor(scenario.difficulty),
+                  color: 'white',
+                  padding: '4px 12px',
+                  borderRadius: '20px',
+                  fontSize: '0.75rem',
+                  fontWeight: '600',
+                  textTransform: 'uppercase'
+                }}>
+                  <span>{getDifficultyIcon(scenario.difficulty)}</span>
+                  {scenario.difficulty}
+                </div>
+              </div>
+              
+              <p style={{ 
+                color: '#6b7280', 
+                margin: 0,
+                lineHeight: '1.5',
+                fontSize: '0.95rem'
+              }}>
+                {scenario.description}
+              </p>
+            </div>
+
+            {/* Character Info */}
+            <div style={{
+              backgroundColor: '#f9fafb',
+              padding: '16px',
+              borderRadius: '8px',
+              marginBottom: '20px'
+            }}>
+              <div style={{ marginBottom: '8px' }}>
+                <span style={{ 
+                  fontSize: '0.8rem', 
+                  color: '#6b7280', 
+                  textTransform: 'uppercase',
+                  fontWeight: '600'
+                }}>
+                  You'll be speaking with:
+                </span>
+              </div>
+              <div style={{ 
+                fontSize: '1rem', 
+                fontWeight: '600', 
+                color: '#1f2937',
+                marginBottom: '4px'
+              }}>
+                {scenario.character_name}
+              </div>
+              <div style={{ 
+                fontSize: '0.9rem', 
+                color: '#6b7280'
+              }}>
+                {scenario.character_role}
+              </div>
+            </div>
+
+            {/* Start Button */}
+            <button
+              onClick={() => onStartSession(scenario)}
+              style={{
+                width: '100%',
+                backgroundColor: '#667eea',
+                color: 'white',
+                border: 'none',
+                padding: '14px 20px',
+                borderRadius: '8px',
+                fontSize: '1rem',
+                fontWeight: '600',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '10px',
+                transition: 'all 0.3s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#5a67d8';
+                e.currentTarget.style.transform = 'translateY(-1px)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = '#667eea';
+                e.currentTarget.style.transform = 'translateY(0)';
+              }}
+            >
+              <Play size={18} />
+              Start Practice Session
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {/* Footer Info */}
+      <div style={{
+        textAlign: 'center',
+        padding: '30px',
+        backgroundColor: '#f9fafb',
+        borderRadius: '12px',
+        color: '#6b7280'
+      }}>
+        <h3 style={{ color: '#374151', marginBottom: '16px' }}>
+          🚀 How It Works
+        </h3>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          gap: '20px',
+          maxWidth: '800px',
+          margin: '0 auto'
+        }}>
+          <div>
+            <div style={{ fontSize: '2rem', marginBottom: '8px' }}>🎤</div>
+            <p><strong>Speak Naturally</strong><br />Talk to the AI character using your voice</p>
+          </div>
+          <div>
+            <div style={{ fontSize: '2rem', marginBottom: '8px' }}>🤖</div>
+            <p><strong>AI Responds</strong><br />Get realistic responses from AI characters</p>
+          </div>
+          <div>
+            <div style={{ fontSize: '2rem', marginBottom: '8px' }}>📊</div>
+            <p><strong>Get Feedback</strong><br />Receive coaching tips to improve your skills</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default Dashboard;
