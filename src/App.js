@@ -110,12 +110,12 @@ function App() {
       )}
 
       {currentState === 'dashboard' && (
-        <Dashboard 
-          userEmail={userEmail}
-          onStartSession={handleStartSession}
-        />
-      )}
-
+  <Dashboard 
+    userEmail={userEmail}
+    onStartSession={handleStartSession}
+    onViewFeedbackDashboard={handleViewFeedbackDashboard}
+  />
+)}
       {currentState === 'session' && selectedScenario && (
         <RoleplaySession
           scenario={selectedScenario}
