@@ -1,12 +1,12 @@
-// api/sessions.ts
-import { VercelRequest, VercelResponse } from '@vercel/node';
-import { supabase } from './_supabase';
-import { APIResponse, Session, ConversationMessage } from './_types';
+// api/sessions.js
+import { createClient } from '@supabase/supabase-js';
 
-export default async function handler(
-  req: VercelRequest,
-  res: VercelResponse
-): Promise<void> {
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_ANON_KEY
+);
+
+export default async function handler(req, res) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS');
@@ -44,12 +44,10 @@ export default async function handler(
         throw new Error(`Failed to create session: ${error.message}`);
       }
 
-      const response: APIResponse<{ sessionId: string }> = {
+      res.status(201).json({
         success: true,
         data: { sessionId: data.id }
-      };
-
-      res.status(201).json(response);
+      });
 
     } else if (req.method === 'PUT') {
       // Update session
@@ -62,7 +60,7 @@ export default async function handler(
         });
       }
 
-      let updateData: any = {};
+      let updateData = {};
 
       if (conversation) {
         updateData.conversation = conversation;
@@ -83,12 +81,10 @@ export default async function handler(
         throw new Error(`Failed to update session: ${error.message}`);
       }
 
-      const response: APIResponse = {
+      res.status(200).json({
         success: true,
         data: { message: 'Session updated successfully' }
-      };
-
-      res.status(200).json(response);
+      });
 
     } else if (req.method === 'GET') {
       // Get sessions for user
@@ -119,12 +115,10 @@ export default async function handler(
         throw new Error(`Failed to fetch sessions: ${error.message}`);
       }
 
-      const response: APIResponse<any[]> = {
+      res.status(200).json({
         success: true,
         data: data || []
-      };
-
-      res.status(200).json(response);
+      });
 
     } else {
       res.status(405).json({
@@ -135,11 +129,9 @@ export default async function handler(
   } catch (error) {
     console.error('Sessions API error:', error);
     
-    const response: APIResponse = {
+    res.status(500).json({
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
-    };
-
-    res.status(500).json(response);
+      error: error.message || 'Unknown error'
+    });
   }
 }
