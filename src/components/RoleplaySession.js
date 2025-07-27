@@ -439,33 +439,33 @@ if (showFeedback && feedback) {
         </p>
       )}
     </div>
-    <button 
-      onClick={handleEndSession} 
-      style={{ 
-        backgroundColor: '#f97316', // Changed from #ef4444 to orange
-        color: 'white', 
-        border: 'none', 
-        padding: '12px 24px', // Made larger
-        borderRadius: '8px', 
-        cursor: 'pointer',
-        fontWeight: '600',
-        fontSize: '1rem', // Made larger
-        transition: 'all 0.3s ease',
-        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.backgroundColor = '#ea580c';
-        e.currentTarget.style.transform = 'translateY(-1px)';
-        e.currentTarget.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.15)';
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.backgroundColor = '#f97316';
-        e.currentTarget.style.transform = 'translateY(0)';
-        e.currentTarget.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
-      }}
-    >
-      End Session
-    </button>
+<button 
+  onClick={handleEndSession} 
+  style={{ 
+    backgroundColor: '#f97316', // Orange instead of red
+    color: 'white', 
+    border: 'none', 
+    padding: '12px 24px', // Larger padding
+    borderRadius: '8px', 
+    cursor: 'pointer',
+    fontWeight: '600',
+    fontSize: '1rem', // Larger font
+    transition: 'all 0.3s ease',
+    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+  }}
+  onMouseEnter={(e) => {
+    e.currentTarget.style.backgroundColor = '#ea580c';
+    e.currentTarget.style.transform = 'translateY(-1px)';
+    e.currentTarget.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.15)';
+  }}
+  onMouseLeave={(e) => {
+    e.currentTarget.style.backgroundColor = '#f97316';
+    e.currentTarget.style.transform = 'translateY(0)';
+    e.currentTarget.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
+  }}
+>
+  End Session
+</button>
   </div>
 </div>
       <div style={{ backgroundColor: getStatusColor(), color: 'white', padding: '12px 24px', textAlign: 'center', fontWeight: '500' }}>
