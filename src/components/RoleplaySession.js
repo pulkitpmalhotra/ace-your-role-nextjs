@@ -35,7 +35,6 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
       setSessionId(newSessionId);
       setStartTime(new Date());
       
-      // Request microphone permission and start listening
       setTimeout(() => {
         requestMicrophoneAndStart();
       }, 1500);
@@ -48,11 +47,9 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
 
   const requestMicrophoneAndStart = async () => {
     try {
-      // Request microphone permission explicitly
       await navigator.mediaDevices.getUserMedia({ audio: true });
       console.log('✅ Microphone permission granted');
       
-      // Wait a bit more then start listening
       setTimeout(() => {
         startListening();
       }, 500);
@@ -85,7 +82,6 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
           if (transcript.trim().length > 2) {
             processUserSpeech(transcript.trim());
           } else {
-            // If speech too short, start listening again
             console.log('🔄 Speech too short, restarting...');
             setTimeout(() => {
               if (sessionState !== 'ended') {
@@ -100,12 +96,10 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
       (error) => {
         console.error('🚨 Speech recognition error:', error);
         
-        // Don't show "no speech" errors as they're normal
         if (!error.includes('No speech detected') && !error.includes('no-speech')) {
           setError(error);
         }
         
-        // Retry listening unless permission was denied
         if (!error.includes('denied') && microphoneRetries.current < 3) {
           microphoneRetries.current++;
           console.log(`🔄 Retrying speech recognition (${microphoneRetries.current}/3)...`);
@@ -118,7 +112,6 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
       },
       () => {
         console.log('🏁 Speech recognition ended');
-        // Restart listening if session is still active
         if (sessionState === 'listening') {
           setTimeout(() => {
             if (sessionState !== 'ended') {
@@ -163,7 +156,6 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
       setConversation(finalConversation);
       await apiService.updateSessionConversation(sessionId, finalConversation);
 
-      // Speak AI response
       if (isAudioEnabled) {
         setSessionState('ai-speaking');
         
@@ -175,7 +167,6 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
         }
       }
 
-      // Return to listening
       setTimeout(() => {
         if (sessionState !== 'ended') {
           startListening();
@@ -211,13 +202,10 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
       setFeedback(sessionFeedback);
       
       await apiService.endSession(sessionId, sessionFeedback, duration);
-      
-      // Show feedback screen
       setShowFeedback(true);
       
     } catch (err) {
       console.error('Error ending session:', err);
-      // Still show feedback even if saving failed
       const sessionFeedback = generateFeedback();
       setFeedback(sessionFeedback);
       setShowFeedback(true);
@@ -397,30 +385,29 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
             </ul>
           </div>
 
-          <div style={{ display: 'flex', gap: '16px', justifyContent: 'center' }}>
-            <button
-              onClick={() => {
-                setShowFeedback(false);
-                onEndSession();
-              }}
-              style={{
-                backgroundColor: '#667eea',
-                color: 'white',
-                border: 'none',
-                padding: '12px 24px',
-                borderRadius: '8px',
-                fontSize: '1rem',
-                fontWeight: '600',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}
-            >
-              <CheckCircle size={20} />
-              Continue Practicing
-            </button>
-          </div>
+          <button
+            onClick={() => {
+              setShowFeedback(false);
+              onEndSession();
+            }}
+            style={{
+              backgroundColor: '#667eea',
+              color: 'white',
+              border: 'none',
+              padding: '12px 24px',
+              borderRadius: '8px',
+              fontSize: '1rem',
+              fontWeight: '600',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              margin: '0 auto'
+            }}
+          >
+            <CheckCircle size={20} />
+            Continue Practicing
+          </button>
         </div>
       </div>
     );
@@ -585,9 +572,6 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
         maxWidth: '1200px',
         margin: '0 auto',
         width: '100%',
-        display: 'grid',
-        gridTemplateColumns: window.innerWidth > 768 ? '1fr 400px' : '1fr',
-        gap: '24px',
         padding: '24px'
       }}>
         {/* Conversation Area */}
@@ -617,7 +601,6 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
           </div>
 
           <div style={{
-            flex: 1,
             border: '1px solid #e5e7eb',
             borderRadius: '8px',
             padding: '16px',
@@ -699,124 +682,6 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
             )}
           </div>
         </div>
-
-        {/* Sidebar - only show on larger screens */}
-        {window.innerWidth > 768 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            {/* Scenario Info */}
-            <div style={{
-              backgroundColor: 'white',
-              borderRadius: '12px',
-              padding: '20px',
-              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
-            }}>
-              <h3 style={{ 
-                fontSize: '1.1rem', 
-                fontWeight: '600', 
-                marginBottom: '12px',
-                color: '#1f2937'
-              }}>
-                Scenario Details
-              </h3>
-              <div style={{ fontSize: '0.9rem', color: '#6b7280', lineHeight: '1.5' }}>
-                <p style={{ marginBottom: '8px' }}>
-                  <strong>Description:</strong> {scenario.description}
-                </p>
-                <p style={{ marginBottom: '8px' }}>
-                  <strong>Character:</strong> {scenario.character_name}
-                </p>
-                <p style={{ marginBottom: '8px' }}>
-                  <strong>Personality:</strong> {scenario.character_personality}
-                </p>
-                <p style={{ margin: 0 }}>
-                  <strong>Difficulty:</strong> {scenario.difficulty}
-                </p>
-              </div>
-            </div>
-
-            {/* Tips */}
-            <div style={{
-              backgroundColor: '#f0f9ff',
-              border: '1px solid #0ea5e9',
-              borderRadius: '12px',
-              padding: '20px'
-            }}>
-              <h3 style={{ 
-                fontSize: '1.1rem', 
-                fontWeight: '600', 
-                marginBottom: '12px',
-                color: '#0c4a6e'
-              }}>
-                💡 Tips for Success
-              </h3>
-              <ul style={{ 
-                fontSize: '0.9rem', 
-                color: '#075985',
-                paddingLeft: '16px',
-                margin: 0
-              }}>
-                <li>Speak clearly and at normal pace</li>
-                <li>Ask questions to understand needs</li>
-                <li>Listen to objections carefully</li>
-                <li>Focus on benefits, not just features</li>
-                <li>Stay professional and confident</li>
-              </ul>
-            </div>
-
-            {/* Session Stats */}
-            <div style={{
-              backgroundColor: 'white',
-              borderRadius: '12px',
-              padding: '20px',
-              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
-            }}>
-              <h3 style={{ 
-                fontSize: '1.1rem', 
-                fontWeight: '600', 
-                marginBottom: '12px',
-                color: '#1f2937'
-              }}>
-                📊 Session Stats
-              </h3>
-              <div style={{ fontSize: '0.9rem', color: '#6b7280' }}>
-                <div style={{ 
-                  display: 'flex', 
-                  justifyContent: 'space-between',
-                  marginBottom: '8px'
-                }}>
-                  <span>Exchanges:</span>
-                  <span style={{ fontWeight: '600' }}>
-                    {Math.floor(conversation.length / 2)}
-                  </span>
-                </div>
-                <div style={{ 
-                  display: 'flex', 
-                  justifyContent: 'space-between',
-                  marginBottom: '8px'
-                }}>
-                  <span>Duration:</span>
-                  <span style={{ fontWeight: '600' }}>
-                    {Math.floor((Date.now() - startTime.getTime()) / 60000)}m
-                  </span>
-                </div>
-                <div style={{ 
-                  display: 'flex', 
-                  justifyContent: 'space-between'
-                }}>
-                  <span>Status:</span>
-                  <span style={{ 
-                    fontWeight: '600',
-                    color: getStatusColor()
-                  }}>
-                    {sessionState === 'listening' ? 'Active' : 
-                     sessionState === 'processing' ? 'Thinking' :
-                     sessionState === 'ai-speaking' ? 'AI Speaking' : 'Ready'}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
