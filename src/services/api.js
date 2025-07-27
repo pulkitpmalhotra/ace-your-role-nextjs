@@ -161,6 +161,7 @@ class APIService {
     });
   }
 }
+;
 async getUserSessionsWithFeedback(userEmail) {
   console.log('📊 Fetching user sessions with feedback...');
   return await this.makeRequest(`/api/sessions/feedback?userEmail=${encodeURIComponent(userEmail)}`);
