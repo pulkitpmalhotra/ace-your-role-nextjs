@@ -135,37 +135,38 @@ const handleViewFeedbackDashboard = () => {
   />
 )}
       
-      {currentState !== 'login' && (
-        <button
-          onClick={handleLogout}
-          style={{
-            position: 'fixed',
-            top: '20px',
-            right: '20px',
-            backgroundColor: '#ef4444',
-            color: 'white',
-            border: 'none',
-            padding: '10px 16px',
-            borderRadius: '8px',
-            cursor: 'pointer',
-            fontSize: '0.9rem',
-            fontWeight: '500',
-            zIndex: 1000,
-            transition: 'all 0.3s ease',
-            boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = '#dc2626';
-            e.currentTarget.style.transform = 'translateY(-1px)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = '#ef4444';
-            e.currentTarget.style.transform = 'translateY(0)';
-          }}
-        >
-          Logout
-        </button>
-      )}
+     {/* Logout button - ONLY visible on dashboard */}
+{currentState === 'dashboard' && (
+  <button
+    onClick={handleLogout}
+    style={{
+      position: 'fixed',
+      top: '20px',
+      right: '20px',
+      backgroundColor: '#ef4444',
+      color: 'white',
+      border: 'none',
+      padding: '10px 16px',
+      borderRadius: '8px',
+      cursor: 'pointer',
+      fontSize: '0.9rem',
+      fontWeight: '500',
+      zIndex: 1000,
+      transition: 'all 0.3s ease',
+      boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+    }}
+    onMouseEnter={(e) => {
+      e.currentTarget.style.backgroundColor = '#dc2626';
+      e.currentTarget.style.transform = 'translateY(-1px)';
+    }}
+    onMouseLeave={(e) => {
+      e.currentTarget.style.backgroundColor = '#ef4444';
+      e.currentTarget.style.transform = 'translateY(0)';
+    }}
+  >
+    Logout
+  </button>
+)}
     </div>
   );
 }
