@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import RoleplaySession from './components/RoleplaySession';
+import EnhancedFeedback from './components/EnhancedFeedback';
+import FeedbackDashboard from './components/FeedbackDashboard';
 import './App.css';
 
 function App() {
