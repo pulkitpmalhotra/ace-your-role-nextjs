@@ -1,12 +1,12 @@
-// api/scenarios.ts
-import { VercelRequest, VercelResponse } from '@vercel/node';
-import { supabase } from './_supabase';
-import { APIResponse, Scenario } from './_types';
+// api/scenarios.js
+const { createClient } = require('@supabase/supabase-js');
 
-export default async function handler(
-  req: VercelRequest,
-  res: VercelResponse
-): Promise<void> {
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_ANON_KEY
+);
+
+module.exports = async function handler(req, res) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -30,7 +30,7 @@ export default async function handler(
         throw new Error(`Database error: ${error.message}`);
       }
 
-      const response: APIResponse<Scenario[]> = {
+      const response = {
         success: true,
         data: data || []
       };
@@ -45,11 +45,11 @@ export default async function handler(
   } catch (error) {
     console.error('Scenarios API error:', error);
     
-    const response: APIResponse = {
+    const response = {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error'
     };
 
     res.status(500).json(response);
   }
-}
+};
