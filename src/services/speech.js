@@ -1,4 +1,4 @@
-// src/services/speech.js
+// src/services/speech.js - FIXED VERSION
 
 export class SpeechService {
   constructor() {
@@ -6,6 +6,8 @@ export class SpeechService {
     this.synthesis = window.speechSynthesis;
     this.voices = [];
     this.isListening = false;
+    this.isSpeaking = false; // NEW: Track if AI is speaking
+    this.isProcessing = false; // NEW: Track if processing user input
     this.loadVoices();
   }
 
@@ -36,6 +38,17 @@ export class SpeechService {
       return;
     }
 
+    // CRITICAL: Don't start listening if AI is speaking or processing
+    if (this.isSpeaking) {
+      console.log('🔇 Not starting microphone - AI is currently speaking');
+      return;
+    }
+
+    if (this.isProcessing) {
+      console.log('🔇 Not starting microphone - currently processing input');
+      return;
+    }
+
     // Stop any existing recognition
     this.stopListening();
 
@@ -43,7 +56,7 @@ export class SpeechService {
     this.recognition = new SpeechRecognition();
 
     // More robust configuration
-    this.recognition.continuous = true;  // Keep listening continuously
+    this.recognition.continuous = true;
     this.recognition.interimResults = true;
     this.recognition.lang = 'en-US';
     this.recognition.maxAlternatives = 1;
@@ -55,6 +68,7 @@ export class SpeechService {
 
     let silenceTimer = null;
     let hasSpoken = false;
+    let lastTranscript = '';
 
     this.recognition.onstart = () => {
       console.log('🎤 Speech recognition started successfully');
@@ -63,9 +77,16 @@ export class SpeechService {
       // Reset silence timer
       clearTimeout(silenceTimer);
       hasSpoken = false;
+      lastTranscript = '';
     };
 
     this.recognition.onresult = (event) => {
+      // CRITICAL: Ignore results if AI is speaking or processing
+      if (this.isSpeaking || this.isProcessing) {
+        console.log('🔇 Ignoring speech input - AI is speaking or processing');
+        return;
+      }
+
       console.log('📝 Speech result event received');
       hasSpoken = true;
       
@@ -90,17 +111,26 @@ export class SpeechService {
       }
 
       // Call onResult with the appropriate transcript
-      if (finalTranscript.trim()) {
+      if (finalTranscript.trim() && finalTranscript.trim() !== lastTranscript.trim()) {
         console.log('✅ Final transcript:', finalTranscript);
+        lastTranscript = finalTranscript.trim();
+        
+        // Set processing flag to prevent new input during AI response
+        this.isProcessing = true;
+        this.stopListening(); // Stop listening immediately
+        
         onResult(finalTranscript.trim(), true);
-      } else if (interimTranscript.trim()) {
+      } else if (interimTranscript.trim() && !this.isSpeaking && !this.isProcessing) {
         onResult(interimTranscript.trim(), false);
         
         // Set silence timer for interim results
         clearTimeout(silenceTimer);
         silenceTimer = setTimeout(() => {
-          if (interimTranscript.trim().length > 2) {
+          if (interimTranscript.trim().length > 2 && !this.isSpeaking && !this.isProcessing) {
             console.log('⏰ Silence timeout - treating interim as final');
+            lastTranscript = interimTranscript.trim();
+            this.isProcessing = true;
+            this.stopListening();
             onResult(interimTranscript.trim(), true);
           }
         }, 2000); // 2 seconds of silence
@@ -120,13 +150,15 @@ export class SpeechService {
           break;
         case 'no-speech':
           console.log('⚠️ No speech detected - this is normal, will restart');
-          // Don't treat no-speech as an error, just restart
-          setTimeout(() => {
-            if (this.isListening === false) { // Only restart if we're not already listening
-              console.log('🔄 Restarting after no-speech...');
-              this.startListening(onResult, onError, onEnd);
-            }
-          }, 1000);
+          // Don't treat no-speech as an error, just restart if not speaking/processing
+          if (!this.isSpeaking && !this.isProcessing) {
+            setTimeout(() => {
+              if (!this.isListening && !this.isSpeaking && !this.isProcessing) {
+                console.log('🔄 Restarting after no-speech...');
+                this.startListening(onResult, onError, onEnd);
+              }
+            }, 1000);
+          }
           return;
         case 'audio-capture':
           errorMessage = 'Microphone not found. Please check your microphone connection.';
@@ -147,12 +179,13 @@ export class SpeechService {
       this.isListening = false;
       clearTimeout(silenceTimer);
       
-      // Only call onEnd if we haven't spoken (normal ending)
-      // If we have spoken, the result handler will take care of next steps
-      if (!hasSpoken) {
+      // Only restart if we're not speaking, processing, and haven't spoken
+      if (!hasSpoken && !this.isSpeaking && !this.isProcessing) {
         console.log('🔄 Recognition ended without speech, will restart...');
         setTimeout(() => {
-          onEnd();
+          if (!this.isSpeaking && !this.isProcessing) {
+            onEnd();
+          }
         }, 500);
       }
     };
@@ -176,7 +209,7 @@ export class SpeechService {
     }
   }
 
-  // Text-to-speech with better error handling
+  // Text-to-speech with better error handling and state management
   speak(text, characterGender = 'female') {
     return new Promise((resolve, reject) => {
       const support = this.isSupported();
@@ -185,8 +218,14 @@ export class SpeechService {
         return;
       }
 
+      // CRITICAL: Set speaking flag and stop any listening
+      this.isSpeaking = true;
+      this.stopListening(); // Force stop listening
+      
       // Cancel any ongoing speech
       this.synthesis.cancel();
+
+      console.log('🔊 AI starting to speak - microphone OFF');
 
       const utterance = new SpeechSynthesisUtterance(text);
       
@@ -201,14 +240,38 @@ export class SpeechService {
       utterance.pitch = 1.0;
       utterance.volume = 0.9;
 
+      utterance.onstart = () => {
+        console.log('🔊 AI speech started');
+        this.isSpeaking = true;
+      };
+
       utterance.onend = () => {
-        console.log('🔊 Speech synthesis completed');
+        console.log('🔊 AI speech completed - microphone can restart');
+        this.isSpeaking = false;
+        this.isProcessing = false; // Clear processing flag
         resolve();
       };
       
       utterance.onerror = (event) => {
-        console.error('Speech synthesis error:', event);
-        reject(new Error(`Speech error: ${event.error}`));
+        console.error('🚨 Speech synthesis error:', event);
+        this.isSpeaking = false;
+        this.isProcessing = false; // Clear processing flag
+        
+        // Don't reject for interrupted errors (these are normal)
+        if (event.error === 'interrupted') {
+          console.log('ℹ️ Speech was interrupted - this is normal');
+          resolve();
+        } else {
+          reject(new Error(`Speech error: ${event.error}`));
+        }
+      };
+
+      utterance.onpause = () => {
+        console.log('⏸️ Speech paused');
+      };
+
+      utterance.onresume = () => {
+        console.log('▶️ Speech resumed');
       };
 
       console.log('🔊 Starting speech synthesis:', text.substring(0, 50) + '...');
@@ -219,13 +282,35 @@ export class SpeechService {
   // Stop speech
   stopSpeaking() {
     if (this.synthesis) {
+      console.log('🛑 Force stopping speech synthesis');
       this.synthesis.cancel();
+      this.isSpeaking = false;
+      this.isProcessing = false;
     }
   }
 
   // Check if currently listening
   isCurrentlyListening() {
     return this.isListening;
+  }
+
+  // Check if currently speaking
+  isCurrentlySpeaking() {
+    return this.isSpeaking;
+  }
+
+  // Check if currently processing
+  isCurrentlyProcessing() {
+    return this.isProcessing;
+  }
+
+  // Get current state for debugging
+  getState() {
+    return {
+      isListening: this.isListening,
+      isSpeaking: this.isSpeaking,
+      isProcessing: this.isProcessing
+    };
   }
 
   // Find best voice for character
@@ -270,6 +355,8 @@ export class SpeechService {
       synthesis: support.synthesis,
       voicesCount: this.voices.length,
       isListening: this.isListening,
+      isSpeaking: this.isSpeaking,
+      isProcessing: this.isProcessing,
       userAgent: navigator.userAgent.includes('Chrome') ? 'Chrome' : 'Other',
       availableVoices: this.voices.map(v => ({ name: v.name, lang: v.lang }))
     };
