@@ -1,14 +1,14 @@
-// api/ai-chat.ts
-import { VercelRequest, VercelResponse } from '@vercel/node';
-import { supabase } from './_supabase';
-import { APIResponse, Scenario, ConversationMessage } from './_types';
+// api/ai-chat.js
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_ANON_KEY
+);
 
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent';
 
-export default async function handler(
-  req: VercelRequest,
-  res: VercelResponse
-): Promise<void> {
+export default async function handler(req, res) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -57,15 +57,13 @@ export default async function handler(
       conversationHistory || []
     );
 
-    const response: APIResponse<{ response: string; character: string }> = {
+    res.status(200).json({
       success: true,
       data: {
         response: aiResponse,
         character: scenario.character_name
       }
-    };
-
-    res.status(200).json(response);
+    });
 
   } catch (error) {
     console.error('AI Chat API error:', error);
@@ -78,23 +76,17 @@ export default async function handler(
       "What makes your solution different from others?"
     ];
     
-    const response: APIResponse<{ response: string; character: string }> = {
+    res.status(200).json({
       success: true,
       data: {
         response: fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)],
         character: 'Customer'
       }
-    };
-
-    res.status(200).json(response);
+    });
   }
 }
 
-async function generateGeminiResponse(
-  scenario: Scenario,
-  userMessage: string,
-  conversationHistory: ConversationMessage[]
-): Promise<string> {
+async function generateGeminiResponse(scenario, userMessage, conversationHistory) {
   const apiKey = process.env.GEMINI_API_KEY;
   
   if (!apiKey) {
