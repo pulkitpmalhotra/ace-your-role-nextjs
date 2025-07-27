@@ -1,42 +1,60 @@
-// src/components/EnhancedFeedback.js
-import React, { useState } from 'react';
-import { CheckCircle, Star, TrendingUp, Target, Lightbulb, ArrowRight } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { CheckCircle, Star, Target, Lightbulb } from 'lucide-react';
 
 function EnhancedFeedback({ sessionId, basicFeedback, onContinue, onViewDashboard }) {
   const [detailedFeedback, setDetailedFeedback] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
 
-  // Load detailed feedback on component mount
-  React.useEffect(() => {
-    loadDetailedFeedback();
+  useEffect(() => {
+    // Simulate loading detailed feedback
+    setTimeout(() => {
+      // For now, we'll create mock detailed feedback
+      // In a real implementation, this would fetch from your API
+      const mockDetailedFeedback = {
+        overallScore: 3.8,
+        categories: {
+          opening: {
+            score: 4,
+            feedback: "Good professional greeting and introduction. You established rapport effectively.",
+            suggestions: ["Try to set a clearer agenda", "Show more enthusiasm in your voice"]
+          },
+          discovery: {
+            score: 3,
+            feedback: "Asked some good questions but could have dug deeper into pain points.",
+            suggestions: ["Use more open-ended questions", "Listen more actively to responses"]
+          },
+          presentation: {
+            score: 4,
+            feedback: "Well-tailored solution presentation with good benefit focus.",
+            suggestions: ["Use more specific examples", "Address concerns proactively"]
+          },
+          objection: {
+            score: 3,
+            feedback: "Handled objections adequately but could show more confidence.",
+            suggestions: ["Acknowledge concerns first", "Ask questions to understand better"]
+          },
+          closing: {
+            score: 4,
+            feedback: "Clear next steps and good attempt at commitment.",
+            suggestions: ["Try trial closes earlier", "Be more direct in asking for the sale"]
+          }
+        },
+        overall: {
+          strengths: ["Professional demeanor", "Good product knowledge", "Clear communication"],
+          improvements: ["Active listening", "Objection handling confidence", "Discovery depth"],
+          nextFocus: "Focus on asking better discovery questions and handling objections with more confidence."
+        }
+      };
+      setDetailedFeedback(mockDetailedFeedback);
+      setLoading(false);
+    }, 2000);
   }, []);
 
-  const loadDetailedFeedback = async () => {
-    try {
-      setLoading(true);
-      
-      // Try to get stored detailed feedback first
-      const response = await fetch(`/api/sessions/${sessionId}/feedback`);
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success && data.data) {
-          setDetailedFeedback(data.data);
-        }
-      }
-    } catch (err) {
-      console.error('Error loading detailed feedback:', err);
-      setError('Could not load detailed feedback');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const getScoreColor = (score) => {
-    if (score >= 4.5) return '#22c55e'; // Green
-    if (score >= 3.5) return '#f59e0b'; // Yellow
-    if (score >= 2.5) return '#f97316'; // Orange
-    return '#ef4444'; // Red
+    if (score >= 4.5) return '#22c55e';
+    if (score >= 3.5) return '#f59e0b';
+    if (score >= 2.5) return '#f97316';
+    return '#ef4444';
   };
 
   const getScoreLabel = (score) => {
@@ -136,19 +154,11 @@ function EnhancedFeedback({ sessionId, basicFeedback, onContinue, onViewDashboar
               </div>
               <div style={{ fontSize: '0.9rem', color: '#6b7280' }}>Duration</div>
             </div>
-            {detailedFeedback && (
-              <div>
-                <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#3b82f6' }}>
-                  {Object.values(detailedFeedback.categories).reduce((acc, cat) => acc + (cat.score >= 4 ? 1 : 0), 0)}
-                </div>
-                <div style={{ fontSize: '0.9rem', color: '#6b7280' }}>Strong Areas</div>
-              </div>
-            )}
           </div>
         </div>
 
         {/* Detailed Feedback */}
-        {detailedFeedback ? (
+        {detailedFeedback && (
           <div style={{ display: 'grid', gap: '20px' }}>
             
             {/* Skills Breakdown */}
@@ -310,22 +320,6 @@ function EnhancedFeedback({ sessionId, basicFeedback, onContinue, onViewDashboar
             </div>
 
           </div>
-        ) : (
-          /* Fallback to basic feedback if detailed analysis fails */
-          <div style={{
-            backgroundColor: 'white',
-            padding: '30px',
-            borderRadius: '16px',
-            textAlign: 'center',
-            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)'
-          }}>
-            <h2 style={{ fontSize: '1.5rem', marginBottom: '20px' }}>
-              {basicFeedback.performance}
-            </h2>
-            <p style={{ color: '#6b7280', marginBottom: '20px' }}>
-              Detailed analysis is being processed. You can view it later in your dashboard.
-            </p>
-          </div>
         )}
 
         {/* Action Buttons */}
@@ -349,13 +343,30 @@ function EnhancedFeedback({ sessionId, basicFeedback, onContinue, onViewDashboar
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: '10px',
-              transition: 'all 0.3s ease'
+              gap: '10px'
             }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#2563eb'}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#6b7280'}
           >
-            <TrendingUp size={20} />
+            <CheckCircle size={20} />
+            Practice Another Scenario
+          </button>
+          
+          <button
+            onClick={onViewDashboard}
+            style={{
+              backgroundColor: '#6b7280',
+              color: 'white',
+              border: 'none',
+              padding: '15px 30px',
+              borderRadius: '10px',
+              fontSize: '1rem',
+              fontWeight: '600',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px'
+            }}
+          >
+            <Star size={20} />
             View Progress Dashboard
           </button>
         </div>
