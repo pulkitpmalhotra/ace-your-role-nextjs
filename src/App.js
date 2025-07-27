@@ -2,28 +2,24 @@ import React, { useState, useEffect } from 'react';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import RoleplaySession from './components/RoleplaySession';
-import EnhancedFeedback from './components/EnhancedFeedback';
-import FeedbackDashboard from './components/FeedbackDashboard';
 import './App.css';
 
 function App() {
-  const [currentState, setCurrentState] = useState('login'); // 'login' | 'dashboard' | 'session' | 'feedback-dashboard'
+  const [currentState, setCurrentState] = useState('login');
   const [userEmail, setUserEmail] = useState('');
   const [selectedScenario, setSelectedScenario] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load user data on app start
   useEffect(() => {
     const loadUserData = () => {
       try {
-        // Try to get user from sessionStorage (survives tab refresh but not browser close)
         const savedEmail = sessionStorage.getItem('userEmail');
         const savedState = sessionStorage.getItem('currentState');
         
         if (savedEmail && savedState) {
           console.log('📱 Restoring user session:', savedEmail);
           setUserEmail(savedEmail);
-          setCurrentState(savedState === 'session' ? 'dashboard' : savedState); // Don't restore session state
+          setCurrentState(savedState === 'session' ? 'dashboard' : savedState);
         }
       } catch (error) {
         console.error('Failed to load user data:', error);
@@ -35,7 +31,6 @@ function App() {
     loadUserData();
   }, []);
 
-  // Save user data when it changes
   useEffect(() => {
     if (userEmail) {
       try {
@@ -79,12 +74,6 @@ function App() {
     setCurrentState('login');
   };
 
-  const handleViewFeedbackDashboard = () => {
-    console.log('📊 Opening feedback dashboard');
-    setCurrentState('feedback-dashboard');
-  };
-
-  // Show loading screen while checking for saved user
   if (isLoading) {
     return (
       <div style={{
@@ -120,7 +109,6 @@ function App() {
         <Dashboard 
           userEmail={userEmail}
           onStartSession={handleStartSession}
-          onViewFeedbackDashboard={handleViewFeedbackDashboard}
         />
       )}
 
@@ -132,14 +120,6 @@ function App() {
         />
       )}
 
-      {currentState === 'feedback-dashboard' && (
-        <FeedbackDashboard 
-          userEmail={userEmail}
-          onBack={() => setCurrentState('dashboard')}
-        />
-      )}
-
-      {/* Logout button - always visible when logged in */}
       {currentState !== 'login' && (
         <button
           onClick={handleLogout}
@@ -175,4 +155,4 @@ function App() {
   );
 }
 
-export default App
+export default App;
