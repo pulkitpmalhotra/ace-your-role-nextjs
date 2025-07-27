@@ -2,68 +2,81 @@
 
 class APIService {
   constructor() {
-    this.baseUrl = window.location.origin;
+    // Hardcode your Vercel domain for now
+    this.baseUrl = 'https://ai-roleplay-free.vercel.app';
+  }
+
+  async makeRequest(endpoint, options = {}) {
+    const url = `${this.baseUrl}${endpoint}`;
+    
+    console.log('🚀 Making API request to:', url);
+    
+    try {
+      const response = await fetch(url, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...options.headers
+        },
+        ...options
+      });
+
+      console.log('📡 Response status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Response error:', errorText);
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log('✅ Response data:', data);
+      
+      if (!data.success) {
+        throw new Error(data.error || 'API request failed');
+      }
+      
+      return data.data;
+    } catch (error) {
+      console.error('💥 API Request failed:', error);
+      console.error('🔗 URL was:', url);
+      throw error;
+    }
   }
 
   // Scenarios
   async getScenarios() {
-    const response = await fetch(`${this.baseUrl}/api/scenarios`);
-    const data = await response.json();
-    
-    if (!data.success) {
-      throw new Error(data.error || 'Failed to fetch scenarios');
-    }
-    
-    return data.data;
+    console.log('📚 Fetching scenarios...');
+    return await this.makeRequest('/api/scenarios');
   }
 
   // Sessions
   async createSession(scenarioId, userEmail) {
-    const response = await fetch(`${this.baseUrl}/api/sessions`, {
+    console.log('🎬 Creating session...');
+    const data = await this.makeRequest('/api/sessions', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
       body: JSON.stringify({
         scenarioId,
         userEmail
       })
     });
-
-    const data = await response.json();
-    
-    if (!data.success) {
-      throw new Error(data.error || 'Failed to create session');
-    }
-    
-    return data.data.sessionId;
+    return data.sessionId;
   }
 
   async updateSessionConversation(sessionId, conversation) {
-    const response = await fetch(`${this.baseUrl}/api/sessions`, {
+    console.log('💬 Updating conversation...');
+    await this.makeRequest('/api/sessions', {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
       body: JSON.stringify({
         sessionId,
         conversation
       })
     });
-
-    const data = await response.json();
-    
-    if (!data.success) {
-      throw new Error(data.error || 'Failed to update session');
-    }
   }
 
   async endSession(sessionId, feedback, durationMinutes) {
-    const response = await fetch(`${this.baseUrl}/api/sessions`, {
+    console.log('🏁 Ending session...');
+    await this.makeRequest('/api/sessions', {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
       body: JSON.stringify({
         sessionId,
         feedback,
@@ -71,46 +84,24 @@ class APIService {
         endSession: true
       })
     });
-
-    const data = await response.json();
-    
-    if (!data.success) {
-      throw new Error(data.error || 'Failed to end session');
-    }
   }
 
   async getUserSessions(userEmail) {
-    const response = await fetch(`${this.baseUrl}/api/sessions?userEmail=${encodeURIComponent(userEmail)}`);
-    const data = await response.json();
-    
-    if (!data.success) {
-      throw new Error(data.error || 'Failed to fetch sessions');
-    }
-    
-    return data.data;
+    console.log('📋 Fetching user sessions...');
+    return await this.makeRequest(`/api/sessions?userEmail=${encodeURIComponent(userEmail)}`);
   }
 
   // AI Chat
   async generateAIResponse(scenarioId, userMessage, conversationHistory) {
-    const response = await fetch(`${this.baseUrl}/api/ai-chat`, {
+    console.log('🤖 Generating AI response...');
+    return await this.makeRequest('/api/ai-chat', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
       body: JSON.stringify({
         scenarioId,
         userMessage,
         conversationHistory
       })
     });
-
-    const data = await response.json();
-    
-    if (!data.success) {
-      throw new Error(data.error || 'Failed to generate AI response');
-    }
-    
-    return data.data;
   }
 }
 
