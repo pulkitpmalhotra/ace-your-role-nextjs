@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import RoleplaySession from './components/RoleplaySession';
+import EnhancedFeedback from './components/EnhancedFeedback';
+import FeedbackDashboard from './components/FeedbackDashboard';
 import './App.css';
 
 function App() {
@@ -73,7 +75,12 @@ function App() {
     setSelectedScenario(null);
     setCurrentState('login');
   };
-
+  
+const handleViewFeedbackDashboard = () => {
+  console.log('📊 Opening feedback dashboard');
+  setCurrentState('feedback-dashboard');
+};
+  
   if (isLoading) {
     return (
       <div style={{
@@ -105,12 +112,13 @@ function App() {
         <Login onLogin={handleLogin} />
       )}
 
-      {currentState === 'dashboard' && (
-        <Dashboard 
-          userEmail={userEmail}
-          onStartSession={handleStartSession}
-        />
-      )}
+     {currentState === 'dashboard' && (
+  <Dashboard 
+    userEmail={userEmail}
+    onStartSession={handleStartSession}
+    onViewFeedbackDashboard={handleViewFeedbackDashboard}
+  />
+)}
 
       {currentState === 'session' && selectedScenario && (
         <RoleplaySession
@@ -120,6 +128,13 @@ function App() {
         />
       )}
 
+       {currentState === 'feedback-dashboard' && (
+  <FeedbackDashboard 
+    userEmail={userEmail}
+    onBack={() => setCurrentState('dashboard')}
+  />
+)}
+      
       {currentState !== 'login' && (
         <button
           onClick={handleLogout}
