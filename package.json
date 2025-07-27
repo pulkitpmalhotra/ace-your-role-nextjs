@@ -1,7 +1,7 @@
 {
   "name": "ai-roleplay-free",
   "version": "1.0.0",
-  "description": "Free AI-powered sales roleplay platform",
+  "description": "Free AI-powered sales roleplay platform with Gemini AI",
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
@@ -27,5 +27,16 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
-  }
+  },
+  "keywords": [
+    "ai",
+    "roleplay",
+    "sales",
+    "training",
+    "gemini",
+    "speech",
+    "react"
+  ],
+  "author": "",
+  "license": "MIT"
 }
