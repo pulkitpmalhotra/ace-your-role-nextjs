@@ -11,10 +11,7 @@ function App() {
   const [userEmail, setUserEmail] = useState('');
   const [selectedScenario, setSelectedScenario] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const handleViewFeedbackDashboard = () => {
-  console.log('📊 Opening feedback dashboard');
-  setCurrentState('feedback-dashboard');
-};
+
   // Load user data on app start
   useEffect(() => {
     const loadUserData = () => {
@@ -55,7 +52,7 @@ function App() {
     setUserEmail(email);
     setCurrentState('dashboard');
   };
-  
+
   const handleStartSession = (scenario) => {
     console.log('🎬 Starting session with scenario:', scenario.title);
     setSelectedScenario(scenario);
@@ -75,15 +72,16 @@ function App() {
       sessionStorage.removeItem('currentState');
     } catch (error) {
       console.error('Failed to clear user data:', error);
-    };
+    }
     
-    const handleViewFeedbackDashboard = () => {
-  console.log('📊 Opening feedback dashboard');
-  setCurrentState('feedback-dashboard');
-};
     setUserEmail('');
     setSelectedScenario(null);
     setCurrentState('login');
+  };
+
+  const handleViewFeedbackDashboard = () => {
+    console.log('📊 Opening feedback dashboard');
+    setCurrentState('feedback-dashboard');
   };
 
   // Show loading screen while checking for saved user
@@ -112,67 +110,69 @@ function App() {
     );
   }
 
- return (
-  <div className="App">
-    {currentState === 'login' && (
-      <Login onLogin={handleLogin} />
-    )}
+  return (
+    <div className="App">
+      {currentState === 'login' && (
+        <Login onLogin={handleLogin} />
+      )}
 
-   {currentState === 'dashboard' && (
-  <Dashboard 
-    userEmail={userEmail}
-    onStartSession={handleStartSession}
-    onViewFeedbackDashboard={handleViewFeedbackDashboard}
-  />
-)}
+      {currentState === 'dashboard' && (
+        <Dashboard 
+          userEmail={userEmail}
+          onStartSession={handleStartSession}
+          onViewFeedbackDashboard={handleViewFeedbackDashboard}
+        />
+      )}
 
-    {currentState === 'session' && selectedScenario && (
-      <RoleplaySession
-        scenario={selectedScenario}
-        userEmail={userEmail}
-        onEndSession={handleEndSession}
-      />
-    )}
+      {currentState === 'session' && selectedScenario && (
+        <RoleplaySession
+          scenario={selectedScenario}
+          userEmail={userEmail}
+          onEndSession={handleEndSession}
+        />
+      )}
 
-    {currentState === 'feedback-dashboard' && (
-      <FeedbackDashboard 
-        userEmail={userEmail}
-        onBack={() => setCurrentState('dashboard')}
-      />
-    )}
+      {currentState === 'feedback-dashboard' && (
+        <FeedbackDashboard 
+          userEmail={userEmail}
+          onBack={() => setCurrentState('dashboard')}
+        />
+      )}
 
-    {/* Logout button - always visible when logged in */}
-    {currentState !== 'login' && (
-      <button
-        onClick={handleLogout}
-        style={{
-          position: 'fixed',
-          top: '20px',
-          right: '20px',
-          backgroundColor: '#ef4444',
-          color: 'white',
-          border: 'none',
-          padding: '10px 16px',
-          borderRadius: '8px',
-          cursor: 'pointer',
-          fontSize: '0.9rem',
-          fontWeight: '500',
-          zIndex: 1000,
-          transition: 'all 0.3s ease',
-          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.backgroundColor = '#dc2626';
-          e.currentTarget.style.transform = 'translateY(-1px)';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.backgroundColor = '#ef4444';
-          e.currentTarget.style.transform = 'translateY(0)';
-        }}
-      >
-        Logout
-      </button>
-    )}
-  </div>
-);
+      {/* Logout button - always visible when logged in */}
+      {currentState !== 'login' && (
+        <button
+          onClick={handleLogout}
+          style={{
+            position: 'fixed',
+            top: '20px',
+            right: '20px',
+            backgroundColor: '#ef4444',
+            color: 'white',
+            border: 'none',
+            padding: '10px 16px',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            fontSize: '0.9rem',
+            fontWeight: '500',
+            zIndex: 1000,
+            transition: 'all 0.3s ease',
+            boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = '#dc2626';
+            e.currentTarget.style.transform = 'translateY(-1px)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = '#ef4444';
+            e.currentTarget.style.transform = 'translateY(0)';
+          }}
+        >
+          Logout
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default App;
