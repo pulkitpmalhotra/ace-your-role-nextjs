@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { apiService } from '../services/api';
 import { Play, User, TrendingUp, BarChart3 } from 'lucide-react';
 
-function Dashboard({ userEmail, onStartSession }) {
+function Dashboard({ userEmail, onStartSession, onViewFeedbackDashboard }) {
   const [scenarios, setScenarios] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
