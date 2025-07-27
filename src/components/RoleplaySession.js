@@ -426,36 +426,48 @@ if (showFeedback && feedback) {
   // Main Session Interface
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb' }}>
-      <div style={{ backgroundColor: 'white', borderBottom: '1px solid #e5e7eb', padding: '16px 24px' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <h1 style={{ fontSize: '1.5rem', margin: 0 }}>{scenario.title}</h1>
-            <p style={{ color: '#6b7280', margin: '4px 0 0 0' }}>
-              {scenario.character_name} • {scenario.character_role}
-            </p>
-            {sessionId && (
-              <p style={{ color: '#10b981', margin: '2px 0 0 0', fontSize: '0.8rem' }}>
-                Session: {sessionId.substring(0, 8)}...
-              </p>
-            )}
-          </div>
-          <button 
-            onClick={handleEndSession} 
-            style={{ 
-              backgroundColor: '#ef4444', 
-              color: 'white', 
-              border: 'none', 
-              padding: '8px 16px', 
-              borderRadius: '6px', 
-              cursor: 'pointer',
-              fontWeight: '600'
-            }}
-          >
-            End Session
-          </button>
-        </div>
-      </div>
-
+     <div style={{ backgroundColor: 'white', borderBottom: '1px solid #e5e7eb', padding: '16px 24px' }}>
+  <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <div>
+      <h1 style={{ fontSize: '1.5rem', margin: 0 }}>{scenario.title}</h1>
+      <p style={{ color: '#6b7280', margin: '4px 0 0 0' }}>
+        {scenario.character_name} • {scenario.character_role}
+      </p>
+      {sessionId && (
+        <p style={{ color: '#10b981', margin: '2px 0 0 0', fontSize: '0.8rem' }}>
+          Session: {sessionId.substring(0, 8)}...
+        </p>
+      )}
+    </div>
+    <button 
+      onClick={handleEndSession} 
+      style={{ 
+        backgroundColor: '#f97316', // Changed from #ef4444 to orange
+        color: 'white', 
+        border: 'none', 
+        padding: '12px 24px', // Made larger
+        borderRadius: '8px', 
+        cursor: 'pointer',
+        fontWeight: '600',
+        fontSize: '1rem', // Made larger
+        transition: 'all 0.3s ease',
+        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.backgroundColor = '#ea580c';
+        e.currentTarget.style.transform = 'translateY(-1px)';
+        e.currentTarget.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.15)';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.backgroundColor = '#f97316';
+        e.currentTarget.style.transform = 'translateY(0)';
+        e.currentTarget.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
+      }}
+    >
+      End Session
+    </button>
+  </div>
+</div>
       <div style={{ backgroundColor: getStatusColor(), color: 'white', padding: '12px 24px', textAlign: 'center', fontWeight: '500' }}>
         {getStateMessage()}
       </div>
