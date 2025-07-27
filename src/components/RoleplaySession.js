@@ -1,18 +1,21 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { apiService } from '../services/api';
 import { speechService } from '../services/speech';
-import { Mic, MicOff, Volume2, VolumeX, ArrowLeft, MessageCircle } from 'lucide-react';
+import { Volume2, VolumeX, MessageCircle, CheckCircle, Star } from 'lucide-react';
 
 function RoleplaySession({ scenario, userEmail, onEndSession }) {
-  const [sessionState, setSessionState] = useState('starting'); // 'starting' | 'listening' | 'processing' | 'ai-speaking' | 'ended'
+  const [sessionState, setSessionState] = useState('starting');
   const [conversation, setConversation] = useState([]);
   const [currentTranscript, setCurrentTranscript] = useState('');
   const [sessionId, setSessionId] = useState('');
   const [startTime, setStartTime] = useState(new Date());
   const [error, setError] = useState('');
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
+  const [feedback, setFeedback] = useState('');
+  const [showFeedback, setShowFeedback] = useState(false);
   
   const conversationEndRef = useRef(null);
+  const microphoneRetries = useRef(0);
 
   useEffect(() => {
     initializeSession();
@@ -23,25 +26,40 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
   }, []);
 
   useEffect(() => {
-    // Auto-scroll to bottom of conversation
     conversationEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [conversation]);
 
   const initializeSession = async () => {
     try {
-      // Create session in database
       const newSessionId = await apiService.createSession(scenario.id, userEmail);
       setSessionId(newSessionId);
       setStartTime(new Date());
       
-      // Start listening after brief delay
+      // Request microphone permission and start listening
       setTimeout(() => {
-        startListening();
-      }, 1000);
+        requestMicrophoneAndStart();
+      }, 1500);
       
     } catch (err) {
       setError('Failed to start session. Please try again.');
       console.error('Session initialization error:', err);
+    }
+  };
+
+  const requestMicrophoneAndStart = async () => {
+    try {
+      // Request microphone permission explicitly
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+      console.log('✅ Microphone permission granted');
+      
+      // Wait a bit more then start listening
+      setTimeout(() => {
+        startListening();
+      }, 500);
+      
+    } catch (err) {
+      console.error('❌ Microphone permission denied:', err);
+      setError('Microphone access is required for this session. Please allow microphone access and refresh the page.');
     }
   };
 
@@ -53,37 +71,60 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
       return;
     }
 
+    console.log('🎤 Attempting to start listening...');
     setSessionState('listening');
     setCurrentTranscript('');
     setError('');
+    microphoneRetries.current = 0;
 
     speechService.startListening(
       (transcript, isFinal) => {
+        console.log(`📝 Transcript (${isFinal ? 'final' : 'interim'}):`, transcript);
+        
         if (isFinal) {
           if (transcript.trim().length > 2) {
             processUserSpeech(transcript.trim());
           } else {
             // If speech too short, start listening again
-            setTimeout(() => startListening(), 1000);
+            console.log('🔄 Speech too short, restarting...');
+            setTimeout(() => {
+              if (sessionState !== 'ended') {
+                startListening();
+              }
+            }, 1000);
           }
         } else {
           setCurrentTranscript(transcript);
         }
       },
       (error) => {
-        console.error('Speech recognition error:', error);
-        if (!error.includes('No speech detected')) {
+        console.error('🚨 Speech recognition error:', error);
+        
+        // Don't show "no speech" errors as they're normal
+        if (!error.includes('No speech detected') && !error.includes('no-speech')) {
           setError(error);
         }
-        // Restart listening after errors (except permission denied)
-        if (!error.includes('denied')) {
-          setTimeout(() => startListening(), 2000);
+        
+        // Retry listening unless permission was denied
+        if (!error.includes('denied') && microphoneRetries.current < 3) {
+          microphoneRetries.current++;
+          console.log(`🔄 Retrying speech recognition (${microphoneRetries.current}/3)...`);
+          setTimeout(() => {
+            if (sessionState !== 'ended') {
+              startListening();
+            }
+          }, 2000);
         }
       },
       () => {
-        // Recognition ended - this is normal
+        console.log('🏁 Speech recognition ended');
+        // Restart listening if session is still active
         if (sessionState === 'listening') {
-          setTimeout(() => startListening(), 500);
+          setTimeout(() => {
+            if (sessionState !== 'ended') {
+              startListening();
+            }
+          }, 1000);
         }
       }
     );
@@ -91,10 +132,10 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
 
   const processUserSpeech = async (userMessage) => {
     try {
+      console.log('🗣️ Processing user speech:', userMessage);
       setSessionState('processing');
       setCurrentTranscript('');
       
-      // Add user message to conversation
       const userMsg = {
         speaker: 'user',
         message: userMessage,
@@ -104,17 +145,14 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
       const updatedConversation = [...conversation, userMsg];
       setConversation(updatedConversation);
 
-      // Update session in database
       await apiService.updateSessionConversation(sessionId, updatedConversation);
 
-      // Get AI response
       const { response: aiResponse } = await apiService.generateAIResponse(
         scenario.id,
         userMessage,
         conversation
       );
 
-      // Add AI message to conversation
       const aiMsg = {
         speaker: 'ai',
         message: aiResponse,
@@ -123,8 +161,6 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
       
       const finalConversation = [...updatedConversation, aiMsg];
       setConversation(finalConversation);
-
-      // Update session again with AI response
       await apiService.updateSessionConversation(sessionId, finalConversation);
 
       // Speak AI response
@@ -144,12 +180,16 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
         if (sessionState !== 'ended') {
           startListening();
         }
-      }, isAudioEnabled ? 1000 : 500);
+      }, isAudioEnabled ? 1500 : 500);
 
     } catch (err) {
       console.error('Error processing speech:', err);
       setError('Failed to process your message. Please try again.');
-      setTimeout(() => startListening(), 2000);
+      setTimeout(() => {
+        if (sessionState !== 'ended') {
+          startListening();
+        }
+      }, 2000);
     }
   };
 
@@ -161,39 +201,73 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
 
   const handleEndSession = async () => {
     try {
+      console.log('🛑 Ending session...');
       setSessionState('ended');
       speechService.stopListening();
       speechService.stopSpeaking();
 
-      const duration = Math.round((Date.now() - startTime.getTime()) / 60000); // minutes
-      const feedback = generateFeedback();
+      const duration = Math.round((Date.now() - startTime.getTime()) / 60000);
+      const sessionFeedback = generateFeedback();
+      setFeedback(sessionFeedback);
       
-      await apiService.endSession(sessionId, feedback, duration);
+      await apiService.endSession(sessionId, sessionFeedback, duration);
       
-      // Show feedback briefly then return to dashboard
-      setTimeout(() => {
-        onEndSession();
-      }, 3000);
+      // Show feedback screen
+      setShowFeedback(true);
       
     } catch (err) {
       console.error('Error ending session:', err);
-      // Even if there's an error, return to dashboard
-      setTimeout(() => onEndSession(), 1000);
+      // Still show feedback even if saving failed
+      const sessionFeedback = generateFeedback();
+      setFeedback(sessionFeedback);
+      setShowFeedback(true);
     }
   };
 
   const generateFeedback = () => {
     const exchanges = Math.floor(conversation.length / 2);
+    const duration = Math.round((Date.now() - startTime.getTime()) / 60000);
+    
+    let performance = '';
+    let tips = [];
     
     if (exchanges === 0) {
-      return "Great start! Try to have a longer conversation next time to get more practice.";
+      performance = "Great start!";
+      tips = [
+        "Try to have a longer conversation next time",
+        "Don't be afraid to ask questions",
+        "Practice makes perfect!"
+      ];
     } else if (exchanges < 3) {
-      return `Good effort! You had ${exchanges} exchange${exchanges > 1 ? 's' : ''}. Try to extend the conversation longer to practice more scenarios.`;
+      performance = "Good effort!";
+      tips = [
+        "Try to extend the conversation longer",
+        "Ask follow-up questions to show interest",
+        "Listen carefully to the customer's needs"
+      ];
     } else if (exchanges < 6) {
-      return `Well done! You had a good conversation with ${exchanges} exchanges. You're getting comfortable with the roleplay format.`;
+      performance = "Well done!";
+      tips = [
+        "You're getting comfortable with roleplay",
+        "Focus on understanding customer pain points",
+        "Practice handling objections"
+      ];
     } else {
-      return `Excellent session! You had ${exchanges} exchanges and really engaged with the scenario. Keep up the great work!`;
+      performance = "Excellent session!";
+      tips = [
+        "You really engaged with the scenario",
+        "Great conversation flow",
+        "Keep up the fantastic work!"
+      ];
     }
+
+    return {
+      performance,
+      exchanges,
+      duration,
+      tips,
+      scenario: scenario.title
+    };
   };
 
   const toggleAudio = () => {
@@ -231,6 +305,128 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
     }
   };
 
+  // Show feedback screen
+  if (showFeedback && feedback) {
+    return (
+      <div style={{ 
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#f0f9ff',
+        padding: '20px'
+      }}>
+        <div style={{
+          backgroundColor: 'white',
+          padding: '40px',
+          borderRadius: '16px',
+          textAlign: 'center',
+          maxWidth: '600px',
+          boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)'
+        }}>
+          <div style={{ fontSize: '4rem', marginBottom: '20px' }}>🎉</div>
+          
+          <h1 style={{ 
+            fontSize: '2rem', 
+            fontWeight: 'bold', 
+            marginBottom: '16px',
+            color: '#1f2937'
+          }}>
+            Session Complete!
+          </h1>
+
+          <div style={{
+            backgroundColor: '#f0f9ff',
+            padding: '24px',
+            borderRadius: '12px',
+            marginBottom: '24px'
+          }}>
+            <h2 style={{ 
+              fontSize: '1.5rem', 
+              color: '#1e40af',
+              marginBottom: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '10px'
+            }}>
+              <Star size={24} />
+              {feedback.performance}
+            </h2>
+            
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+              gap: '16px',
+              marginBottom: '20px'
+            }}>
+              <div>
+                <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#1e40af' }}>
+                  {feedback.exchanges}
+                </div>
+                <div style={{ fontSize: '0.9rem', color: '#6b7280' }}>
+                  Exchanges
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#1e40af' }}>
+                  {feedback.duration}m
+                </div>
+                <div style={{ fontSize: '0.9rem', color: '#6b7280' }}>
+                  Duration
+                </div>
+              </div>
+            </div>
+
+            <h3 style={{ 
+              fontSize: '1.1rem', 
+              fontWeight: '600',
+              marginBottom: '12px',
+              color: '#374151'
+            }}>
+              💡 Tips for Next Time:
+            </h3>
+            <ul style={{
+              textAlign: 'left',
+              color: '#6b7280',
+              paddingLeft: '20px'
+            }}>
+              {feedback.tips.map((tip, index) => (
+                <li key={index} style={{ marginBottom: '8px' }}>{tip}</li>
+              ))}
+            </ul>
+          </div>
+
+          <div style={{ display: 'flex', gap: '16px', justifyContent: 'center' }}>
+            <button
+              onClick={() => {
+                setShowFeedback(false);
+                onEndSession();
+              }}
+              style={{
+                backgroundColor: '#667eea',
+                color: 'white',
+                border: 'none',
+                padding: '12px 24px',
+                borderRadius: '8px',
+                fontSize: '1rem',
+                fontWeight: '600',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+            >
+              <CheckCircle size={20} />
+              Continue Practicing
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error screen
   if (error && !error.includes('No speech detected')) {
     return (
       <div style={{ 
@@ -252,25 +448,46 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
           <div style={{ fontSize: '3rem', marginBottom: '20px' }}>⚠️</div>
           <h2 style={{ color: '#dc2626', marginBottom: '16px' }}>Session Error</h2>
           <p style={{ color: '#b91c1c', marginBottom: '24px' }}>{error}</p>
-          <button 
-            onClick={onEndSession}
-            style={{
-              backgroundColor: '#dc2626',
-              color: 'white',
-              border: 'none',
-              padding: '12px 24px',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              fontSize: '1rem'
-            }}
-          >
-            Return to Dashboard
-          </button>
+          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+            <button 
+              onClick={() => {
+                setError('');
+                setSessionState('starting');
+                requestMicrophoneAndStart();
+              }}
+              style={{
+                backgroundColor: '#10b981',
+                color: 'white',
+                border: 'none',
+                padding: '12px 24px',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '1rem'
+              }}
+            >
+              Try Again
+            </button>
+            <button 
+              onClick={onEndSession}
+              style={{
+                backgroundColor: '#dc2626',
+                color: 'white',
+                border: 'none',
+                padding: '12px 24px',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '1rem'
+              }}
+            >
+              Return to Dashboard
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
+  // Main session interface
   return (
     <div style={{ 
       minHeight: '100vh',
@@ -355,6 +572,11 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
         fontWeight: '500'
       }}>
         {getStateMessage()}
+        {sessionState === 'listening' && (
+          <div style={{ fontSize: '0.9rem', marginTop: '4px', opacity: 0.9 }}>
+            {speechService.isCurrentlyListening() ? 'Microphone is active' : 'Starting microphone...'}
+          </div>
+        )}
       </div>
 
       {/* Main Content */}
@@ -364,7 +586,7 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
         margin: '0 auto',
         width: '100%',
         display: 'grid',
-        gridTemplateColumns: '1fr 400px',
+        gridTemplateColumns: window.innerWidth > 768 ? '1fr 400px' : '1fr',
         gap: '24px',
         padding: '24px'
       }}>
@@ -416,6 +638,18 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
                 <p style={{ fontSize: '0.9rem' }}>
                   Say "Hello" or introduce yourself to {scenario.character_name}
                 </p>
+                {sessionState === 'starting' && (
+                  <div style={{ 
+                    marginTop: '16px',
+                    padding: '12px',
+                    backgroundColor: '#fef3c7',
+                    borderRadius: '8px',
+                    fontSize: '0.9rem',
+                    color: '#92400e'
+                  }}>
+                    🎤 Getting microphone ready...
+                  </div>
+                )}
               </div>
             ) : (
               <div>
@@ -457,133 +691,3 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
                       👤 You (speaking...)
                     </div>
                     {currentTranscript}
-                  </div>
-                )}
-                
-                <div ref={conversationEndRef} />
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Sidebar */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {/* Scenario Info */}
-          <div style={{
-            backgroundColor: 'white',
-            borderRadius: '12px',
-            padding: '20px',
-            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
-          }}>
-            <h3 style={{ 
-              fontSize: '1.1rem', 
-              fontWeight: '600', 
-              marginBottom: '12px',
-              color: '#1f2937'
-            }}>
-              Scenario Details
-            </h3>
-            <div style={{ fontSize: '0.9rem', color: '#6b7280', lineHeight: '1.5' }}>
-              <p style={{ marginBottom: '8px' }}>
-                <strong>Description:</strong> {scenario.description}
-              </p>
-              <p style={{ marginBottom: '8px' }}>
-                <strong>Character:</strong> {scenario.character_name}
-              </p>
-              <p style={{ marginBottom: '8px' }}>
-                <strong>Personality:</strong> {scenario.character_personality}
-              </p>
-              <p style={{ margin: 0 }}>
-                <strong>Difficulty:</strong> {scenario.difficulty}
-              </p>
-            </div>
-          </div>
-
-          {/* Tips */}
-          <div style={{
-            backgroundColor: '#f0f9ff',
-            border: '1px solid #0ea5e9',
-            borderRadius: '12px',
-            padding: '20px'
-          }}>
-            <h3 style={{ 
-              fontSize: '1.1rem', 
-              fontWeight: '600', 
-              marginBottom: '12px',
-              color: '#0c4a6e'
-            }}>
-              💡 Tips for Success
-            </h3>
-            <ul style={{ 
-              fontSize: '0.9rem', 
-              color: '#075985',
-              paddingLeft: '16px',
-              margin: 0
-            }}>
-              <li>Speak clearly and at normal pace</li>
-              <li>Ask questions to understand needs</li>
-              <li>Listen to objections carefully</li>
-              <li>Focus on benefits, not just features</li>
-              <li>Stay professional and confident</li>
-            </ul>
-          </div>
-
-          {/* Session Stats */}
-          <div style={{
-            backgroundColor: 'white',
-            borderRadius: '12px',
-            padding: '20px',
-            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
-          }}>
-            <h3 style={{ 
-              fontSize: '1.1rem', 
-              fontWeight: '600', 
-              marginBottom: '12px',
-              color: '#1f2937'
-            }}>
-              📊 Session Stats
-            </h3>
-            <div style={{ fontSize: '0.9rem', color: '#6b7280' }}>
-              <div style={{ 
-                display: 'flex', 
-                justifyContent: 'space-between',
-                marginBottom: '8px'
-              }}>
-                <span>Exchanges:</span>
-                <span style={{ fontWeight: '600' }}>
-                  {Math.floor(conversation.length / 2)}
-                </span>
-              </div>
-              <div style={{ 
-                display: 'flex', 
-                justifyContent: 'space-between',
-                marginBottom: '8px'
-              }}>
-                <span>Duration:</span>
-                <span style={{ fontWeight: '600' }}>
-                  {Math.floor((Date.now() - startTime.getTime()) / 60000)}m
-                </span>
-              </div>
-              <div style={{ 
-                display: 'flex', 
-                justifyContent: 'space-between'
-              }}>
-                <span>Status:</span>
-                <span style={{ 
-                  fontWeight: '600',
-                  color: getStatusColor()
-                }}>
-                  {sessionState === 'listening' ? 'Active' : 
-                   sessionState === 'processing' ? 'Thinking' :
-                   sessionState === 'ai-speaking' ? 'AI Speaking' : 'Ready'}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-export default RoleplaySession;
