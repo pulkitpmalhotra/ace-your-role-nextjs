@@ -18,7 +18,7 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
   const addDebugLog = (message) => {
     const timestamp = new Date().toLocaleTimeString();
     console.log(`[${timestamp}] ${message}`);
-    setDebugLog(prev => [...prev.slice(-4), `${timestamp}: ${message}`]);
+    setDebugLog(prev => [...prev.slice(-5), `${timestamp}: ${message}`]);
   };
 
   useEffect(() => {
@@ -27,6 +27,20 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
       cleanup();
     };
   }, []);
+
+  // Separate effect to handle starting listening after sessionId is set
+  useEffect(() => {
+    if (sessionId && sessionState === 'starting' && isSessionActive) {
+      addDebugLog(`🔗 SessionId state updated: ${sessionId}`);
+      // Start listening after sessionId is properly set
+      setTimeout(() => {
+        if (isSessionActive && sessionId) {
+          addDebugLog('🎧 Starting listening with valid sessionId...');
+          startListening();
+        }
+      }, 1000);
+    }
+  }, [sessionId, sessionState, isSessionActive]);
 
   const cleanup = () => {
     addDebugLog('🧹 Cleaning up session...');
@@ -56,20 +70,18 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
         throw new Error('Session creation returned empty ID');
       }
       
-      setSessionId(newSessionId);
       addDebugLog(`✅ Session created with ID: ${newSessionId}`);
+      
+      // Set the session ID in state
+      setSessionId(newSessionId);
       setStartTime(new Date());
       
       addDebugLog('🎤 Requesting microphone permission...');
       await navigator.mediaDevices.getUserMedia({ audio: true });
       addDebugLog('✅ Microphone permission granted');
       
-      setTimeout(() => {
-        if (isSessionActive) {
-          addDebugLog('🎧 Starting listening...');
-          startListening();
-        }
-      }, 2000);
+      // Don't start listening here - let the useEffect handle it
+      addDebugLog('⏳ Waiting for sessionId state to update...');
       
     } catch (err) {
       addDebugLog(`❌ Session initialization failed: ${err.message}`);
@@ -79,6 +91,12 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
   };
 
   const startListening = () => {
+    // Add extra validation
+    addDebugLog(`🔍 Checking session status...`);
+    addDebugLog(`📋 isSessionActive: ${isSessionActive}`);
+    addDebugLog(`🆔 sessionId: ${sessionId || 'MISSING'}`);
+    addDebugLog(`📊 sessionState: ${sessionState}`);
+
     if (!isSessionActive) {
       addDebugLog('❌ Session not active, not starting listening');
       return;
@@ -104,7 +122,7 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
 
     speechService.startListening(
       (transcript, isFinal) => {
-        if (!isSessionActive) return;
+        if (!isSessionActive || !sessionId) return;
         
         if (isFinal && transcript.trim().length > 2) {
           addDebugLog(`📝 Final transcript received: "${transcript}"`);
@@ -119,7 +137,7 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
         addDebugLog(`🚨 Speech error: ${error}`);
         if (!error.includes('No speech detected') && !error.includes('no-speech')) {
           setTimeout(() => {
-            if (isSessionActive && sessionState === 'listening') {
+            if (isSessionActive && sessionState === 'listening' && sessionId) {
               addDebugLog('🔄 Restarting listening after error...');
               startListening();
             }
@@ -132,7 +150,7 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
         addDebugLog('🏁 Speech recognition ended');
         if (sessionState === 'listening') {
           setTimeout(() => {
-            if (isSessionActive) {
+            if (isSessionActive && sessionId) {
               addDebugLog('🔄 Restarting listening...');
               startListening();
             }
@@ -143,12 +161,8 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
   };
 
   const processUserSpeech = async (userMessage) => {
-    if (!isSessionActive) return;
-    
-    // Double-check sessionId before processing
-    if (!sessionId) {
-      addDebugLog('❌ No session ID available for processing speech');
-      setError('Session not properly initialized. Please refresh and try again.');
+    if (!isSessionActive || !sessionId) {
+      addDebugLog('❌ Cannot process speech - session inactive or no ID');
       return;
     }
     
@@ -171,9 +185,6 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
 
       // Update session in database
       addDebugLog('💾 Updating session conversation...');
-      addDebugLog(`📋 Session ID for update: ${sessionId}`);
-      addDebugLog(`📝 Conversation length: ${updatedConversation.length}`);
-      
       await apiService.updateSessionConversation(sessionId, updatedConversation);
       addDebugLog('✅ Session conversation updated');
 
@@ -221,7 +232,7 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
       // Return to listening
       addDebugLog('🔄 Returning to listening state...');
       setTimeout(() => {
-        if (isSessionActive) {
+        if (isSessionActive && sessionId) {
           startListening();
         }
       }, 1500);
@@ -230,10 +241,9 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
       addDebugLog(`💥 Error in processUserSpeech: ${err.message}`);
       console.error('Full error:', err);
       
-      // Show specific error message
       setError(`Processing error: ${err.message}`);
       
-      if (isSessionActive) {
+      if (isSessionActive && sessionId) {
         setTimeout(() => {
           if (sessionState !== 'ended') {
             addDebugLog('🔄 Restarting listening after error...');
@@ -404,6 +414,8 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
               onClick={() => {
                 setError('');
                 setSessionId('');
+                setIsSessionActive(true);
+                setSessionState('starting');
                 initializeSession();
               }}
               style={{
@@ -460,7 +472,7 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
           {/* Debug Log Panel */}
           <div style={{ backgroundColor: '#f9fafb', padding: '16px', borderRadius: '8px', marginBottom: '20px' }}>
             <h3 style={{ fontSize: '1rem', marginBottom: '8px' }}>Debug Log:</h3>
-            <div style={{ maxHeight: '100px', overflowY: 'auto', fontSize: '0.8rem', fontFamily: 'monospace' }}>
+            <div style={{ maxHeight: '120px', overflowY: 'auto', fontSize: '0.8rem', fontFamily: 'monospace' }}>
               {debugLog.map((log, index) => (
                 <div key={index} style={{ marginBottom: '2px' }}>{log}</div>
               ))}
