@@ -357,62 +357,22 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
   };
 
   // Feedback Screen
-  if (showFeedback && feedback) {
-    return (
-      <div style={{ 
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#f0f9ff',
-        padding: '20px'
-      }}>
-        <div style={{
-          backgroundColor: 'white',
-          padding: '40px',
-          borderRadius: '16px',
-          textAlign: 'center',
-          maxWidth: '600px',
-          boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)'
-        }}>
-          <div style={{ fontSize: '4rem', marginBottom: '20px' }}>🎉</div>
-          <h1 style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: '16px', color: '#1f2937' }}>
-            Session Complete!
-          </h1>
-          <div style={{ backgroundColor: '#f0f9ff', padding: '24px', borderRadius: '12px', marginBottom: '24px' }}>
-            <h2 style={{ fontSize: '1.5rem', color: '#1e40af', marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-              <Star size={24} />
-              {feedback.performance}
-            </h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '16px', marginBottom: '20px' }}>
-              <div>
-                <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#1e40af' }}>{feedback.exchanges}</div>
-                <div style={{ fontSize: '0.9rem', color: '#6b7280' }}>Exchanges</div>
-              </div>
-              <div>
-                <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#1e40af' }}>{feedback.duration}m</div>
-                <div style={{ fontSize: '0.9rem', color: '#6b7280' }}>Duration</div>
-              </div>
-            </div>
-          </div>
-          <button
-            onClick={() => {
-              setShowFeedback(false);
-              onEndSession();
-            }}
-            style={{
-              backgroundColor: '#667eea', color: 'white', border: 'none', padding: '12px 24px',
-              borderRadius: '8px', fontSize: '1rem', fontWeight: '600', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', gap: '8px', margin: '0 auto'
-            }}
-          >
-            <CheckCircle size={20} />
-            Continue Practicing
-          </button>
-        </div>
-      </div>
-    );
-  }
+if (showFeedback && feedback) {
+  return (
+    <EnhancedFeedback
+      sessionId={sessionId}
+      basicFeedback={feedback}
+      onContinue={() => {
+        setShowFeedback(false);
+        onEndSession();
+      }}
+      onViewDashboard={() => {
+        setShowFeedback(false);
+        onEndSession();
+      }}
+    />
+  );
+}
 
   // Error Screen
   if (error) {
