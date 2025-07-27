@@ -3,7 +3,6 @@ import { createClient } from '@supabase/supabase-js';
 export default async function handler(req, res) {
   console.log('🚀 Scenarios API called');
   
-  // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -21,7 +20,6 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Environment check
     if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
       console.error('❌ Missing Supabase environment variables');
       return res.status(500).json({
@@ -30,13 +28,11 @@ export default async function handler(req, res) {
       });
     }
 
-    // Create Supabase client
     const supabase = createClient(
       process.env.SUPABASE_URL,
       process.env.SUPABASE_ANON_KEY
     );
 
-    // Query scenarios
     const { data, error } = await supabase
       .from('scenarios')
       .select('*')
