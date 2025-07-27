@@ -55,7 +55,7 @@ function App() {
     setUserEmail(email);
     setCurrentState('dashboard');
   };
-
+  
   const handleStartSession = (scenario) => {
     console.log('🎬 Starting session with scenario:', scenario.title);
     setSelectedScenario(scenario);
@@ -75,8 +75,12 @@ function App() {
       sessionStorage.removeItem('currentState');
     } catch (error) {
       console.error('Failed to clear user data:', error);
-    }
+    };
     
+    const handleViewFeedbackDashboard = () => {
+  console.log('📊 Opening feedback dashboard');
+  setCurrentState('feedback-dashboard');
+};
     setUserEmail('');
     setSelectedScenario(null);
     setCurrentState('login');
@@ -114,13 +118,13 @@ function App() {
       <Login onLogin={handleLogin} />
     )}
 
-    {currentState === 'dashboard' && (
-      <Dashboard 
-        userEmail={userEmail}
-        onStartSession={handleStartSession}
-        onViewFeedbackDashboard={handleViewFeedbackDashboard}
-      />
-    )}
+   {currentState === 'dashboard' && (
+  <Dashboard 
+    userEmail={userEmail}
+    onStartSession={handleStartSession}
+    onViewFeedbackDashboard={handleViewFeedbackDashboard}
+  />
+)}
 
     {currentState === 'session' && selectedScenario && (
       <RoleplaySession
