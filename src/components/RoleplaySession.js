@@ -32,7 +32,6 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
   useEffect(() => {
     if (sessionId && sessionState === 'starting' && isSessionActive) {
       addDebugLog(`🔗 SessionId state updated: ${sessionId}`);
-      // Start listening after sessionId is properly set
       setTimeout(() => {
         if (isSessionActive && sessionId) {
           addDebugLog('🎧 Starting listening with valid sessionId...');
@@ -43,10 +42,14 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
   }, [sessionId, sessionState, isSessionActive]);
 
   const cleanup = () => {
-    addDebugLog('🧹 Cleaning up session...');
+    addDebugLog('🧹 Cleaning up session - stopping all audio...');
     setIsSessionActive(false);
+    
+    // Stop both speech recognition AND speech synthesis
     speechService.stopListening();
     speechService.stopSpeaking();
+    
+    addDebugLog('✅ All audio stopped');
   };
 
   const initializeSession = async () => {
@@ -55,7 +58,6 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
       addDebugLog(`📋 Scenario ID: ${scenario.id}`);
       addDebugLog(`📧 User Email: ${userEmail}`);
       
-      // Validate inputs before making API call
       if (!scenario || !scenario.id) {
         throw new Error('Invalid scenario - missing ID');
       }
@@ -72,7 +74,6 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
       
       addDebugLog(`✅ Session created with ID: ${newSessionId}`);
       
-      // Set the session ID in state
       setSessionId(newSessionId);
       setStartTime(new Date());
       
@@ -80,7 +81,6 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
       await navigator.mediaDevices.getUserMedia({ audio: true });
       addDebugLog('✅ Microphone permission granted');
       
-      // Don't start listening here - let the useEffect handle it
       addDebugLog('⏳ Waiting for sessionId state to update...');
       
     } catch (err) {
@@ -91,8 +91,7 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
   };
 
   const startListening = () => {
-    // Add extra validation
-    addDebugLog(`🔍 Checking session status...`);
+    addDebugLog(`🔍 Checking session status before starting listening...`);
     addDebugLog(`📋 isSessionActive: ${isSessionActive}`);
     addDebugLog(`🆔 sessionId: ${sessionId || 'MISSING'}`);
     addDebugLog(`📊 sessionState: ${sessionState}`);
@@ -105,6 +104,12 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
     if (!sessionId) {
       addDebugLog('❌ No session ID available, cannot start listening');
       setError('Session not properly initialized. Please try again.');
+      return;
+    }
+
+    // Don't start listening if AI is speaking
+    if (sessionState === 'ai-speaking') {
+      addDebugLog('⏸️ AI is speaking, skipping microphone start');
       return;
     }
 
@@ -123,6 +128,12 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
     speechService.startListening(
       (transcript, isFinal) => {
         if (!isSessionActive || !sessionId) return;
+        
+        // Don't process speech if AI is speaking
+        if (sessionState === 'ai-speaking') {
+          addDebugLog('⏸️ Ignoring speech while AI is talking');
+          return;
+        }
         
         if (isFinal && transcript.trim().length > 2) {
           addDebugLog(`📝 Final transcript received: "${transcript}"`);
@@ -148,9 +159,10 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
         if (!isSessionActive) return;
         
         addDebugLog('🏁 Speech recognition ended');
+        // Only restart if we're in listening state (not ai-speaking)
         if (sessionState === 'listening') {
           setTimeout(() => {
-            if (isSessionActive && sessionId) {
+            if (isSessionActive && sessionId && sessionState !== 'ai-speaking') {
               addDebugLog('🔄 Restarting listening...');
               startListening();
             }
@@ -169,10 +181,14 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
     try {
       addDebugLog(`🗣️ Processing user message: "${userMessage}"`);
       addDebugLog(`🆔 Using session ID: ${sessionId}`);
+      
+      // Stop listening while processing
+      addDebugLog('⏸️ Stopping microphone for AI processing...');
+      speechService.stopListening();
+      
       setSessionState('processing');
       setCurrentTranscript('');
       
-      // Create user message
       const userMsg = {
         speaker: 'user',
         message: userMessage,
@@ -183,12 +199,10 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
       setConversation(updatedConversation);
       addDebugLog('✅ User message added to conversation');
 
-      // Update session in database
       addDebugLog('💾 Updating session conversation...');
       await apiService.updateSessionConversation(sessionId, updatedConversation);
       addDebugLog('✅ Session conversation updated');
 
-      // Get AI response
       addDebugLog('🤖 Requesting AI response...');
       const aiResult = await apiService.generateAIResponse(
         scenario.id,
@@ -208,34 +222,36 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
       setConversation(finalConversation);
       addDebugLog('✅ AI message added to conversation');
 
-      // Update session with AI response
       addDebugLog('💾 Updating session with AI response...');
       await apiService.updateSessionConversation(sessionId, finalConversation);
       addDebugLog('✅ Session updated with AI response');
 
       if (!isSessionActive) return;
 
-      // Speak AI response
+      // AI speaking phase - microphone should be OFF
       setSessionState('ai-speaking');
-      addDebugLog('🔊 Starting speech synthesis...');
+      addDebugLog('🔊 AI speaking - microphone OFF');
       
       try {
         const characterGender = getCharacterGender(scenario.character_name);
         await speechService.speak(aiResult.response, characterGender);
-        addDebugLog('✅ Speech synthesis completed');
+        addDebugLog('✅ AI finished speaking');
       } catch (speechError) {
         addDebugLog(`❌ Speech synthesis error: ${speechError.message}`);
       }
 
-      if (!isSessionActive) return;
+      if (!isSessionActive) {
+        addDebugLog('❌ Session ended during AI speech');
+        return;
+      }
 
-      // Return to listening
-      addDebugLog('🔄 Returning to listening state...');
+      // AI finished speaking - restart microphone
+      addDebugLog('🎤 AI finished - restarting microphone...');
       setTimeout(() => {
         if (isSessionActive && sessionId) {
           startListening();
         }
-      }, 1500);
+      }, 500);
 
     } catch (err) {
       addDebugLog(`💥 Error in processUserSpeech: ${err.message}`);
@@ -261,11 +277,18 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
   };
 
   const handleEndSession = async () => {
-    addDebugLog('🛑 Ending session...');
+    addDebugLog('🛑 User clicked End Session - stopping everything immediately...');
     
+    // Immediately stop all audio and set session as inactive
     setIsSessionActive(false);
     setSessionState('ended');
-    cleanup();
+    
+    // Force stop both speech recognition and synthesis
+    addDebugLog('🔇 Force stopping all audio...');
+    speechService.stopListening();
+    speechService.stopSpeaking();
+    
+    addDebugLog('✅ All audio stopped, processing session end...');
 
     try {
       if (sessionId) {
@@ -313,9 +336,9 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
   const getStateMessage = () => {
     switch (sessionState) {
       case 'starting': return 'Initializing session...';
-      case 'listening': return 'Listening for your voice...';
-      case 'processing': return 'AI is thinking...';
-      case 'ai-speaking': return 'AI is responding...';
+      case 'listening': return '🎤 Listening for your voice...';
+      case 'processing': return '🤔 AI is thinking...';
+      case 'ai-speaking': return '🔊 AI is speaking (mic off)...';
       case 'ended': return 'Session ended';
       default: return '';
     }
@@ -399,7 +422,6 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
           <h2 style={{ color: '#dc2626', marginBottom: '16px' }}>Session Error</h2>
           <p style={{ marginBottom: '24px' }}>{error}</p>
           
-          {/* Debug log */}
           <div style={{ textAlign: 'left', backgroundColor: '#f3f4f6', padding: '16px', borderRadius: '8px', marginBottom: '24px', maxHeight: '200px', overflowY: 'auto' }}>
             <h3 style={{ fontSize: '0.9rem', marginBottom: '8px' }}>Debug Log:</h3>
             {debugLog.map((log, index) => (
@@ -456,7 +478,18 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
               </p>
             )}
           </div>
-          <button onClick={handleEndSession} style={{ backgroundColor: '#ef4444', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer' }}>
+          <button 
+            onClick={handleEndSession} 
+            style={{ 
+              backgroundColor: '#ef4444', 
+              color: 'white', 
+              border: 'none', 
+              padding: '8px 16px', 
+              borderRadius: '6px', 
+              cursor: 'pointer',
+              fontWeight: '600'
+            }}
+          >
             End Session
           </button>
         </div>
@@ -499,7 +532,7 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
                   </div>
                 ))}
                 
-                {currentTranscript && (
+                {currentTranscript && sessionState === 'listening' && (
                   <div style={{ padding: '12px', backgroundColor: '#fef3c7', borderRadius: '8px', fontStyle: 'italic', color: '#92400e' }}>
                     <div style={{ fontSize: '0.8rem', fontWeight: '600', marginBottom: '4px' }}>You (speaking...)</div>
                     {currentTranscript}
