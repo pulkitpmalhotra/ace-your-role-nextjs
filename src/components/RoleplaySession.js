@@ -11,11 +11,10 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
   const [startTime, setStartTime] = useState(new Date());
   const [error, setError] = useState('');
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
-  const [feedback, setFeedback] = useState('');
+  const [feedback, setFeedback] = useState(null);
   const [showFeedback, setShowFeedback] = useState(false);
   
   const conversationEndRef = useRef(null);
-  const microphoneRetries = useRef(0);
 
   useEffect(() => {
     initializeSession();
@@ -26,7 +25,9 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
   }, []);
 
   useEffect(() => {
-    conversationEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (conversationEndRef.current) {
+      conversationEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [conversation]);
 
   const initializeSession = async () => {
@@ -48,14 +49,14 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
   const requestMicrophoneAndStart = async () => {
     try {
       await navigator.mediaDevices.getUserMedia({ audio: true });
-      console.log('✅ Microphone permission granted');
+      console.log('Microphone permission granted');
       
       setTimeout(() => {
         startListening();
       }, 500);
       
     } catch (err) {
-      console.error('❌ Microphone permission denied:', err);
+      console.error('Microphone permission denied:', err);
       setError('Microphone access is required for this session. Please allow microphone access and refresh the page.');
     }
   };
@@ -68,21 +69,16 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
       return;
     }
 
-    console.log('🎤 Attempting to start listening...');
     setSessionState('listening');
     setCurrentTranscript('');
     setError('');
-    microphoneRetries.current = 0;
 
     speechService.startListening(
       (transcript, isFinal) => {
-        console.log(`📝 Transcript (${isFinal ? 'final' : 'interim'}):`, transcript);
-        
         if (isFinal) {
           if (transcript.trim().length > 2) {
             processUserSpeech(transcript.trim());
           } else {
-            console.log('🔄 Speech too short, restarting...');
             setTimeout(() => {
               if (sessionState !== 'ended') {
                 startListening();
@@ -94,15 +90,13 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
         }
       },
       (error) => {
-        console.error('🚨 Speech recognition error:', error);
+        console.error('Speech recognition error:', error);
         
-        if (!error.includes('No speech detected') && !error.includes('no-speech')) {
+        if (!error.includes('No speech detected')) {
           setError(error);
         }
         
-        if (!error.includes('denied') && microphoneRetries.current < 3) {
-          microphoneRetries.current++;
-          console.log(`🔄 Retrying speech recognition (${microphoneRetries.current}/3)...`);
+        if (!error.includes('denied')) {
           setTimeout(() => {
             if (sessionState !== 'ended') {
               startListening();
@@ -111,7 +105,6 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
         }
       },
       () => {
-        console.log('🏁 Speech recognition ended');
         if (sessionState === 'listening') {
           setTimeout(() => {
             if (sessionState !== 'ended') {
@@ -125,7 +118,6 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
 
   const processUserSpeech = async (userMessage) => {
     try {
-      console.log('🗣️ Processing user speech:', userMessage);
       setSessionState('processing');
       setCurrentTranscript('');
       
@@ -192,7 +184,6 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
 
   const handleEndSession = async () => {
     try {
-      console.log('🛑 Ending session...');
       setSessionState('ended');
       speechService.stopListening();
       speechService.stopSpeaking();
@@ -268,15 +259,15 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
   const getStateMessage = () => {
     switch (sessionState) {
       case 'starting':
-        return '🚀 Starting your practice session...';
+        return 'Starting your practice session...';
       case 'listening':
-        return '🎤 Listening... Start speaking!';
+        return 'Listening... Start speaking!';
       case 'processing':
-        return '🤔 Processing your message...';
+        return 'Processing your message...';
       case 'ai-speaking':
-        return `🗣️ ${scenario.character_name} is responding...`;
+        return `${scenario.character_name} is responding...`;
       case 'ended':
-        return '✅ Session completed! Great job!';
+        return 'Session completed! Great job!';
       default:
         return '';
     }
@@ -293,7 +284,6 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
     }
   };
 
-  // Show feedback screen
   if (showFeedback && feedback) {
     return (
       <div style={{ 
@@ -372,7 +362,7 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
               marginBottom: '12px',
               color: '#374151'
             }}>
-              💡 Tips for Next Time:
+              Tips for Next Time:
             </h3>
             <ul style={{
               textAlign: 'left',
@@ -413,7 +403,6 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
     );
   }
 
-  // Show error screen
   if (error && !error.includes('No speech detected')) {
     return (
       <div style={{ 
@@ -474,7 +463,6 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
     );
   }
 
-  // Main session interface
   return (
     <div style={{ 
       minHeight: '100vh',
@@ -482,7 +470,6 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
       display: 'flex',
       flexDirection: 'column'
     }}>
-      {/* Header */}
       <div style={{
         backgroundColor: 'white',
         borderBottom: '1px solid #e5e7eb',
@@ -526,7 +513,6 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
                 display: 'flex',
                 alignItems: 'center'
               }}
-              title={isAudioEnabled ? 'Audio On' : 'Audio Off'}
             >
               {isAudioEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
             </button>
@@ -550,7 +536,6 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
         </div>
       </div>
 
-      {/* Status Bar */}
       <div style={{
         backgroundColor: getStatusColor(),
         color: 'white',
@@ -559,14 +544,8 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
         fontWeight: '500'
       }}>
         {getStateMessage()}
-        {sessionState === 'listening' && (
-          <div style={{ fontSize: '0.9rem', marginTop: '4px', opacity: 0.9 }}>
-            {speechService.isCurrentlyListening() ? 'Microphone is active' : 'Starting microphone...'}
-          </div>
-        )}
       </div>
 
-      {/* Main Content */}
       <div style={{ 
         flex: 1,
         maxWidth: '1200px',
@@ -574,7 +553,6 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
         width: '100%',
         padding: '24px'
       }}>
-        {/* Conversation Area */}
         <div style={{
           backgroundColor: 'white',
           borderRadius: '12px',
@@ -630,7 +608,7 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
                     fontSize: '0.9rem',
                     color: '#92400e'
                   }}>
-                    🎤 Getting microphone ready...
+                    Getting microphone ready...
                   </div>
                 )}
               </div>
@@ -653,7 +631,7 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
                       marginBottom: '4px',
                       color: message.speaker === 'user' ? '#1e40af' : '#166534'
                     }}>
-                      {message.speaker === 'user' ? '👤 You' : `🤖 ${scenario.character_name}`}
+                      {message.speaker === 'user' ? 'You' : scenario.character_name}
                     </div>
                     <div style={{ color: '#374151' }}>
                       {message.message}
@@ -671,7 +649,7 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
                     color: '#92400e'
                   }}>
                     <div style={{ fontSize: '0.8rem', fontWeight: '600', marginBottom: '4px' }}>
-                      👤 You (speaking...)
+                      You (speaking...)
                     </div>
                     {currentTranscript}
                   </div>
