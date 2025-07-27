@@ -38,7 +38,24 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
   const initializeSession = async () => {
     try {
       addDebugLog('🚀 Starting session initialization...');
+      addDebugLog(`📋 Scenario ID: ${scenario.id}`);
+      addDebugLog(`📧 User Email: ${userEmail}`);
+      
+      // Validate inputs before making API call
+      if (!scenario || !scenario.id) {
+        throw new Error('Invalid scenario - missing ID');
+      }
+      if (!userEmail) {
+        throw new Error('Invalid user email');
+      }
+
+      addDebugLog('🎬 Creating session via API...');
       const newSessionId = await apiService.createSession(scenario.id, userEmail);
+      
+      if (!newSessionId) {
+        throw new Error('Session creation returned empty ID');
+      }
+      
       setSessionId(newSessionId);
       addDebugLog(`✅ Session created with ID: ${newSessionId}`);
       setStartTime(new Date());
@@ -56,13 +73,20 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
       
     } catch (err) {
       addDebugLog(`❌ Session initialization failed: ${err.message}`);
-      setError('Microphone access denied. Please allow microphone access and try again.');
+      console.error('Full error:', err);
+      setError(`Failed to start session: ${err.message}`);
     }
   };
 
   const startListening = () => {
     if (!isSessionActive) {
       addDebugLog('❌ Session not active, not starting listening');
+      return;
+    }
+
+    if (!sessionId) {
+      addDebugLog('❌ No session ID available, cannot start listening');
+      setError('Session not properly initialized. Please try again.');
       return;
     }
 
@@ -121,12 +145,20 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
   const processUserSpeech = async (userMessage) => {
     if (!isSessionActive) return;
     
+    // Double-check sessionId before processing
+    if (!sessionId) {
+      addDebugLog('❌ No session ID available for processing speech');
+      setError('Session not properly initialized. Please refresh and try again.');
+      return;
+    }
+    
     try {
       addDebugLog(`🗣️ Processing user message: "${userMessage}"`);
+      addDebugLog(`🆔 Using session ID: ${sessionId}`);
       setSessionState('processing');
       setCurrentTranscript('');
       
-      // Add user message to conversation
+      // Create user message
       const userMsg = {
         speaker: 'user',
         message: userMessage,
@@ -139,14 +171,14 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
 
       // Update session in database
       addDebugLog('💾 Updating session conversation...');
+      addDebugLog(`📋 Session ID for update: ${sessionId}`);
+      addDebugLog(`📝 Conversation length: ${updatedConversation.length}`);
+      
       await apiService.updateSessionConversation(sessionId, updatedConversation);
       addDebugLog('✅ Session conversation updated');
 
       // Get AI response
       addDebugLog('🤖 Requesting AI response...');
-      addDebugLog(`📋 Scenario ID: ${scenario.id}`);
-      addDebugLog(`📋 Conversation history length: ${conversation.length}`);
-      
       const aiResult = await apiService.generateAIResponse(
         scenario.id,
         userMessage,
@@ -154,7 +186,6 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
       );
 
       addDebugLog(`✅ AI response received: "${aiResult.response}"`);
-      addDebugLog(`👤 Character: ${aiResult.character}`);
 
       const aiMsg = {
         speaker: 'ai',
@@ -179,7 +210,6 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
       
       try {
         const characterGender = getCharacterGender(scenario.character_name);
-        addDebugLog(`🎭 Character gender: ${characterGender}`);
         await speechService.speak(aiResult.response, characterGender);
         addDebugLog('✅ Speech synthesis completed');
       } catch (speechError) {
@@ -198,10 +228,10 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
 
     } catch (err) {
       addDebugLog(`💥 Error in processUserSpeech: ${err.message}`);
-      addDebugLog(`🔍 Error stack: ${err.stack}`);
+      console.error('Full error:', err);
       
-      // Show error in UI
-      setError(`Failed to get AI response: ${err.message}`);
+      // Show specific error message
+      setError(`Processing error: ${err.message}`);
       
       if (isSessionActive) {
         setTimeout(() => {
@@ -228,11 +258,14 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
     cleanup();
 
     try {
-      const duration = Math.round((Date.now() - startTime.getTime()) / 60000);
-      const sessionFeedback = generateFeedback();
-      setFeedback(sessionFeedback);
-      
-      await apiService.endSession(sessionId, JSON.stringify(sessionFeedback), duration);
+      if (sessionId) {
+        const duration = Math.round((Date.now() - startTime.getTime()) / 60000);
+        const sessionFeedback = generateFeedback();
+        setFeedback(sessionFeedback);
+        
+        await apiService.endSession(sessionId, JSON.stringify(sessionFeedback), duration);
+        addDebugLog('✅ Session ended successfully');
+      }
       setShowFeedback(true);
       
     } catch (err) {
@@ -269,10 +302,10 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
 
   const getStateMessage = () => {
     switch (sessionState) {
-      case 'starting': return 'Getting ready...';
-      case 'listening': return 'Listening...';
+      case 'starting': return 'Initializing session...';
+      case 'listening': return 'Listening for your voice...';
       case 'processing': return 'AI is thinking...';
-      case 'ai-speaking': return 'AI is speaking...';
+      case 'ai-speaking': return 'AI is responding...';
       case 'ended': return 'Session ended';
       default: return '';
     }
@@ -351,9 +384,9 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
   if (error) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fee2e2', padding: '20px' }}>
-        <div style={{ backgroundColor: 'white', padding: '40px', borderRadius: '12px', textAlign: 'center', maxWidth: '500px' }}>
+        <div style={{ backgroundColor: 'white', padding: '40px', borderRadius: '12px', textAlign: 'center', maxWidth: '600px' }}>
           <div style={{ fontSize: '3rem', marginBottom: '20px' }}>⚠️</div>
-          <h2 style={{ color: '#dc2626', marginBottom: '16px' }}>Error</h2>
+          <h2 style={{ color: '#dc2626', marginBottom: '16px' }}>Session Error</h2>
           <p style={{ marginBottom: '24px' }}>{error}</p>
           
           {/* Debug log */}
@@ -366,9 +399,30 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
             ))}
           </div>
           
-          <button onClick={() => { cleanup(); onEndSession(); }} style={{ backgroundColor: '#dc2626', color: 'white', border: 'none', padding: '12px 24px', borderRadius: '8px', cursor: 'pointer' }}>
-            Return to Dashboard
-          </button>
+          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+            <button 
+              onClick={() => {
+                setError('');
+                setSessionId('');
+                initializeSession();
+              }}
+              style={{
+                backgroundColor: '#10b981', color: 'white', border: 'none', padding: '12px 24px',
+                borderRadius: '8px', cursor: 'pointer'
+              }}
+            >
+              Try Again
+            </button>
+            <button 
+              onClick={() => { cleanup(); onEndSession(); }}
+              style={{
+                backgroundColor: '#dc2626', color: 'white', border: 'none', padding: '12px 24px',
+                borderRadius: '8px', cursor: 'pointer'
+              }}
+            >
+              Return to Dashboard
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -384,6 +438,11 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
             <p style={{ color: '#6b7280', margin: '4px 0 0 0' }}>
               {scenario.character_name} • {scenario.character_role}
             </p>
+            {sessionId && (
+              <p style={{ color: '#10b981', margin: '2px 0 0 0', fontSize: '0.8rem' }}>
+                Session: {sessionId.substring(0, 8)}...
+              </p>
+            )}
           </div>
           <button onClick={handleEndSession} style={{ backgroundColor: '#ef4444', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer' }}>
             End Session
@@ -413,6 +472,9 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
               <div style={{ textAlign: 'center', padding: '40px', color: '#6b7280' }}>
                 <div style={{ fontSize: '2rem', marginBottom: '16px' }}>👋</div>
                 <p>Start speaking to begin the conversation</p>
+                {sessionState === 'starting' && (
+                  <p style={{ fontSize: '0.9rem', marginTop: '10px' }}>Setting up your session...</p>
+                )}
               </div>
             ) : (
               <div>
