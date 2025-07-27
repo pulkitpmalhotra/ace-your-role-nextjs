@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../services/api';
-import { Play, User } from 'lucide-react';
+import { Play, User, TrendingUp, BarChart3 } from 'lucide-react';
 
 function Dashboard({ userEmail, onStartSession }) {
   const [scenarios, setScenarios] = useState([]);
