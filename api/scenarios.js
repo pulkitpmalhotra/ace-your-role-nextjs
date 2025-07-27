@@ -1,10 +1,11 @@
-// api/scenarios.js
 import { createClient } from '@supabase/supabase-js';
 
 export default async function handler(req, res) {
-  // Enable CORS
+  console.log('🚀 Scenarios API called');
+  
+  // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') {
@@ -20,9 +21,13 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Check environment variables
+    // Environment check
     if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
-      throw new Error('Missing Supabase environment variables');
+      console.error('❌ Missing Supabase environment variables');
+      return res.status(500).json({
+        success: false,
+        error: 'Server configuration error'
+      });
     }
 
     // Create Supabase client
@@ -31,7 +36,7 @@ export default async function handler(req, res) {
       process.env.SUPABASE_ANON_KEY
     );
 
-    // Get all scenarios
+    // Query scenarios
     const { data, error } = await supabase
       .from('scenarios')
       .select('*')
@@ -39,24 +44,25 @@ export default async function handler(req, res) {
       .order('difficulty', { ascending: true });
 
     if (error) {
-      throw new Error(`Database error: ${error.message}`);
+      console.error('❌ Database error:', error);
+      return res.status(500).json({
+        success: false,
+        error: `Database error: ${error.message}`
+      });
     }
 
-    const response = {
+    console.log(`✅ Found ${data?.length || 0} scenarios`);
+    
+    return res.status(200).json({
       success: true,
       data: data || []
-    };
-
-    res.status(200).json(response);
+    });
 
   } catch (error) {
-    console.error('Scenarios API error:', error);
-    
-    const response = {
+    console.error('💥 Unexpected error:', error);
+    return res.status(500).json({
       success: false,
-      error: error.message || 'Unknown error'
-    };
-
-    res.status(500).json(response);
+      error: error.message || 'Internal server error'
+    });
   }
 }
