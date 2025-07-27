@@ -353,27 +353,15 @@ function EnhancedFeedback({ sessionId, basicFeedback, onContinue, onViewDashboar
               transition: 'all 0.3s ease'
             }}
             onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#2563eb'}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#3b82f6'}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#6b7280'}
           >
-            <CheckCircle size={20} />
-            Practice Another Scenario
+            <TrendingUp size={20} />
+            View Progress Dashboard
           </button>
-          
-          <button
-            onClick={onViewDashboard}
-            style={{
-              backgroundColor: '#6b7280',
-              color: 'white',
-              border: 'none',
-              padding: '15px 30px',
-              borderRadius: '10px',
-              fontSize: '1rem',
-              fontWeight: '600',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              transition: 'all 0.3s ease'
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#4b5563'}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default EnhancedFeedback;
