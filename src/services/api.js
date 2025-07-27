@@ -2,7 +2,6 @@
 
 class APIService {
   constructor() {
-    // Hardcode your Vercel domain for now
     this.baseUrl = 'https://ai-roleplay-free.vercel.app';
   }
 
@@ -10,6 +9,7 @@ class APIService {
     const url = `${this.baseUrl}${endpoint}`;
     
     console.log('🚀 Making API request to:', url);
+    console.log('📋 Request options:', options);
     
     try {
       const response = await fetch(url, {
@@ -21,15 +21,32 @@ class APIService {
       });
 
       console.log('📡 Response status:', response.status);
+      console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
+
+      // Get response text first to see what we're dealing with
+      const responseText = await response.text();
+      console.log('📄 Raw response:', responseText);
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ Response error:', errorText);
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        // Try to parse error details
+        let errorDetails = responseText;
+        try {
+          const errorJson = JSON.parse(responseText);
+          errorDetails = errorJson.error || errorJson.message || responseText;
+        } catch (e) {
+          // If it's not JSON, use the raw text
+        }
+        
+        throw new Error(`HTTP ${response.status}: ${errorDetails}`);
       }
 
-      const data = await response.json();
-      console.log('✅ Response data:', data);
+      // Parse JSON response
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (e) {
+        throw new Error(`Invalid JSON response: ${responseText}`);
+      }
       
       if (!data.success) {
         throw new Error(data.error || 'API request failed');
@@ -52,6 +69,9 @@ class APIService {
   // Sessions
   async createSession(scenarioId, userEmail) {
     console.log('🎬 Creating session...');
+    console.log('📋 Scenario ID:', scenarioId);
+    console.log('📧 User email:', userEmail);
+    
     const data = await this.makeRequest('/api/sessions', {
       method: 'POST',
       body: JSON.stringify({
@@ -64,6 +84,28 @@ class APIService {
 
   async updateSessionConversation(sessionId, conversation) {
     console.log('💬 Updating conversation...');
+    console.log('🆔 Session ID:', sessionId);
+    console.log('📝 Conversation length:', conversation.length);
+    console.log('📄 Conversation data:', conversation);
+    
+    // Validate the conversation data
+    if (!Array.isArray(conversation)) {
+      throw new Error('Conversation must be an array');
+    }
+    
+    // Validate each message
+    for (let i = 0; i < conversation.length; i++) {
+      const msg = conversation[i];
+      if (!msg.speaker || !msg.message || !msg.timestamp) {
+        console.error(`❌ Invalid message at index ${i}:`, msg);
+        throw new Error(`Invalid message format at index ${i}`);
+      }
+      if (!['user', 'ai'].includes(msg.speaker)) {
+        console.error(`❌ Invalid speaker at index ${i}:`, msg.speaker);
+        throw new Error(`Invalid speaker "${msg.speaker}" at index ${i}`);
+      }
+    }
+    
     await this.makeRequest('/api/sessions', {
       method: 'PUT',
       body: JSON.stringify({
@@ -94,6 +136,21 @@ class APIService {
   // AI Chat
   async generateAIResponse(scenarioId, userMessage, conversationHistory) {
     console.log('🤖 Generating AI response...');
+    console.log('🆔 Scenario ID:', scenarioId);
+    console.log('💬 User message:', userMessage);
+    console.log('📚 History length:', conversationHistory.length);
+    
+    // Validate inputs
+    if (!scenarioId) {
+      throw new Error('Scenario ID is required');
+    }
+    if (!userMessage || typeof userMessage !== 'string') {
+      throw new Error('User message is required and must be a string');
+    }
+    if (!Array.isArray(conversationHistory)) {
+      throw new Error('Conversation history must be an array');
+    }
+    
     return await this.makeRequest('/api/ai-chat', {
       method: 'POST',
       body: JSON.stringify({
