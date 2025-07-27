@@ -267,6 +267,45 @@ function Dashboard({ userEmail, onStartSession, onViewFeedbackDashboard }) {
         ))}
       </div>
 
+{/* Progress Dashboard Link */}
+<div style={{
+  textAlign: 'center',
+  padding: '30px',
+  backgroundColor: '#f0f9ff',
+  borderRadius: '12px',
+  marginBottom: '20px'
+}}>
+  <h3 style={{ color: '#1e40af', marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+    <TrendingUp size={24} />
+    Track Your Progress
+  </h3>
+  <p style={{ color: '#3730a3', marginBottom: '20px' }}>
+    View detailed feedback and track your improvement over time
+  </p>
+  <button
+    onClick={onViewFeedbackDashboard}
+    style={{
+      backgroundColor: '#3b82f6',
+      color: 'white',
+      border: 'none',
+      padding: '12px 24px',
+      borderRadius: '8px',
+      fontSize: '1rem',
+      fontWeight: '600',
+      cursor: 'pointer',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px',
+      margin: '0 auto',
+      transition: 'all 0.3s ease'
+    }}
+    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#2563eb'}
+    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#3b82f6'}
+  >
+    <BarChart3 size={20} />
+    View Progress Dashboard
+  </button>
+</div>
       {/* Footer Info */}
       <div style={{
         textAlign: 'center',
