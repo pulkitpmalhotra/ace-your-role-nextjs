@@ -161,5 +161,25 @@ class APIService {
     });
   }
 }
+async getUserSessionsWithFeedback(userEmail) {
+  console.log('📊 Fetching user sessions with feedback...');
+  return await this.makeRequest(`/api/sessions/feedback?userEmail=${encodeURIComponent(userEmail)}`);
+}
 
+async getSessionFeedback(sessionId) {
+  console.log('📋 Fetching session feedback...');
+  return await this.makeRequest(`/api/sessions/${sessionId}/feedback`);
+}
+
+async triggerFeedbackAnalysis(sessionId, conversation, scenario) {
+  console.log('🔬 Triggering feedback analysis...');
+  return await this.makeRequest('/api/feedback-analysis', {
+    method: 'POST',
+    body: JSON.stringify({
+      sessionId,
+      conversation,
+      scenario
+    })
+  });
+}
 export const apiService = new APIService();
