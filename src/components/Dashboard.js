@@ -452,9 +452,6 @@ function Dashboard({ userEmail, onStartSession, onViewFeedbackDashboard }) {
                   transition: 'width 0.5s ease'
                 }}></div>
               </div>
-          //    <div style={{ fontSize: '0.7rem', color: '#9ca3af', marginTop: '4px' }}>
-            //    Goal: 10 sessions
-              //</div>
             </div>
             
             {/* Average Score Card */}
@@ -505,9 +502,6 @@ function Dashboard({ userEmail, onStartSession, onViewFeedbackDashboard }) {
                         transition: 'width 0.5s ease'
                       }}></div>
                     </div>
-                  //  <div style={{ fontSize: '0.7rem', color: '#9ca3af', marginTop: '4px' }}>
-                  //    Goal: 4.0/5.0
-                  //  </div>
                   </>
                 );
               })()}
@@ -561,9 +555,6 @@ function Dashboard({ userEmail, onStartSession, onViewFeedbackDashboard }) {
                         transition: 'width 0.5s ease'
                       }}></div>
                     </div>
-              //      <div style={{ fontSize: '0.7rem', color: '#9ca3af', marginTop: '4px' }}>
-              //        Goal: 2 hours
-              //      </div>
                   </>
                 );
               })()}
