@@ -1,26 +1,17 @@
+// Update api/sessions.js
 import { createClient } from '@supabase/supabase-js';
+import { withAuth } from '../lib/auth.js';
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_ANON_KEY
 );
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   console.log('🚀 Sessions API called');
   console.log('Method:', req.method);
-  console.log('Body:', req.body);
-  console.log('Query:', req.query);
-
-  // CORS headers
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-  if (req.method === 'OPTIONS') {
-    console.log('✅ OPTIONS handled');
-    res.status(200).end();
-    return;
-  }
+  console.log('User:', req.user?.email);
+  console.log('Auth Method:', req.authMethod);
 
   try {
     if (req.method === 'POST') {
@@ -29,12 +20,21 @@ export default async function handler(req, res) {
 
       console.log('📋 Received data:', { scenarioId, userEmail });
 
-      if (!scenarioId || !userEmail) {
-        console.error('❌ Missing required fields');
+      if (!scenarioId) {
         return res.status(400).json({
           success: false,
-          error: 'Missing scenarioId or userEmail',
+          error: 'Missing scenarioId',
           received: { scenarioId: !!scenarioId, userEmail: !!userEmail }
+        });
+      }
+
+      // Use authenticated user's email, fallback to provided email for backward compatibility
+      const sessionUserEmail = req.user?.email || userEmail;
+      
+      if (!sessionUserEmail) {
+        return res.status(400).json({
+          success: false,
+          error: 'User email required'
         });
       }
 
@@ -43,7 +43,7 @@ export default async function handler(req, res) {
         .from('sessions')
         .insert({
           scenario_id: scenarioId,
-          user_email: userEmail,
+          user_email: sessionUserEmail,
           conversation: [],
           duration_minutes: 0
         })
@@ -74,10 +74,32 @@ export default async function handler(req, res) {
       });
 
       if (!sessionId) {
-        console.error('❌ Missing sessionId');
         return res.status(400).json({
           success: false,
           error: 'Missing sessionId'
+        });
+      }
+
+      // Security check: ensure user can only update their own sessions
+      const { data: sessionCheck } = await supabase
+        .from('sessions')
+        .select('user_email')
+        .eq('id', sessionId)
+        .single();
+
+      if (!sessionCheck) {
+        return res.status(404).json({
+          success: false,
+          error: 'Session not found'
+        });
+      }
+
+      // Allow access if it's the user's session OR legacy auth
+      const userEmail = req.user?.email;
+      if (userEmail && sessionCheck.user_email !== userEmail) {
+        return res.status(403).json({
+          success: false,
+          error: 'Access denied'
         });
       }
 
@@ -160,7 +182,10 @@ export default async function handler(req, res) {
       console.log('📋 Fetching user sessions...');
       const { userEmail } = req.query;
 
-      if (!userEmail) {
+      // Use authenticated user's email, fallback to query param for backward compatibility
+      const queryUserEmail = req.user?.email || userEmail;
+
+      if (!queryUserEmail) {
         console.error('❌ Missing userEmail parameter');
         return res.status(400).json({
           success: false,
@@ -168,7 +193,7 @@ export default async function handler(req, res) {
         });
       }
 
-      console.log('💾 Querying database for user:', userEmail);
+      console.log('💾 Querying database for user:', queryUserEmail);
       const { data, error } = await supabase
         .from('sessions')
         .select(`
@@ -176,12 +201,14 @@ export default async function handler(req, res) {
           scenarios (
             title,
             character_name,
-            difficulty
+            difficulty,
+            category,
+            subcategory
           )
         `)
-        .eq('user_email', userEmail)
+        .eq('user_email', queryUserEmail)
         .order('start_time', { ascending: false })
-        .limit(10);
+        .limit(50); // Add reasonable limit
 
       if (error) {
         console.error('❌ Database query error:', error);
@@ -213,3 +240,6 @@ export default async function handler(req, res) {
     });
   }
 }
+
+// Export with authentication middleware
+export default withAuth(handler);
