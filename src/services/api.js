@@ -168,16 +168,18 @@ class APIService {
   }
 
   async triggerFeedbackAnalysis(sessionId, conversation, scenario) {
-    console.log('🔬 Triggering feedback analysis...');
-    return await this.makeRequest('/api/feedback-analysis', {
-      method: 'POST',
-      body: JSON.stringify({
-        sessionId,
-        conversation,
-        scenario
-      })
-    });
-  }
+  console.log('🔬 Triggering feedback analysis...');
+  console.log('📋 Data:', { sessionId, conversationLength: conversation?.length, scenario: scenario?.title });
+  
+  return await this.makeRequest('/api/feedback-analysis', {
+    method: 'POST',
+    body: JSON.stringify({
+      sessionId,
+      conversation: conversation || [],
+      scenario: scenario || {}
+    })
+  });
+}
 }
 
 export const apiService = new APIService();
