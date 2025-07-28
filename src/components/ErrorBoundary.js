@@ -1,4 +1,4 @@
-// src/components/ErrorBoundary.js
+// src/components/ErrorBoundary.js - Fixed syntax errors
 import React from 'react';
 import { AlertTriangle, RefreshCw, Home, Bug } from 'lucide-react';
 
@@ -14,23 +14,19 @@ class ErrorBoundary extends React.Component {
   }
 
   static getDerivedStateFromError(error) {
-    // Update state so the next render will show the fallback UI
     return { hasError: true };
   }
 
   componentDidCatch(error, errorInfo) {
-    // Log error details
     this.setState({
       error: error,
       errorInfo: errorInfo
     });
 
-    // Log to console for debugging
     console.error('ErrorBoundary caught an error:', error, errorInfo);
 
-    // In production, you might want to log this to an error reporting service
     if (process.env.NODE_ENV === 'production') {
-      // Example: logErrorToService(error, errorInfo);
+      // Log to error reporting service in production
     }
   }
 
@@ -80,6 +76,142 @@ class ErrorBoundary extends React.Component {
             boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)',
             border: '1px solid #fee2e2'
           }}>
+            {/* Error Icon */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              marginBottom: '24px'
+            }}>
+              <div style={{
+                backgroundColor: '#fee2e2',
+                borderRadius: '50%',
+                padding: '20px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <AlertTriangle size={48} color="#dc2626" />
+              </div>
+            </div>
+
+            {/* Error Message */}
+            <h1 style={{
+              fontSize: '2rem',
+              fontWeight: 'bold',
+              color: '#dc2626',
+              marginBottom: '16px'
+            }}>
+              Oops! Something went wrong
+            </h1>
+
+            <p style={{
+              fontSize: '1.1rem',
+              color: '#6b7280',
+              marginBottom: '32px',
+              lineHeight: '1.6'
+            }}>
+              We're sorry, but something unexpected happened. Our team has been notified 
+              and we're working to fix the issue.
+            </p>
+
+            {/* Action Buttons */}
+            <div style={{
+              display: 'flex',
+              gap: '16px',
+              justifyContent: 'center',
+              marginBottom: '24px',
+              flexWrap: 'wrap'
+            }}>
+              <button
+                onClick={this.handleRetry}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  backgroundColor: '#667eea',
+                  color: 'white',
+                  border: 'none',
+                  padding: '12px 24px',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  transition: 'all 0.3s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#5a67d8';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#667eea';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }}
+              >
+                <RefreshCw size={18} />
+                Try Again
+              </button>
+
+              <button
+                onClick={this.handleReload}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  backgroundColor: '#6b7280',
+                  color: 'white',
+                  border: 'none',
+                  padding: '12px 24px',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  transition: 'all 0.3s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#4b5563';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#6b7280';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }}
+              >
+                <RefreshCw size={18} />
+                Reload Page
+              </button>
+
+              <button
+                onClick={this.handleGoHome}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  backgroundColor: 'white',
+                  color: '#374151',
+                  border: '2px solid #d1d5db',
+                  padding: '12px 24px',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  transition: 'all 0.3s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#f9fafb';
+                  e.currentTarget.style.borderColor = '#9ca3af';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'white';
+                  e.currentTarget.style.borderColor = '#d1d5db';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }}
+              >
+                <Home size={18} />
+                Go Home
+              </button>
+            </div>
+
             {/* Technical Details Toggle */}
             {(isDevelopment || this.state.error) && (
               <div>
@@ -354,140 +486,4 @@ export function ErrorFallback({ error, resetError }) {
   );
 }
 
-export default ErrorBoundary;/* Error Icon */}
-            <div style={{
-              display: 'flex',
-              justifyContent: 'center',
-              marginBottom: '24px'
-            }}>
-              <div style={{
-                backgroundColor: '#fee2e2',
-                borderRadius: '50%',
-                padding: '20px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}>
-                <AlertTriangle size={48} color="#dc2626" />
-              </div>
-            </div>
-
-            {/* Error Message */}
-            <h1 style={{
-              fontSize: '2rem',
-              fontWeight: 'bold',
-              color: '#dc2626',
-              marginBottom: '16px'
-            }}>
-              Oops! Something went wrong
-            </h1>
-
-            <p style={{
-              fontSize: '1.1rem',
-              color: '#6b7280',
-              marginBottom: '32px',
-              lineHeight: '1.6'
-            }}>
-              We're sorry, but something unexpected happened. Our team has been notified 
-              and we're working to fix the issue.
-            </p>
-
-            {/* Action Buttons */}
-            <div style={{
-              display: 'flex',
-              gap: '16px',
-              justifyContent: 'center',
-              marginBottom: '24px',
-              flexWrap: 'wrap'
-            }}>
-              <button
-                onClick={this.handleRetry}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  backgroundColor: '#667eea',
-                  color: 'white',
-                  border: 'none',
-                  padding: '12px 24px',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  fontSize: '1rem',
-                  fontWeight: '600',
-                  transition: 'all 0.3s ease'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#5a67d8';
-                  e.currentTarget.style.transform = 'translateY(-1px)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = '#667eea';
-                  e.currentTarget.style.transform = 'translateY(0)';
-                }}
-              >
-                <RefreshCw size={18} />
-                Try Again
-              </button>
-
-              <button
-                onClick={this.handleReload}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  backgroundColor: '#6b7280',
-                  color: 'white',
-                  border: 'none',
-                  padding: '12px 24px',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  fontSize: '1rem',
-                  fontWeight: '600',
-                  transition: 'all 0.3s ease'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#4b5563';
-                  e.currentTarget.style.transform = 'translateY(-1px)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = '#6b7280';
-                  e.currentTarget.style.transform = 'translateY(0)';
-                }}
-              >
-                <RefreshCw size={18} />
-                Reload Page
-              </button>
-
-              <button
-                onClick={this.handleGoHome}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  backgroundColor: 'white',
-                  color: '#374151',
-                  border: '2px solid #d1d5db',
-                  padding: '12px 24px',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  fontSize: '1rem',
-                  fontWeight: '600',
-                  transition: 'all 0.3s ease'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#f9fafb';
-                  e.currentTarget.style.borderColor = '#9ca3af';
-                  e.currentTarget.style.transform = 'translateY(-1px)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'white';
-                  e.currentTarget.style.borderColor = '#d1d5db';
-                  e.currentTarget.style.transform = 'translateY(0)';
-                }}
-              >
-                <Home size={18} />
-                Go Home
-              </button>
-            </div>
-
-            {
+export default ErrorBoundary;
