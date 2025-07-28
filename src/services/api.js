@@ -61,11 +61,13 @@ class APIService {
   }
 
   // Scenarios
-  async getScenarios() {
-    console.log('📚 Fetching scenarios...');
-    return await this.makeRequest('/api/scenarios');
-  }
-
+async getScenarios() {
+  console.log('📚 Fetching all scenarios...');
+  return await this.getScenariosWithFilters({});
+}
+  
+async getScenariosWithFilters(filters = {}) {
+  console.log('📚 Fetching scenarios with filters:', filters);
   // Sessions
   async createSession(scenarioId, userEmail) {
     console.log('🎬 Creating session...');
@@ -81,7 +83,22 @@ class APIService {
     });
     return data.sessionId;
   }
-
+const params = new URLSearchParams();
+  
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value && value !== 'all' && value !== '') {
+      params.append(key, value);
+    }
+  });
+  
+  const queryString = params.toString();
+  const endpoint = `/api/scenarios${queryString ? `?${queryString}` : ''}`;
+  
+  console.log('🔗 Requesting:', endpoint);
+  
+  const response = await this.makeRequest(endpoint);
+  return response; // Return full response with metadata
+}
   async updateSessionConversation(sessionId, conversation) {
     console.log('💬 Updating conversation...');
     console.log('🆔 Session ID:', sessionId);
