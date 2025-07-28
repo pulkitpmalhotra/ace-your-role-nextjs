@@ -17,81 +17,86 @@ function EnhancedFeedback({ sessionId, basicFeedback, onContinue, onViewDashboar
       
       console.log('🔬 Loading detailed feedback for session:', sessionId);
       
-      // First try to get stored feedback from the session
-      try {
-        const response = await fetch(`/api/sessions/${sessionId}/feedback`);
-        if (response.ok) {
-          const result = await response.json();
-          if (result.success && result.data.detailedFeedback) {
-            console.log('✅ Found stored detailed feedback');
-            setDetailedFeedback(result.data.detailedFeedback);
-            setLoading(false);
-            return;
+      // Wait a bit for the feedback analysis to complete
+      let attempts = 0;
+      const maxAttempts = 10; // Try for about 10 seconds
+      
+      while (attempts < maxAttempts) {
+        try {
+          // Try to get the session with detailed feedback
+          const response = await fetch(`/api/sessions?userEmail=${encodeURIComponent(basicFeedback.userEmail || 'unknown')}`);
+          if (response.ok) {
+            const result = await response.json();
+            if (result.success) {
+              const session = result.data.find(s => s.id === sessionId);
+              
+              if (session && session.detailed_feedback) {
+                console.log('✅ Found detailed feedback in database');
+                const parsedFeedback = JSON.parse(session.detailed_feedback);
+                setDetailedFeedback(parsedFeedback);
+                setLoading(false);
+                return;
+              }
+            }
           }
+        } catch (err) {
+          console.log('⚠️ Attempt', attempts + 1, 'failed, retrying...');
         }
-      } catch (err) {
-        console.log('⚠️ Could not fetch stored feedback, will use mock');
+        
+        attempts++;
+        
+        // Wait 1 second before retrying
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
       
-      // If no stored feedback, use smart mock data
-      console.log('🎭 Using mock feedback based on session data');
-      setDetailedFeedback(getMockFeedback());
+      // If we get here, we couldn't find detailed feedback - use the basic feedback as fallback
+      console.log('⚠️ Could not load detailed feedback after', maxAttempts, 'attempts');
+      setDetailedFeedback(createBasicDetailedFeedback());
       
     } catch (err) {
       console.error('❌ Error loading detailed feedback:', err);
-      setDetailedFeedback(getMockFeedback());
+      setDetailedFeedback(createBasicDetailedFeedback());
     } finally {
       setLoading(false);
     }
   };
 
-  const getMockFeedback = () => {
-    // Generate dynamic mock feedback based on basic feedback
-    const baseScore = Math.min(4.5, Math.max(2.0, basicFeedback.exchanges * 0.2 + 2.5));
-    
+  const createBasicDetailedFeedback = () => {
+    // Create a basic structure that matches the real feedback format
+    // but indicates that detailed analysis is pending
     return {
-      overallScore: Math.round(baseScore * 10) / 10,
+      overallScore: 0, // Will be updated when real feedback arrives
       categories: {
         opening: {
-          score: Math.min(5, Math.round(baseScore + (Math.random() * 0.5 - 0.25))),
-          feedback: "Your greeting was professional and you showed good energy. You established initial rapport effectively with the customer.",
-          suggestions: ["Try to set a clearer agenda upfront", "Ask more engaging opening questions", "Show more enthusiasm in your voice tone"]
+          score: 0,
+          feedback: "Detailed analysis in progress...",
+          suggestions: ["Complete analysis will be available shortly"]
         },
         discovery: {
-          score: Math.min(5, Math.round(baseScore - 0.5 + (Math.random() * 0.5))),
-          feedback: "You asked some good questions but could have dug deeper into pain points and specific needs of the customer.",
-          suggestions: ["Use more open-ended questions", "Listen more actively to responses", "Follow up with 'tell me more about that'"]
+          score: 0,
+          feedback: "Detailed analysis in progress...",
+          suggestions: ["Complete analysis will be available shortly"]
         },
         presentation: {
-          score: Math.min(5, Math.round(baseScore + (Math.random() * 0.5 - 0.25))),
-          feedback: "Good job tailoring your solution presentation and focusing on benefits rather than just features.",
-          suggestions: ["Use more specific examples and case studies", "Address potential concerns proactively", "Make the presentation more conversational"]
+          score: 0,
+          feedback: "Detailed analysis in progress...",
+          suggestions: ["Complete analysis will be available shortly"]
         },
         objection: {
-          score: Math.min(5, Math.round(baseScore - 0.3 + (Math.random() * 0.6))),
-          feedback: "You handled objections adequately but could show more confidence and empathy when addressing concerns.",
-          suggestions: ["Acknowledge concerns first before responding", "Ask questions to understand objections better", "Use the feel-felt-found technique"]
+          score: 0,
+          feedback: "Detailed analysis in progress...",
+          suggestions: ["Complete analysis will be available shortly"]
         },
         closing: {
-          score: Math.min(5, Math.round(baseScore + 0.2 + (Math.random() * 0.3))),
-          feedback: "Good attempt at defining next steps and seeking some level of commitment from the prospect.",
-          suggestions: ["Try trial closes earlier in conversation", "Be more direct in asking for the sale", "Create more urgency around next steps"]
+          score: 0,
+          feedback: "Detailed analysis in progress...",
+          suggestions: ["Complete analysis will be available shortly"]
         }
       },
       overall: {
-        strengths: [
-          "Professional communication style",
-          "Good product knowledge demonstration",
-          "Clear articulation of ideas",
-          "Positive attitude throughout conversation"
-        ],
-        improvements: [
-          "Active listening skills development",
-          "Discovery questioning depth",
-          "Objection handling confidence",
-          "Closing technique timing"
-        ],
-        nextFocus: `Based on your ${basicFeedback.exchanges} exchanges, focus on asking better discovery questions and building more confidence when handling objections. Practice the feel-felt-found technique for your next session.`
+        strengths: ["Session completed successfully"],
+        improvements: ["Detailed analysis will provide specific recommendations"],
+        nextFocus: "Complete analysis will be available in your progress dashboard shortly."
       }
     };
   };
@@ -104,6 +109,7 @@ function EnhancedFeedback({ sessionId, basicFeedback, onContinue, onViewDashboar
   };
 
   const getScoreLabel = (score) => {
+    if (score === 0) return 'Analyzing...';
     if (score >= 4.5) return 'Excellent';
     if (score >= 3.5) return 'Good';
     if (score >= 2.5) return 'Needs Work';
@@ -148,52 +154,6 @@ function EnhancedFeedback({ sessionId, basicFeedback, onContinue, onViewDashboar
     );
   }
 
-  if (error) {
-    return (
-      <div style={{ 
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#fef2f2',
-        padding: '20px'
-      }}>
-        <div style={{ textAlign: 'center', maxWidth: '500px' }}>
-          <div style={{ fontSize: '4rem', marginBottom: '20px' }}>⚠️</div>
-          <h2 style={{ color: '#dc2626', marginBottom: '16px' }}>Analysis Error</h2>
-          <p style={{ color: '#7f1d1d', marginBottom: '24px' }}>{error}</p>
-          <button 
-            onClick={loadDetailedFeedback}
-            style={{
-              backgroundColor: '#dc2626',
-              color: 'white',
-              border: 'none',
-              padding: '12px 24px',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              marginRight: '10px'
-            }}
-          >
-            Try Again
-          </button>
-          <button 
-            onClick={onContinue}
-            style={{
-              backgroundColor: '#6b7280',
-              color: 'white',
-              border: 'none',
-              padding: '12px 24px',
-              borderRadius: '8px',
-              cursor: 'pointer'
-            }}
-          >
-            Continue Anyway
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div style={{ 
       minHeight: '100vh',
@@ -216,7 +176,7 @@ function EnhancedFeedback({ sessionId, basicFeedback, onContinue, onViewDashboar
             Session Complete!
           </h1>
           
-          {detailedFeedback && (
+          {detailedFeedback && detailedFeedback.overallScore > 0 && (
             <div style={{ 
               display: 'flex', 
               alignItems: 'center', 
@@ -234,6 +194,22 @@ function EnhancedFeedback({ sessionId, basicFeedback, onContinue, onViewDashboar
               }}>
                 {detailedFeedback.overallScore}/5.0 • {getScoreLabel(detailedFeedback.overallScore)}
               </div>
+            </div>
+          )}
+
+          {/* Analysis Status */}
+          {detailedFeedback && detailedFeedback.overallScore === 0 && (
+            <div style={{ 
+              backgroundColor: '#fef3c7',
+              color: '#92400e',
+              padding: '12px 20px',
+              borderRadius: '25px',
+              fontWeight: 'bold',
+              fontSize: '1rem',
+              marginBottom: '20px',
+              display: 'inline-block'
+            }}>
+              🔬 Detailed Analysis In Progress...
             </div>
           )}
 
@@ -258,7 +234,7 @@ function EnhancedFeedback({ sessionId, basicFeedback, onContinue, onViewDashboar
               </div>
               <div style={{ fontSize: '0.9rem', color: '#6b7280' }}>Duration</div>
             </div>
-            {detailedFeedback && (
+            {detailedFeedback && detailedFeedback.overallScore > 0 && (
               <div>
                 <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#3b82f6' }}>
                   {Object.values(detailedFeedback.categories).reduce((acc, cat) => acc + (cat.score >= 4 ? 1 : 0), 0)}
@@ -269,8 +245,8 @@ function EnhancedFeedback({ sessionId, basicFeedback, onContinue, onViewDashboar
           </div>
         </div>
 
-        {/* Detailed Feedback */}
-        {detailedFeedback ? (
+        {/* Detailed Feedback or Analysis Notice */}
+        {detailedFeedback && detailedFeedback.overallScore > 0 ? (
           <div style={{ display: 'grid', gap: '20px' }}>
             
             {/* Skills Breakdown */}
@@ -432,7 +408,7 @@ function EnhancedFeedback({ sessionId, basicFeedback, onContinue, onViewDashboar
 
           </div>
         ) : (
-          /* Fallback to basic feedback if detailed analysis fails */
+          /* Analysis in Progress Notice */
           <div style={{
             backgroundColor: 'white',
             padding: '30px',
@@ -440,12 +416,23 @@ function EnhancedFeedback({ sessionId, basicFeedback, onContinue, onViewDashboar
             textAlign: 'center',
             boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)'
           }}>
-            <h2 style={{ fontSize: '1.5rem', marginBottom: '20px' }}>
-              {basicFeedback.performance}
+            <div style={{ fontSize: '3rem', marginBottom: '20px' }}>🔬</div>
+            <h2 style={{ fontSize: '1.5rem', marginBottom: '20px', color: '#1f2937' }}>
+              Detailed Analysis In Progress
             </h2>
-            <p style={{ color: '#6b7280', marginBottom: '20px' }}>
-              Detailed analysis is being processed. You can view it later in your dashboard.
+            <p style={{ color: '#6b7280', marginBottom: '20px', fontSize: '1.1rem' }}>
+              Our AI is analyzing your conversation to provide detailed feedback on your sales skills.
             </p>
+            <div style={{
+              backgroundColor: '#f0f9ff',
+              padding: '20px',
+              borderRadius: '12px',
+              border: '1px solid #bfdbfe'
+            }}>
+              <p style={{ color: '#1e40af', margin: 0 }}>
+                📊 Complete analysis with scores and specific recommendations will be available in your <strong>Progress Dashboard</strong> shortly.
+              </p>
+            </div>
           </div>
         )}
 
@@ -481,33 +468,30 @@ function EnhancedFeedback({ sessionId, basicFeedback, onContinue, onViewDashboar
           </button>
           
           <button
-  onClick={() => {
-    // Navigate directly to progress tab
-    if (onViewDashboard) {
-      onViewDashboard('progress'); // Pass tab parameter
-    }
-  }}
-  style={{
-    backgroundColor: '#6b7280',
-    color: 'white',
-    border: 'none',
-    padding: '15px 30px',
-    borderRadius: '10px',
-    fontSize: '1rem',
-    fontWeight: '600',
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-    transition: 'all 0.3s ease'
-  }}
-  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#4b5563'}
-  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#6b7280'}
->
-  <Star size={20} />
-  View Progress Dashboard
-</button>
-
+            onClick={() => {
+              sessionStorage.setItem('dashboardTab', 'progress');
+              onViewDashboard();
+            }}
+            style={{
+              backgroundColor: '#6b7280',
+              color: 'white',
+              border: 'none',
+              padding: '15px 30px',
+              borderRadius: '10px',
+              fontSize: '1rem',
+              fontWeight: '600',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              transition: 'all 0.3s ease'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#4b5563'}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#6b7280'}
+          >
+            <Star size={20} />
+            View Progress Dashboard
+          </button>
         </div>
       </div>
     </div>
