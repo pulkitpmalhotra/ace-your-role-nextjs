@@ -56,10 +56,27 @@ function Dashboard({ userEmail, onStartSession, onViewFeedbackDashboard }) {
   };
 const handleDownloadReport = async (sessionId) => {
   try {
+    console.log('📄 Starting PDF download for session:', sessionId);
+    
+    // Generate and download PDF
     await apiService.downloadFeedbackReport(sessionId, userEmail);
+    
+    // Optional: Log the download
+    try {
+      await fetch('/api/log-download', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId, userEmail })
+      });
+    } catch (logError) {
+      console.log('Failed to log download, but PDF was successful');
+    }
+    
+    console.log('✅ PDF downloaded successfully');
+    
   } catch (error) {
+    console.error('❌ Download error:', error);
     alert('Failed to download report. Please try again.');
-    console.error('Download error:', error);
   }
 };
   if (loading) {
