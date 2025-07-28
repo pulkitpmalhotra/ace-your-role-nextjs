@@ -481,27 +481,33 @@ function EnhancedFeedback({ sessionId, basicFeedback, onContinue, onViewDashboar
           </button>
           
           <button
-            onClick={onViewDashboard}
-            style={{
-              backgroundColor: '#6b7280',
-              color: 'white',
-              border: 'none',
-              padding: '15px 30px',
-              borderRadius: '10px',
-              fontSize: '1rem',
-              fontWeight: '600',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              transition: 'all 0.3s ease'
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#4b5563'}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#6b7280'}
-          >
-            <Star size={20} />
-            View Progress Dashboard
-          </button>
+  onClick={() => {
+    // Navigate directly to progress tab
+    if (onViewDashboard) {
+      onViewDashboard('progress'); // Pass tab parameter
+    }
+  }}
+  style={{
+    backgroundColor: '#6b7280',
+    color: 'white',
+    border: 'none',
+    padding: '15px 30px',
+    borderRadius: '10px',
+    fontSize: '1rem',
+    fontWeight: '600',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    transition: 'all 0.3s ease'
+  }}
+  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#4b5563'}
+  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#6b7280'}
+>
+  <Star size={20} />
+  View Progress Dashboard
+</button>
+
         </div>
       </div>
     </div>
