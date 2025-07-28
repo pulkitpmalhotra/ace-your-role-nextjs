@@ -1,4 +1,4 @@
-// Create new file: src/components/ScenarioFilters.js
+// src/components/ScenarioFilters.js
 import React, { useState, useEffect } from 'react';
 import { Search, Filter, X, ChevronDown } from 'lucide-react';
 
