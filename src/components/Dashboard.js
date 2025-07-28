@@ -2,16 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { apiService } from '../services/api';
 import { Play, User, TrendingUp, BarChart3, Target, Calendar } from 'lucide-react';
 
-function Dashboard({ userEmail, onStartSession, onViewFeedbackDashboard }) {
+function Dashboard({ userEmail, onStartSession, onViewFeedbackDashboard, initialTab = 'scenarios' }) {
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [scenarios, setScenarios] = useState([]);
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('scenarios'); // 'scenarios' | 'progress'
 
-  useEffect(() => {
-    loadData();
-  }, []);
+useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
 
   const loadData = async () => {
     try {
