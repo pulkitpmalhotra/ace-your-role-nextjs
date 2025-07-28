@@ -365,23 +365,23 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
   };
 
   // Enhanced Feedback Screen
-  if (showFeedback && feedback) {
-    return (
-      <EnhancedFeedback
-        sessionId={sessionId}
-        basicFeedback={feedback}
-        onContinue={() => {
-          setShowFeedback(false);
-          onEndSession();
-        }}
-        onViewDashboard={() => {
-          setShowFeedback(false);
-          onEndSession();
-        }}
-      />
-    );
-  }
-
+ if (showFeedback && feedback) {
+  return (
+    <EnhancedFeedback
+      sessionId={sessionId}
+      basicFeedback={feedback}
+      onContinue={() => {
+        setShowFeedback(false);
+        onEndSession();
+      }}
+      onViewDashboard={(tab = 'progress') => {
+        setShowFeedback(false);
+        // Navigate to dashboard with specific tab
+        onEndSession(tab);
+      }}
+    />
+  );
+}
   // Error Screen
   if (error) {
     return (
