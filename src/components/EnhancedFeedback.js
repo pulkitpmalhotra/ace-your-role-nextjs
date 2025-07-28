@@ -11,63 +11,32 @@ function EnhancedFeedback({ sessionId, basicFeedback, onContinue, onViewDashboar
   }, [sessionId]);
 
   const loadDetailedFeedback = async () => {
-  try {
-    setLoading(true);
-    setError(null);
-    
-    console.log('🔬 Loading detailed feedback for session:', sessionId);
-    
-    // First try to get stored feedback from the session
     try {
-      const response = await fetch(`/api/sessions/${sessionId}/feedback`);
-      if (response.ok) {
-        const result = await response.json();
-        if (result.success && result.data.detailedFeedback) {
-          console.log('✅ Found stored detailed feedback');
-          setDetailedFeedback(result.data.detailedFeedback);
-          return;
-        }
-      }
-    } catch (err) {
-      console.log('⚠️ Could not fetch stored feedback, will use mock');
-    }
-    
-    // If no stored feedback, use smart mock data
-    console.log('🎭 Using mock feedback based on session data');
-    setDetailedFeedback(getMockFeedback());
-    
-  } catch (err) {
-    console.error('❌ Error loading detailed feedback:', err);
-    setDetailedFeedback(getMockFeedback());
-  } finally {
-    setLoading(false);
-  }
-};
+      setLoading(true);
+      setError(null);
       
-      // Try to get detailed feedback from API
-      const response = await fetch('/api/feedback-analysis', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId,
-          conversation: [], // In real implementation, this would come from props
-          scenario: { title: basicFeedback.scenario || "Practice Session" }
-        })
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        if (result.success) {
-          console.log('✅ Detailed feedback loaded:', result.data);
-          setDetailedFeedback(result.data);
-        } else {
-          console.warn('⚠️ Feedback API returned error:', result.error);
-          setDetailedFeedback(getMockFeedback());
+      console.log('🔬 Loading detailed feedback for session:', sessionId);
+      
+      // First try to get stored feedback from the session
+      try {
+        const response = await fetch(`/api/sessions/${sessionId}/feedback`);
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success && result.data.detailedFeedback) {
+            console.log('✅ Found stored detailed feedback');
+            setDetailedFeedback(result.data.detailedFeedback);
+            setLoading(false);
+            return;
+          }
         }
-      } else {
-        console.warn('⚠️ Feedback API failed, using mock data');
-        setDetailedFeedback(getMockFeedback());
+      } catch (err) {
+        console.log('⚠️ Could not fetch stored feedback, will use mock');
       }
+      
+      // If no stored feedback, use smart mock data
+      console.log('🎭 Using mock feedback based on session data');
+      setDetailedFeedback(getMockFeedback());
+      
     } catch (err) {
       console.error('❌ Error loading detailed feedback:', err);
       setDetailedFeedback(getMockFeedback());
@@ -78,46 +47,46 @@ function EnhancedFeedback({ sessionId, basicFeedback, onContinue, onViewDashboar
 
   const getMockFeedback = () => {
     // Generate dynamic mock feedback based on basic feedback
-    const baseScore = Math.min(4.5, Math.max(2.0, basicFeedback.exchanges * 0.3 + 2.5));
+    const baseScore = Math.min(4.5, Math.max(2.0, basicFeedback.exchanges * 0.2 + 2.5));
     
     return {
       overallScore: Math.round(baseScore * 10) / 10,
       categories: {
         opening: {
           score: Math.min(5, Math.round(baseScore + (Math.random() * 0.5 - 0.25))),
-          feedback: "Your greeting was professional and you showed good energy. You established initial rapport effectively.",
+          feedback: "Your greeting was professional and you showed good energy. You established initial rapport effectively with the customer.",
           suggestions: ["Try to set a clearer agenda upfront", "Ask more engaging opening questions", "Show more enthusiasm in your voice tone"]
         },
         discovery: {
           score: Math.min(5, Math.round(baseScore - 0.5 + (Math.random() * 0.5))),
-          feedback: "You asked some good questions but could have dug deeper into pain points and needs.",
+          feedback: "You asked some good questions but could have dug deeper into pain points and specific needs of the customer.",
           suggestions: ["Use more open-ended questions", "Listen more actively to responses", "Follow up with 'tell me more about that'"]
         },
         presentation: {
           score: Math.min(5, Math.round(baseScore + (Math.random() * 0.5 - 0.25))),
-          feedback: "Good job tailoring your solution presentation and focusing on benefits rather than features.",
-          suggestions: ["Use more specific examples and case studies", "Address potential concerns proactively", "Make it more conversational"]
+          feedback: "Good job tailoring your solution presentation and focusing on benefits rather than just features.",
+          suggestions: ["Use more specific examples and case studies", "Address potential concerns proactively", "Make the presentation more conversational"]
         },
         objection: {
           score: Math.min(5, Math.round(baseScore - 0.3 + (Math.random() * 0.6))),
-          feedback: "You handled objections adequately but could show more confidence and empathy.",
+          feedback: "You handled objections adequately but could show more confidence and empathy when addressing concerns.",
           suggestions: ["Acknowledge concerns first before responding", "Ask questions to understand objections better", "Use the feel-felt-found technique"]
         },
         closing: {
           score: Math.min(5, Math.round(baseScore + 0.2 + (Math.random() * 0.3))),
-          feedback: "Good attempt at defining next steps and seeking commitment from the prospect.",
+          feedback: "Good attempt at defining next steps and seeking some level of commitment from the prospect.",
           suggestions: ["Try trial closes earlier in conversation", "Be more direct in asking for the sale", "Create more urgency around next steps"]
         }
       },
       overall: {
         strengths: [
           "Professional communication style",
-          "Good product knowledge",
+          "Good product knowledge demonstration",
           "Clear articulation of ideas",
-          "Positive attitude throughout"
+          "Positive attitude throughout conversation"
         ],
         improvements: [
-          "Active listening skills",
+          "Active listening skills development",
           "Discovery questioning depth",
           "Objection handling confidence",
           "Closing technique timing"
