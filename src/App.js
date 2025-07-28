@@ -58,11 +58,12 @@ function App() {
     setCurrentState('session');
   };
 
-  const handleEndSession = () => {
-    console.log('🏁 Session ended, returning to dashboard');
-    setSelectedScenario(null);
-    setCurrentState('dashboard');
-  };
+ const handleEndSession = (targetTab = 'scenarios') => {
+  console.log('🏁 Session ended, returning to dashboard with tab:', targetTab);
+  setSelectedScenario(null);
+  setCurrentState('dashboard');
+  setInitialDashboardTab(targetTab); // Set the target tab
+};
 
   const handleLogout = () => {
     console.log('👋 User logged out');
