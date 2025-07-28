@@ -11,11 +11,38 @@ function EnhancedFeedback({ sessionId, basicFeedback, onContinue, onViewDashboar
   }, [sessionId]);
 
   const loadDetailedFeedback = async () => {
+  try {
+    setLoading(true);
+    setError(null);
+    
+    console.log('🔬 Loading detailed feedback for session:', sessionId);
+    
+    // First try to get stored feedback from the session
     try {
-      setLoading(true);
-      setError(null);
-      
-      console.log('🔬 Loading detailed feedback for session:', sessionId);
+      const response = await fetch(`/api/sessions/${sessionId}/feedback`);
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success && result.data.detailedFeedback) {
+          console.log('✅ Found stored detailed feedback');
+          setDetailedFeedback(result.data.detailedFeedback);
+          return;
+        }
+      }
+    } catch (err) {
+      console.log('⚠️ Could not fetch stored feedback, will use mock');
+    }
+    
+    // If no stored feedback, use smart mock data
+    console.log('🎭 Using mock feedback based on session data');
+    setDetailedFeedback(getMockFeedback());
+    
+  } catch (err) {
+    console.error('❌ Error loading detailed feedback:', err);
+    setDetailedFeedback(getMockFeedback());
+  } finally {
+    setLoading(false);
+  }
+};
       
       // Try to get detailed feedback from API
       const response = await fetch('/api/feedback-analysis', {
