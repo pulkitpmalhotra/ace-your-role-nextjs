@@ -365,18 +365,20 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
   };
 
   // Enhanced Feedback Screen
- if (showFeedback && feedback) {
+if (showFeedback && feedback) {
   return (
     <EnhancedFeedback
       sessionId={sessionId}
-      basicFeedback={feedback}
+      basicFeedback={{
+        ...feedback,
+        userEmail: userEmail // Add user email so it can fetch the session
+      }}
       onContinue={() => {
         setShowFeedback(false);
         onEndSession();
       }}
       onViewDashboard={(tab = 'progress') => {
         setShowFeedback(false);
-        // Navigate to dashboard with specific tab
         onEndSession(tab);
       }}
     />
