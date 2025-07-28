@@ -1,11 +1,20 @@
-// Update api/scenarios.js
-import { withAuth } from '../lib/auth.js';
-
-async function handler(req, res) {
+// api/scenarios.js - Enhanced with filtering and search
+export default async function handler(req, res) {
   console.log('🚀 Scenarios API called');
   console.log('Method:', req.method);
   console.log('Query params:', req.query);
   
+  // CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    console.log('✅ OPTIONS handled');
+    res.status(200).end();
+    return;
+  }
+
   if (req.method !== 'GET') {
     console.log('❌ Wrong method:', req.method);
     return res.status(405).json({ 
@@ -141,25 +150,21 @@ async function handler(req, res) {
 
     console.log(`✅ Success! Found ${scenarios?.length || 0} scenarios`);
     
-    // Add metadata for filtering UI
-    const metadata = {
-      total: scenarios?.length || 0,
-      filters: {
-        category,
-        difficulty,
-        search,
-        subcategory,
-        tags
-      },
-      availableCategories: await getAvailableCategories(supabase),
-      availableSubcategories: await getAvailableSubcategories(supabase, category),
-      availableDifficulties: ['beginner', 'intermediate', 'advanced']
-    };
+    // Get metadata for filtering UI
+    const metadata = await getMetadata(supabase, category);
     
     return res.status(200).json({
       success: true,
       data: scenarios || [],
       meta: {
+        total: scenarios?.length || 0,
+        filters: {
+          category,
+          difficulty,
+          search,
+          subcategory,
+          tags
+        },
         ...metadata,
         timestamp: new Date().toISOString()
       }
@@ -178,44 +183,43 @@ async function handler(req, res) {
   }
 }
 
-// Helper function to get available categories
-async function getAvailableCategories(supabase) {
+// Helper function to get metadata
+async function getMetadata(supabase, category) {
   try {
-    const { data } = await supabase
+    // Get available categories
+    const { data: categoryData } = await supabase
       .from('scenarios')
       .select('category')
       .eq('is_active', true)
       .not('category', 'is', null);
     
-    const categories = [...new Set(data?.map(item => item.category) || [])];
-    return categories.sort();
-  } catch (error) {
-    console.error('Failed to get categories:', error);
-    return ['sales', 'leadership', 'healthcare', 'support'];
-  }
-}
+    const availableCategories = [...new Set(categoryData?.map(item => item.category) || [])];
 
-// Helper function to get available subcategories
-async function getAvailableSubcategories(supabase, category) {
-  try {
-    let query = supabase
+    // Get available subcategories based on category
+    let subcategoryQuery = supabase
       .from('scenarios')
       .select('subcategory')
       .eq('is_active', true)
       .not('subcategory', 'is', null);
     
     if (category !== 'all') {
-      query = query.eq('category', category);
+      subcategoryQuery = subcategoryQuery.eq('category', category);
     }
     
-    const { data } = await query;
-    const subcategories = [...new Set(data?.map(item => item.subcategory) || [])];
-    return subcategories.sort();
+    const { data: subcategoryData } = await subcategoryQuery;
+    const availableSubcategories = [...new Set(subcategoryData?.map(item => item.subcategory) || [])];
+
+    return {
+      availableCategories: availableCategories.sort(),
+      availableSubcategories: availableSubcategories.sort(),
+      availableDifficulties: ['beginner', 'intermediate', 'advanced']
+    };
   } catch (error) {
-    console.error('Failed to get subcategories:', error);
-    return [];
+    console.error('Failed to get metadata:', error);
+    return {
+      availableCategories: ['sales', 'leadership', 'healthcare', 'support'],
+      availableSubcategories: [],
+      availableDifficulties: ['beginner', 'intermediate', 'advanced']
+    };
   }
 }
-
-// Export with public access (no auth required for browsing scenarios)
-export default withAuth(handler, { public: true });
