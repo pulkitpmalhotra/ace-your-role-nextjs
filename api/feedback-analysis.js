@@ -1,10 +1,27 @@
-// Replace api/feedback-analysis.js completely with this improved version
-import { withAuth } from '../lib/auth.js';
+// api/feedback-analysis.js - REAL FEEDBACK ONLY
+import { createClient } from '@supabase/supabase-js';
 
-async function handler(req, res) {
-  console.log('🔬 Feedback Analysis API called');
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_ANON_KEY
+);
+
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent';
+
+export default async function handler(req, res) {
+  console.log('🔬 Feedback Analysis API called - REAL ANALYSIS ONLY');
   console.log('Method:', req.method);
   console.log('Body:', req.body);
+
+  // CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
 
   if (req.method !== 'POST') {
     return res.status(405).json({ success: false, error: 'Method not allowed' });
@@ -44,10 +61,12 @@ async function handler(req, res) {
       });
     }
 
+    console.log('🤖 Generating REAL feedback with Gemini...');
+
     // Generate detailed feedback using ONLY real Gemini analysis
-    const detailedFeedback = await generateRealFeedback(conversation, scenario || {});
+    const detailedFeedback = await generateRealFeedback(conversation, scenario || {}, apiKey);
     
-    console.log('✅ Generated real feedback:', detailedFeedback);
+    console.log('✅ Generated real feedback:', detailedFeedback.overallScore);
 
     // Store feedback in database
     await storeFeedbackAnalysis(sessionId, detailedFeedback);
@@ -69,11 +88,8 @@ async function handler(req, res) {
   }
 }
 
-async function generateRealFeedback(conversation, scenario) {
-  console.log('🤖 Generating REAL Gemini feedback...');
-  
-  const apiKey = process.env.GEMINI_API_KEY;
-  const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent';
+async function generateRealFeedback(conversation, scenario, apiKey) {
+  console.log('🤖 Generating REAL Gemini feedback - No mock data allowed...');
 
   try {
     // Format conversation for analysis
@@ -168,7 +184,7 @@ Remember: Be tough but fair. Real sales is competitive. Only exceptional perform
       body: JSON.stringify({
         contents: [{ parts: [{ text: analysisPrompt }] }],
         generationConfig: {
-          temperature: 0.3, // Lower temperature for more consistent feedback
+          temperature: 0.3,
           topK: 40,
           topP: 0.95,
           maxOutputTokens: 1500,
@@ -226,7 +242,7 @@ function parseAnalysisResponse(analysisText) {
     const suggestionsMatch = analysisText.match(new RegExp(`${category}_SUGGESTIONS: (.+?)(?=\\n\\w+_|$)`, 's'));
     
     feedback.categories[category.toLowerCase()] = {
-      score: scoreMatch ? parseInt(scoreMatch[1]) : 2, // Default to 2 if parsing fails
+      score: scoreMatch ? parseInt(scoreMatch[1]) : 2,
       feedback: feedbackMatch ? feedbackMatch[1].trim() : "Analysis could not be completed for this section.",
       suggestions: suggestionsMatch ? 
         suggestionsMatch[1].trim().split('|').filter(s => s.trim()).map(s => s.trim()) :
@@ -265,7 +281,7 @@ function parseAnalysisResponse(analysisText) {
     weightedSum += data.score * (weights[category] || 0.2);
   });
 
-  feedback.overallScore = Math.round(weightedSum * 10) / 10; // Round to 1 decimal
+  feedback.overallScore = Math.round(weightedSum * 10) / 10;
 
   console.log('✅ Parsed real feedback with overall score:', feedback.overallScore);
   
@@ -276,13 +292,6 @@ async function storeFeedbackAnalysis(sessionId, feedback) {
   console.log('💾 Storing real feedback analysis in database...');
   
   try {
-    // Import Supabase here to avoid issues
-    const { createClient } = await import('@supabase/supabase-js');
-    const supabase = createClient(
-      process.env.SUPABASE_URL,
-      process.env.SUPABASE_ANON_KEY
-    );
-
     // Store detailed feedback in database
     const feedbackRecords = [];
     
@@ -332,6 +341,3 @@ async function storeFeedbackAnalysis(sessionId, feedback) {
     throw new Error(`Database storage failed: ${error.message}`);
   }
 }
-
-// Export with authentication
-export default withAuth(handler);
