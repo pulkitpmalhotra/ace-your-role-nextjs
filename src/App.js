@@ -124,13 +124,13 @@ const handleViewFeedbackDashboard = (initialTab = 'scenarios') => {
   />
 )}
 
-      {currentState === 'session' && selectedScenario && (
-        <RoleplaySession
-          scenario={selectedScenario}
-          userEmail={userEmail}
-          onEndSession={handleEndSession}
-        />
-      )}
+{currentState === 'session' && selectedScenario && (
+  <RoleplaySession
+    scenario={selectedScenario}
+    userEmail={userEmail}
+    onEndSession={handleEndSession}
+  />
+)}
 
        {currentState === 'feedback-dashboard' && (
   <FeedbackDashboard 
