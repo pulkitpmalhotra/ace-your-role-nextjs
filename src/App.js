@@ -8,9 +8,11 @@ import './App.css';
 
 function App() {
   const [currentState, setCurrentState] = useState('login');
+  const [initialDashboardTab, setInitialDashboardTab] = useState('scenarios');
   const [userEmail, setUserEmail] = useState('');
   const [selectedScenario, setSelectedScenario] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+
 
   useEffect(() => {
     const loadUserData = () => {
@@ -76,9 +78,10 @@ function App() {
     setCurrentState('login');
   };
   
-const handleViewFeedbackDashboard = () => {
-  console.log('📊 Opening feedback dashboard');
+const handleViewFeedbackDashboard = (initialTab = 'scenarios') => {
+  console.log('📊 Opening feedback dashboard with tab:', initialTab);
   setCurrentState('feedback-dashboard');
+  setInitialDashboardTab(initialTab); // Add this state
 };
   
   if (isLoading) {
@@ -131,7 +134,11 @@ const handleViewFeedbackDashboard = () => {
        {currentState === 'feedback-dashboard' && (
   <FeedbackDashboard 
     userEmail={userEmail}
-    onBack={() => setCurrentState('dashboard')}
+    initialTab={initialDashboardTab}
+    onBack={() => {
+      setCurrentState('dashboard');
+      setInitialDashboardTab('scenarios');
+    }}
   />
 )}
       
