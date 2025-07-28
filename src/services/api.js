@@ -216,173 +216,244 @@ class APIService {
   }
 
   async generateClientSidePDF(session, detailedFeedback) {
-    // Import jsPDF dynamically to avoid SSR issues
-    const { jsPDF } = await import('jspdf');
-    
-    const doc = new jsPDF();
-    
-    let yPosition = 20;
-    const pageWidth = doc.internal.pageSize.width;
-    const margin = 20;
-    
-    // Helper function to add text
-    const addText = (text, x, y, options = {}) => {
-      const fontSize = options.fontSize || 12;
-      const fontStyle = options.fontStyle || 'normal';
-      const maxWidth = options.maxWidth || (pageWidth - margin * 2);
-      
-      doc.setFontSize(fontSize);
-      doc.setFont('helvetica', fontStyle);
-      
-      const lines = doc.splitTextToSize(text, maxWidth);
-      doc.text(lines, x, y);
-      
-      return y + (lines.length * fontSize * 0.4) + 5;
-    };
+  const { jsPDF } = await import('jspdf');
+  
+  const doc = new jsPDF();
+  
+  let yPosition = 20;
+  const pageWidth = doc.internal.pageSize.width;
+  const pageHeight = doc.internal.pageSize.height;
+  const margin = 20;
+  const contentWidth = pageWidth - (margin * 2);
+  
+  // Consistent font settings
+  const fonts = {
+    title: { size: 20, style: 'bold' },
+    heading: { size: 16, style: 'bold' },
+    subheading: { size: 14, style: 'bold' },
+    body: { size: 11, style: 'normal' },
+    small: { size: 9, style: 'normal' }
+  };
 
-    // Header with blue background
-    doc.setFillColor(103, 126, 234);
-    doc.rect(0, 0, pageWidth, 35, 'F');
+  // Helper function to add text with consistent styling
+  const addText = (text, x, y, fontType = 'body', options = {}) => {
+    const font = fonts[fontType];
+    const maxWidth = options.maxWidth || contentWidth;
+    const color = options.color || [0, 0, 0];
+    const lineHeight = options.lineHeight || 1.2;
+    
+    doc.setFont('helvetica', font.style);
+    doc.setFontSize(font.size);
+    doc.setTextColor(color[0], color[1], color[2]);
+    
+    // Handle text wrapping
+    const lines = doc.splitTextToSize(text, maxWidth);
+    
+    // Check if we need a new page
+    const textHeight = lines.length * font.size * lineHeight * 0.352778; // Convert to mm
+    if (y + textHeight > pageHeight - 30) {
+      doc.addPage();
+      y = 30;
+    }
+    
+    doc.text(lines, x, y);
+    
+    return y + textHeight + 5; // Add some spacing
+  };
+
+  // Header with logo area
+  doc.setFillColor(103, 126, 234);
+  doc.rect(0, 0, pageWidth, 40, 'F');
+  
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(22);
+  doc.text('🎯 AI Sales Roleplay', margin, 25);
+  
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(14);
+  doc.text('Professional Feedback Report', margin, 35);
+  
+  // Reset position
+  yPosition = 55;
+
+  // User Information
+  yPosition = addText('REPORT DETAILS', margin, yPosition, 'heading', { color: [59, 130, 246] });
+  yPosition += 5;
+
+  const sessionDate = new Date(session.start_time).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+  const sessionTime = new Date(session.start_time).toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+
+  // Create a clean info box
+  doc.setFillColor(248, 250, 252);
+  doc.rect(margin, yPosition, contentWidth, 45, 'F');
+  doc.setDrawColor(226, 232, 240);
+  doc.rect(margin, yPosition, contentWidth, 45, 'S');
+
+  yPosition += 8;
+  yPosition = addText(`User: ${session.user_email || 'Not specified'}`, margin + 10, yPosition, 'body');
+  yPosition = addText(`Scenario: ${session.scenarios?.title || 'Practice Session'}`, margin + 10, yPosition, 'body');
+  yPosition = addText(`Character: ${session.scenarios?.character_name || 'N/A'} (${session.scenarios?.character_role || 'N/A'})`, margin + 10, yPosition, 'body');
+  yPosition = addText(`Date: ${sessionDate} at ${sessionTime}`, margin + 10, yPosition, 'body');
+  yPosition = addText(`Duration: ${session.duration_minutes || 0} minutes`, margin + 10, yPosition, 'body');
+  
+  yPosition += 15;
+
+  // Overall Performance Section
+  if (session.overall_score) {
+    yPosition = addText('OVERALL PERFORMANCE', margin, yPosition, 'heading', { color: [59, 130, 246] });
+    yPosition += 5;
+
+    const scoreLevel = session.overall_score >= 4 ? 'Excellent' :
+                     session.overall_score >= 3 ? 'Good' :
+                     session.overall_score >= 2 ? 'Needs Improvement' : 'Poor';
+    
+    const scoreColor = session.overall_score >= 4 ? [34, 197, 94] :
+                      session.overall_score >= 3 ? [245, 158, 11] :
+                      session.overall_score >= 2 ? [249, 115, 22] : [239, 68, 68];
+
+    // Score display box
+    doc.setFillColor(scoreColor[0], scoreColor[1], scoreColor[2]);
+    doc.rect(margin, yPosition, 60, 20, 'F');
     
     doc.setTextColor(255, 255, 255);
-    doc.setFontSize(20);
     doc.setFont('helvetica', 'bold');
-    doc.text('🎯 AI Sales Roleplay - Feedback Report', margin, 25);
-    
-    // Reset colors
+    doc.setFontSize(16);
+    doc.text(`${session.overall_score.toFixed(1)}/5.0`, margin + 5, yPosition + 13);
+
     doc.setTextColor(0, 0, 0);
-    yPosition = 50;
-
-    // Session Information
-    yPosition = addText('Session Information', margin, yPosition, {
-      fontSize: 16,
-      fontStyle: 'bold'
-    });
-
-    const sessionDate = new Date(session.start_time).toLocaleDateString();
-    const sessionTime = new Date(session.start_time).toLocaleTimeString();
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(12);
+    doc.text(`Performance Level: ${scoreLevel}`, margin + 70, yPosition + 13);
     
-    yPosition = addText(`Scenario: ${session.scenarios?.title || 'Practice Session'}`, margin, yPosition);
-    yPosition = addText(`Character: ${session.scenarios?.character_name || 'N/A'}`, margin, yPosition);
-    yPosition = addText(`Date: ${sessionDate} at ${sessionTime}`, margin, yPosition);
-    yPosition = addText(`Duration: ${session.duration_minutes || 0} minutes`, margin, yPosition);
+    yPosition += 35;
+  }
+
+  // Skills Assessment Section
+  if (detailedFeedback && detailedFeedback.categories) {
+    yPosition = addText('SKILLS ASSESSMENT', margin, yPosition, 'heading', { color: [59, 130, 246] });
     yPosition += 10;
 
-    // Overall Score
-    if (session.overall_score) {
-      yPosition = addText('Overall Performance', margin, yPosition, {
-        fontSize: 16,
-        fontStyle: 'bold'
-      });
+    const categoryNames = {
+      opening: 'Opening & Rapport Building',
+      discovery: 'Discovery & Needs Assessment',
+      presentation: 'Solution Presentation',
+      objection: 'Objection Handling',
+      closing: 'Closing & Next Steps'
+    };
 
-      const scoreText = `Overall Score: ${session.overall_score}/5.0`;
-      const scoreLevel = session.overall_score >= 4 ? 'Excellent' :
-                       session.overall_score >= 3 ? 'Good' :
-                       session.overall_score >= 2 ? 'Needs Improvement' : 'Poor';
-      
-      yPosition = addText(`${scoreText} (${scoreLevel})`, margin, yPosition, {
-        fontSize: 14,
-        fontStyle: 'bold'
-      });
-      yPosition += 10;
-    }
-
-    // Category Breakdown
-    if (detailedFeedback && detailedFeedback.categories) {
-      yPosition = addText('Skills Assessment', margin, yPosition, {
-        fontSize: 16,
-        fontStyle: 'bold'
-      });
-
-      const categoryNames = {
-        opening: 'Opening & Rapport Building',
-        discovery: 'Discovery & Needs Assessment', 
-        presentation: 'Solution Presentation',
-        objection: 'Objection Handling',
-        closing: 'Closing & Next Steps'
-      };
-
-      Object.entries(detailedFeedback.categories).forEach(([category, data]) => {
-        // Check if we need a new page
-        if (yPosition > 250) {
-          doc.addPage();
-          yPosition = 20;
-        }
-
-        yPosition = addText(`${categoryNames[category] || category}`, margin, yPosition, {
-          fontSize: 14,
-          fontStyle: 'bold'
-        });
-
-        yPosition = addText(`Score: ${data.score}/5`, margin + 5, yPosition);
-        yPosition = addText(`Feedback: ${data.feedback}`, margin + 5, yPosition);
-
-        if (data.suggestions && data.suggestions.length > 0) {
-          yPosition = addText('Improvement Tips:', margin + 5, yPosition, {
-            fontStyle: 'bold'
-          });
-          data.suggestions.forEach(suggestion => {
-            yPosition = addText(`• ${suggestion}`, margin + 10, yPosition);
-          });
-        }
-        yPosition += 8;
-      });
-    }
-
-    // Overall Insights
-    if (detailedFeedback && detailedFeedback.overall) {
-      if (yPosition > 200) {
+    Object.entries(detailedFeedback.categories).forEach(([category, data]) => {
+      // Check for page break
+      if (yPosition > pageHeight - 80) {
         doc.addPage();
-        yPosition = 20;
+        yPosition = 30;
       }
 
-      yPosition = addText('Key Insights', margin, yPosition, {
-        fontSize: 16,
-        fontStyle: 'bold'
+      // Category header with score
+      const categoryTitle = categoryNames[category] || category;
+      yPosition = addText(categoryTitle, margin, yPosition, 'subheading');
+      
+      // Score badge
+      const scoreColor = data.score >= 4 ? [34, 197, 94] :
+                        data.score >= 3 ? [245, 158, 11] :
+                        data.score >= 2 ? [249, 115, 22] : [239, 68, 68];
+      
+      doc.setFillColor(scoreColor[0], scoreColor[1], scoreColor[2]);
+      doc.rect(margin + 120, yPosition - 12, 25, 12, 'F');
+      
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.text(`${data.score}/5`, margin + 125, yPosition - 4);
+
+      yPosition += 3;
+
+      // Feedback text
+      yPosition = addText(`Assessment: ${data.feedback}`, margin + 5, yPosition, 'body', {
+        maxWidth: contentWidth - 10
       });
 
-      if (detailedFeedback.overall.strengths.length > 0) {
-        yPosition = addText('Your Strengths:', margin, yPosition, {
-          fontStyle: 'bold'
+      // Improvement suggestions
+      if (data.suggestions && data.suggestions.length > 0) {
+        yPosition = addText('Improvement Recommendations:', margin + 5, yPosition, 'body', {
+          color: [59, 130, 246]
         });
-        detailedFeedback.overall.strengths.forEach(strength => {
-          yPosition = addText(`✓ ${strength}`, margin + 5, yPosition);
+        
+        data.suggestions.forEach((suggestion) => {
+          yPosition = addText(`• ${suggestion}`, margin + 10, yPosition, 'body', {
+            maxWidth: contentWidth - 15
+          });
         });
-        yPosition += 5;
       }
-
-      if (detailedFeedback.overall.improvements.length > 0) {
-        yPosition = addText('Areas for Improvement:', margin, yPosition, {
-          fontStyle: 'bold'
-        });
-        detailedFeedback.overall.improvements.forEach(improvement => {
-          yPosition = addText(`→ ${improvement}`, margin + 5, yPosition);
-        });
-        yPosition += 5;
-      }
-
-      if (detailedFeedback.overall.nextFocus) {
-        yPosition = addText('Next Session Focus:', margin, yPosition, {
-          fontStyle: 'bold'
-        });
-        yPosition = addText(detailedFeedback.overall.nextFocus, margin + 5, yPosition);
-      }
-    }
-
-    // Footer
-    const pageCount = doc.internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(8);
-      doc.setTextColor(128, 128, 128);
-      doc.text(`Generated on ${new Date().toLocaleDateString()} | Page ${i} of ${pageCount}`, margin, 285);
-      doc.text('AI Sales Roleplay Platform', pageWidth - margin - 40, 285);
-    }
-
-    // Download the PDF
-    const fileName = `sales-feedback-${session.id.substring(0, 8)}.pdf`;
-    doc.save(fileName);
+      
+      yPosition += 8;
+    });
   }
+
+  // Key Insights Section
+  if (detailedFeedback && detailedFeedback.overall) {
+    // Check for page break
+    if (yPosition > pageHeight - 100) {
+      doc.addPage();
+      yPosition = 30;
+    }
+
+    yPosition = addText('KEY INSIGHTS', margin, yPosition, 'heading', { color: [59, 130, 246] });
+    yPosition += 10;
+
+    if (detailedFeedback.overall.strengths.length > 0) {
+      yPosition = addText('Your Strengths:', margin, yPosition, 'subheading', { color: [34, 197, 94] });
+      detailedFeedback.overall.strengths.forEach(strength => {
+        yPosition = addText(`✓ ${strength}`, margin + 5, yPosition, 'body');
+      });
+      yPosition += 5;
+    }
+
+    if (detailedFeedback.overall.improvements.length > 0) {
+      yPosition = addText('Areas for Improvement:', margin, yPosition, 'subheading', { color: [249, 115, 22] });
+      detailedFeedback.overall.improvements.forEach(improvement => {
+        yPosition = addText(`→ ${improvement}`, margin + 5, yPosition, 'body');
+      });
+      yPosition += 5;
+    }
+
+    if (detailedFeedback.overall.nextFocus) {
+      yPosition = addText('Next Session Focus:', margin, yPosition, 'subheading', { color: [139, 92, 246] });
+      yPosition = addText(detailedFeedback.overall.nextFocus, margin + 5, yPosition, 'body', {
+        maxWidth: contentWidth - 10
+      });
+    }
+  }
+
+  // Footer on all pages
+  const pageCount = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    
+    // Footer line
+    doc.setDrawColor(226, 232, 240);
+    doc.line(margin, pageHeight - 25, pageWidth - margin, pageHeight - 25);
+    
+    // Footer text
+    doc.setTextColor(107, 114, 128);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.text(`Generated on ${new Date().toLocaleDateString()}`, margin, pageHeight - 15);
+    doc.text(`Page ${i} of ${pageCount}`, pageWidth - margin - 30, pageHeight - 15);
+    doc.text('AI Sales Roleplay Platform - Confidential', margin, pageHeight - 8);
+  }
+
+  // Download the PDF
+  const fileName = `sales-feedback-${session.id.substring(0, 8)}-${new Date().toISOString().split('T')[0]}.pdf`;
+  doc.save(fileName);
+}
 }
 
 export const apiService = new APIService();
