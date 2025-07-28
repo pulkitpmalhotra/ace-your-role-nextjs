@@ -180,6 +180,46 @@ class APIService {
     })
   });
 }
+  async downloadFeedbackReport(sessionId, userEmail) {
+  console.log('📄 Downloading feedback report...');
+  
+  try {
+    const response = await fetch(`${this.baseUrl}/api/feedback-report`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        sessionId,
+        userEmail
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to generate report: ${response.status}`);
+    }
+
+    // Get the PDF blob
+    const blob = await response.blob();
+    
+    // Create download link
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `sales-feedback-${sessionId.substring(0, 8)}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+
+    console.log('✅ Report downloaded successfully');
+    return true;
+
+  } catch (error) {
+    console.error('❌ Download failed:', error);
+    throw error;
+  }
+}
 }
 
 export const apiService = new APIService();
