@@ -2,17 +2,25 @@ import React, { useState, useEffect } from 'react';
 import { apiService } from '../services/api';
 import { Play, User, TrendingUp, BarChart3, Target, Calendar } from 'lucide-react';
 
-function Dashboard({ userEmail, onStartSession, onViewFeedbackDashboard, initialTab = 'scenarios' }) {
-  const [activeTab, setActiveTab] = useState(initialTab);
+function Dashboard({ userEmail, onStartSession, onViewFeedbackDashboard }) {
   const [scenarios, setScenarios] = useState([]);
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState('scenarios'); // 'scenarios' | 'progress'
+  const [activeTab, setActiveTab] = useState('scenarios'); // Single declaration
 
-useEffect(() => {
-    setActiveTab(initialTab);
-  }, [initialTab]);
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  // Check for saved tab preference
+  useEffect(() => {
+    const savedTab = sessionStorage.getItem('dashboardTab');
+    if (savedTab) {
+      setActiveTab(savedTab);
+      sessionStorage.removeItem('dashboardTab');
+    }
+  }, []);
 
   const loadData = async () => {
     try {
@@ -55,31 +63,31 @@ useEffect(() => {
       default: return '📚';
     }
   };
-const handleDownloadReport = async (sessionId) => {
-  try {
-    console.log('📄 Starting PDF download for session:', sessionId);
-    
-    // Generate and download PDF
-    await apiService.downloadFeedbackReport(sessionId, userEmail);
-    
-    // Optional: Log the download
+
+  const handleDownloadReport = async (sessionId) => {
     try {
-      await fetch('/api/log-download', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId, userEmail })
-      });
-    } catch (logError) {
-      console.log('Failed to log download, but PDF was successful');
+      console.log('📄 Starting PDF download for session:', sessionId);
+      await apiService.downloadFeedbackReport(sessionId, userEmail);
+      
+      // Optional: Log the download
+      try {
+        await fetch('/api/log-download', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId, userEmail })
+        });
+      } catch (logError) {
+        console.log('Failed to log download, but PDF was successful');
+      }
+      
+      console.log('✅ PDF downloaded successfully');
+      
+    } catch (error) {
+      console.error('❌ Download error:', error);
+      alert('Failed to download report. Please try again.');
     }
-    
-    console.log('✅ PDF downloaded successfully');
-    
-  } catch (error) {
-    console.error('❌ Download error:', error);
-    alert('Failed to download report. Please try again.');
-  }
-};
+  };
+
   if (loading) {
     return (
       <div style={{ 
@@ -393,96 +401,43 @@ const handleDownloadReport = async (sessionId) => {
         </div>
       )}
 
-{activeTab === 'progress' && (
-  <div>
-    {/* Stats Overview with Visual Elements */}
-    <div style={{
-      display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-      gap: '20px',
-      marginBottom: '30px'
-    }}>
-      {/* Total Sessions Card */}
-      <div style={{
-        backgroundColor: 'white',
-        padding: '24px',
-        borderRadius: '12px',
-        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-        textAlign: 'center',
-        position: 'relative',
-        overflow: 'hidden'
-      }}>
-        <div style={{
-          position: 'absolute',
-          top: 0,
-          right: 0,
-          width: '60px',
-          height: '60px',
-          background: 'linear-gradient(135deg, #3b82f6, #1e40af)',
-          borderRadius: '0 12px 0 60px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center'
-        }}>
-          <span style={{ color: 'white', fontSize: '1.5rem' }}>🎯</span>
-        </div>
-        <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: '#3b82f6', marginBottom: '8px' }}>
-          {sessions.length}
-        </div>
-        <div style={{ color: '#6b7280', fontSize: '0.9rem', marginBottom: '12px' }}>Total Sessions</div>
-        <div style={{ 
-          height: '4px', 
-          backgroundColor: '#e5e7eb', 
-          borderRadius: '2px',
-          position: 'relative'
-        }}>
+      {activeTab === 'progress' && (
+        <div>
+          {/* Stats Overview with Visual Elements */}
           <div style={{
-            height: '100%',
-            backgroundColor: '#3b82f6',
-            borderRadius: '2px',
-            width: `${Math.min(100, (sessions.length / 10) * 100)}%`,
-            transition: 'width 0.5s ease'
-          }}></div>
-        </div>
-        <div style={{ fontSize: '0.7rem', color: '#9ca3af', marginTop: '4px' }}>
-          Goal: 10 sessions
-        </div>
-      </div>
-      
-      {/* Average Score Card */}
-      <div style={{
-        backgroundColor: 'white',
-        padding: '24px',
-        borderRadius: '12px',
-        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-        textAlign: 'center',
-        position: 'relative',
-        overflow: 'hidden'
-      }}>
-        <div style={{
-          position: 'absolute',
-          top: 0,
-          right: 0,
-          width: '60px',
-          height: '60px',
-          background: 'linear-gradient(135deg, #10b981, #059669)',
-          borderRadius: '0 12px 0 60px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center'
-        }}>
-          <span style={{ color: 'white', fontSize: '1.5rem' }}>⭐</span>
-        </div>
-        {(() => {
-          const sessionsWithScores = sessions.filter(s => s.overall_score);
-          const avgScore = sessionsWithScores.length > 0 ? 
-            sessionsWithScores.reduce((acc, s) => acc + s.overall_score, 0) / sessionsWithScores.length : 0;
-          return (
-            <>
-              <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: '#10b981', marginBottom: '8px' }}>
-                {avgScore.toFixed(1)}
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+            gap: '20px',
+            marginBottom: '30px'
+          }}>
+            {/* Total Sessions Card */}
+            <div style={{
+              backgroundColor: 'white',
+              padding: '24px',
+              borderRadius: '12px',
+              boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+              textAlign: 'center',
+              position: 'relative',
+              overflow: 'hidden'
+            }}>
+              <div style={{
+                position: 'absolute',
+                top: 0,
+                right: 0,
+                width: '60px',
+                height: '60px',
+                background: 'linear-gradient(135deg, #3b82f6, #1e40af)',
+                borderRadius: '0 12px 0 60px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <span style={{ color: 'white', fontSize: '1.5rem' }}>🎯</span>
               </div>
-              <div style={{ color: '#6b7280', fontSize: '0.9rem', marginBottom: '12px' }}>Average Score</div>
+              <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: '#3b82f6', marginBottom: '8px' }}>
+                {sessions.length}
+              </div>
+              <div style={{ color: '#6b7280', fontSize: '0.9rem', marginBottom: '12px' }}>Total Sessions</div>
               <div style={{ 
                 height: '4px', 
                 backgroundColor: '#e5e7eb', 
@@ -491,294 +446,347 @@ const handleDownloadReport = async (sessionId) => {
               }}>
                 <div style={{
                   height: '100%',
-                  backgroundColor: avgScore >= 4 ? '#10b981' : avgScore >= 3 ? '#f59e0b' : '#ef4444',
+                  backgroundColor: '#3b82f6',
                   borderRadius: '2px',
-                  width: `${(avgScore / 5) * 100}%`,
+                  width: `${Math.min(100, (sessions.length / 10) * 100)}%`,
                   transition: 'width 0.5s ease'
                 }}></div>
               </div>
               <div style={{ fontSize: '0.7rem', color: '#9ca3af', marginTop: '4px' }}>
-                Goal: 4.0/5.0
+                Goal: 10 sessions
               </div>
-            </>
-          );
-        })()}
-      </div>
-      
-      {/* Practice Time Card */}
-      <div style={{
-        backgroundColor: 'white',
-        padding: '24px',
-        borderRadius: '12px',
-        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-        textAlign: 'center',
-        position: 'relative',
-        overflow: 'hidden'
-      }}>
-        <div style={{
-          position: 'absolute',
-          top: 0,
-          right: 0,
-          width: '60px',
-          height: '60px',
-          background: 'linear-gradient(135deg, #f59e0b, #d97706)',
-          borderRadius: '0 12px 0 60px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center'
-        }}>
-          <span style={{ color: 'white', fontSize: '1.5rem' }}>⏱️</span>
-        </div>
-        {(() => {
-          const totalMinutes = sessions.reduce((acc, s) => acc + (s.duration_minutes || 0), 0);
-          const hours = Math.floor(totalMinutes / 60);
-          const minutes = totalMinutes % 60;
-          return (
-            <>
-              <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: '#f59e0b', marginBottom: '8px' }}>
-                {hours > 0 ? `${hours}h ${minutes}m` : `${totalMinutes}m`}
-              </div>
-              <div style={{ color: '#6b7280', fontSize: '0.9rem', marginBottom: '12px' }}>Practice Time</div>
-              <div style={{ 
-                height: '4px', 
-                backgroundColor: '#e5e7eb', 
-                borderRadius: '2px',
-                position: 'relative'
+            </div>
+            
+            {/* Average Score Card */}
+            <div style={{
+              backgroundColor: 'white',
+              padding: '24px',
+              borderRadius: '12px',
+              boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+              textAlign: 'center',
+              position: 'relative',
+              overflow: 'hidden'
+            }}>
+              <div style={{
+                position: 'absolute',
+                top: 0,
+                right: 0,
+                width: '60px',
+                height: '60px',
+                background: 'linear-gradient(135deg, #10b981, #059669)',
+                borderRadius: '0 12px 0 60px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
               }}>
-                <div style={{
-                  height: '100%',
-                  backgroundColor: '#f59e0b',
-                  borderRadius: '2px',
-                  width: `${Math.min(100, (totalMinutes / 120) * 100)}%`,
-                  transition: 'width 0.5s ease'
-                }}></div>
+                <span style={{ color: 'white', fontSize: '1.5rem' }}>⭐</span>
               </div>
-              <div style={{ fontSize: '0.7rem', color: '#9ca3af', marginTop: '4px' }}>
-                Goal: 2 hours
+              {(() => {
+                const sessionsWithScores = sessions.filter(s => s.overall_score);
+                const avgScore = sessionsWithScores.length > 0 ? 
+                  sessionsWithScores.reduce((acc, s) => acc + s.overall_score, 0) / sessionsWithScores.length : 0;
+                return (
+                  <>
+                    <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: '#10b981', marginBottom: '8px' }}>
+                      {avgScore.toFixed(1)}
+                    </div>
+                    <div style={{ color: '#6b7280', fontSize: '0.9rem', marginBottom: '12px' }}>Average Score</div>
+                    <div style={{ 
+                      height: '4px', 
+                      backgroundColor: '#e5e7eb', 
+                      borderRadius: '2px',
+                      position: 'relative'
+                    }}>
+                      <div style={{
+                        height: '100%',
+                        backgroundColor: avgScore >= 4 ? '#10b981' : avgScore >= 3 ? '#f59e0b' : '#ef4444',
+                        borderRadius: '2px',
+                        width: `${(avgScore / 5) * 100}%`,
+                        transition: 'width 0.5s ease'
+                      }}></div>
+                    </div>
+                    <div style={{ fontSize: '0.7rem', color: '#9ca3af', marginTop: '4px' }}>
+                      Goal: 4.0/5.0
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+            
+            {/* Practice Time Card */}
+            <div style={{
+              backgroundColor: 'white',
+              padding: '24px',
+              borderRadius: '12px',
+              boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+              textAlign: 'center',
+              position: 'relative',
+              overflow: 'hidden'
+            }}>
+              <div style={{
+                position: 'absolute',
+                top: 0,
+                right: 0,
+                width: '60px',
+                height: '60px',
+                background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                borderRadius: '0 12px 0 60px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <span style={{ color: 'white', fontSize: '1.5rem' }}>⏱️</span>
               </div>
-            </>
-          );
-        })()}
-      </div>
-      
-      {/* Improvement Trend Card */}
-      <div style={{
-        backgroundColor: 'white',
-        padding: '24px',
-        borderRadius: '12px',
-        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-        textAlign: 'center',
-        position: 'relative',
-        overflow: 'hidden'
-      }}>
-        <div style={{
-          position: 'absolute',
-          top: 0,
-          right: 0,
-          width: '60px',
-          height: '60px',
-          background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
-          borderRadius: '0 12px 0 60px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center'
-        }}>
-          <span style={{ color: 'white', fontSize: '1.5rem' }}>📈</span>
-        </div>
-        {(() => {
-          const sessionsWithScores = sessions.filter(s => s.overall_score).slice(-5);
-          const trend = sessionsWithScores.length >= 2 ? 
-            sessionsWithScores[sessionsWithScores.length - 1].overall_score - sessionsWithScores[0].overall_score : 0;
-          const trendIcon = trend > 0.2 ? '↗️' : trend < -0.2 ? '↘️' : '→';
-          const trendColor = trend > 0.2 ? '#10b981' : trend < -0.2 ? '#ef4444' : '#6b7280';
-          return (
-            <>
-              <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: trendColor, marginBottom: '8px' }}>
-                {trendIcon}
+              {(() => {
+                const totalMinutes = sessions.reduce((acc, s) => acc + (s.duration_minutes || 0), 0);
+                const hours = Math.floor(totalMinutes / 60);
+                const minutes = totalMinutes % 60;
+                return (
+                  <>
+                    <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: '#f59e0b', marginBottom: '8px' }}>
+                      {hours > 0 ? `${hours}h ${minutes}m` : `${totalMinutes}m`}
+                    </div>
+                    <div style={{ color: '#6b7280', fontSize: '0.9rem', marginBottom: '12px' }}>Practice Time</div>
+                    <div style={{ 
+                      height: '4px', 
+                      backgroundColor: '#e5e7eb', 
+                      borderRadius: '2px',
+                      position: 'relative'
+                    }}>
+                      <div style={{
+                        height: '100%',
+                        backgroundColor: '#f59e0b',
+                        borderRadius: '2px',
+                        width: `${Math.min(100, (totalMinutes / 120) * 100)}%`,
+                        transition: 'width 0.5s ease'
+                      }}></div>
+                    </div>
+                    <div style={{ fontSize: '0.7rem', color: '#9ca3af', marginTop: '4px' }}>
+                      Goal: 2 hours
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+            
+            {/* Improvement Trend Card */}
+            <div style={{
+              backgroundColor: 'white',
+              padding: '24px',
+              borderRadius: '12px',
+              boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+              textAlign: 'center',
+              position: 'relative',
+              overflow: 'hidden'
+            }}>
+              <div style={{
+                position: 'absolute',
+                top: 0,
+                right: 0,
+                width: '60px',
+                height: '60px',
+                background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
+                borderRadius: '0 12px 0 60px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <span style={{ color: 'white', fontSize: '1.5rem' }}>📈</span>
               </div>
-              <div style={{ color: '#6b7280', fontSize: '0.9rem', marginBottom: '12px' }}>Trend (Last 5)</div>
-              <div style={{ fontSize: '1.2rem', fontWeight: '600', color: trendColor }}>
-                {trend > 0 ? '+' : ''}{trend.toFixed(1)}
-              </div>
-              <div style={{ fontSize: '0.7rem', color: '#9ca3af', marginTop: '4px' }}>
-                {trend > 0.2 ? 'Improving!' : trend < -0.2 ? 'Keep practicing' : 'Steady progress'}
-              </div>
-            </>
-          );
-        })()}
-      </div>
-    </div>
+              {(() => {
+                const sessionsWithScores = sessions.filter(s => s.overall_score).slice(-5);
+                const trend = sessionsWithScores.length >= 2 ? 
+                  sessionsWithScores[sessionsWithScores.length - 1].overall_score - sessionsWithScores[0].overall_score : 0;
+                const trendIcon = trend > 0.2 ? '↗️' : trend < -0.2 ? '↘️' : '→';
+                const trendColor = trend > 0.2 ? '#10b981' : trend < -0.2 ? '#ef4444' : '#6b7280';
+                return (
+                  <>
+                    <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: trendColor, marginBottom: '8px' }}>
+                      {trendIcon}
+                    </div>
+                    <div style={{ color: '#6b7280', fontSize: '0.9rem', marginBottom: '12px' }}>Trend (Last 5)</div>
+                    <div style={{ fontSize: '1.2rem', fontWeight: '600', color: trendColor }}>
+                      {trend > 0 ? '+' : ''}{trend.toFixed(1)}
+                    </div>
+                    <div style={{ fontSize: '0.7rem', color: '#9ca3af', marginTop: '4px' }}>
+                      {trend > 0.2 ? 'Improving!' : trend < -0.2 ? 'Keep practicing' : 'Steady progress'}
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          </div>
 
-    {/* Score Distribution Chart */}
-    {sessions.filter(s => s.overall_score).length > 0 && (
-      <div style={{
-        backgroundColor: 'white',
-        padding: '30px',
-        borderRadius: '12px',
-        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-        marginBottom: '30px'
-      }}>
-        <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '25px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-          📊 Score Distribution
-        </h2>
-        
-        {(() => {
-          const sessionsWithScores = sessions.filter(s => s.overall_score);
-          const scoreRanges = {
-            'Excellent (4.0-5.0)': sessionsWithScores.filter(s => s.overall_score >= 4).length,
-            'Good (3.0-3.9)': sessionsWithScores.filter(s => s.overall_score >= 3 && s.overall_score < 4).length,
-            'Needs Work (2.0-2.9)': sessionsWithScores.filter(s => s.overall_score >= 2 && s.overall_score < 3).length,
-            'Poor (1.0-1.9)': sessionsWithScores.filter(s => s.overall_score >= 1 && s.overall_score < 2).length
-          };
-          
-          const maxCount = Math.max(...Object.values(scoreRanges));
-          const colors = ['#22c55e', '#f59e0b', '#f97316', '#ef4444'];
-          
-          return (
-            <div style={{ display: 'grid', gap: '15px' }}>
-              {Object.entries(scoreRanges).map(([range, count], index) => (
-                <div key={range} style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                  <div style={{ minWidth: '140px', fontSize: '0.9rem', fontWeight: '500' }}>
-                    {range}
+          {/* Score Distribution Chart */}
+          {sessions.filter(s => s.overall_score).length > 0 && (
+            <div style={{
+              backgroundColor: 'white',
+              padding: '30px',
+              borderRadius: '12px',
+              boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+              marginBottom: '30px'
+            }}>
+              <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '25px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                📊 Score Distribution
+              </h2>
+              
+              {(() => {
+                const sessionsWithScores = sessions.filter(s => s.overall_score);
+                const scoreRanges = {
+                  'Excellent (4.0-5.0)': sessionsWithScores.filter(s => s.overall_score >= 4).length,
+                  'Good (3.0-3.9)': sessionsWithScores.filter(s => s.overall_score >= 3 && s.overall_score < 4).length,
+                  'Needs Work (2.0-2.9)': sessionsWithScores.filter(s => s.overall_score >= 2 && s.overall_score < 3).length,
+                  'Poor (1.0-1.9)': sessionsWithScores.filter(s => s.overall_score >= 1 && s.overall_score < 2).length
+                };
+                
+                const maxCount = Math.max(...Object.values(scoreRanges));
+                const colors = ['#22c55e', '#f59e0b', '#f97316', '#ef4444'];
+                
+                return (
+                  <div style={{ display: 'grid', gap: '15px' }}>
+                    {Object.entries(scoreRanges).map(([range, count], index) => (
+                      <div key={range} style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                        <div style={{ minWidth: '140px', fontSize: '0.9rem', fontWeight: '500' }}>
+                          {range}
+                        </div>
+                        <div style={{ flex: 1, backgroundColor: '#f1f5f9', height: '25px', borderRadius: '12px', position: 'relative', overflow: 'hidden' }}>
+                          <div style={{
+                            height: '100%',
+                            backgroundColor: colors[index],
+                            width: maxCount > 0 ? `${(count / maxCount) * 100}%` : '0%',
+                            borderRadius: '12px',
+                            transition: 'width 0.5s ease',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: 'white',
+                            fontSize: '0.8rem',
+                            fontWeight: 'bold'
+                          }}>
+                            {count > 0 && count}
+                          </div>
+                        </div>
+                        <div style={{ minWidth: '80px', textAlign: 'right', fontSize: '0.9rem', color: '#6b7280' }}>
+                          {count} session{count !== 1 ? 's' : ''}
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  <div style={{ flex: 1, backgroundColor: '#f1f5f9', height: '25px', borderRadius: '12px', position: 'relative', overflow: 'hidden' }}>
+                );
+              })()}
+            </div>
+          )}
+
+          {/* Recent Sessions */}
+          <div style={{
+            backgroundColor: 'white',
+            padding: '30px',
+            borderRadius: '12px',
+            boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+          }}>
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '25px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Calendar size={24} />
+              Recent Sessions
+            </h2>
+            
+            {sessions.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px', color: '#6b7280' }}>
+                <div style={{ fontSize: '3rem', marginBottom: '16px' }}>📈</div>
+                <h3 style={{ marginBottom: '8px' }}>No sessions yet</h3>
+                <p>Start practicing scenarios to see your progress here!</p>
+                <button
+                  onClick={() => setActiveTab('scenarios')}
+                  style={{
+                    backgroundColor: '#667eea',
+                    color: 'white',
+                    border: 'none',
+                    padding: '12px 24px',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    marginTop: '16px'
+                  }}
+                >
+                  Start First Session
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gap: '15px' }}>
+                {sessions.slice(0, 10).map((session) => (
+                  <div key={session.id} style={{
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '8px',
+                    padding: '20px',
+                    display: 'grid',
+                    gridTemplateColumns: 'auto 1fr auto auto',
+                    gap: '20px',
+                    alignItems: 'center'
+                  }}>
                     <div style={{
-                      height: '100%',
-                      backgroundColor: colors[index],
-                      width: maxCount > 0 ? `${(count / maxCount) * 100}%` : '0%',
-                      borderRadius: '12px',
-                      transition: 'width 0.5s ease',
+                      backgroundColor: session.overall_score ? 
+                        (session.overall_score >= 4 ? '#22c55e' : 
+                         session.overall_score >= 3 ? '#f59e0b' : 
+                         session.overall_score >= 2 ? '#f97316' : '#ef4444') : '#6b7280',
+                      color: 'white',
+                      width: '50px',
+                      height: '50px',
+                      borderRadius: '25px',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      color: 'white',
-                      fontSize: '0.8rem',
                       fontWeight: 'bold'
                     }}>
-                      {count > 0 && count}
+                      {session.overall_score ? session.overall_score.toFixed(1) : '✓'}
                     </div>
+                    
+                    <div>
+                      <h3 style={{ fontSize: '1rem', fontWeight: '600', margin: '0 0 5px 0' }}>
+                        {session.scenarios?.title || 'Practice Session'}
+                      </h3>
+                      <p style={{ fontSize: '0.9rem', color: '#6b7280', margin: 0 }}>
+                        {new Date(session.start_time).toLocaleDateString()} • {session.duration_minutes || 0} minutes
+                      </p>
+                    </div>
+                    
+                    <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>
+                      {session.scenarios?.difficulty && (
+                        <span style={{
+                          backgroundColor: getDifficultyColor(session.scenarios.difficulty),
+                          color: 'white',
+                          padding: '2px 8px',
+                          borderRadius: '10px',
+                          textTransform: 'capitalize'
+                        }}>
+                          {session.scenarios.difficulty}
+                        </span>
+                      )}
+                    </div>
+                    
+                    <button
+                      onClick={() => handleDownloadReport(session.id)}
+                      style={{
+                        backgroundColor: '#10b981',
+                        color: 'white',
+                        border: 'none',
+                        padding: '8px 12px',
+                        borderRadius: '6px',
+                        fontSize: '0.8rem',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#059669'}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#10b981'}
+                    >
+                      📄 PDF
+                    </button>
                   </div>
-                  <div style={{ minWidth: '40px', textAlign: 'right', fontSize: '0.9rem', color: '#6b7280' }}>
-                    {count} sessions
-                  </div>
-                </div>
-              ))}
-            </div>
-          );
-        })()}
-      </div>
-    )}
-
-    {/* Recent Sessions - keep existing code but enhanced */}
-    <div style={{
-      backgroundColor: 'white',
-      padding: '30px',
-      borderRadius: '12px',
-      boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
-    }}>
-      <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '25px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-        <Calendar size={24} />
-        Recent Sessions
-      </h2>
-      
-      {sessions.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '40px', color: '#6b7280' }}>
-          <div style={{ fontSize: '3rem', marginBottom: '16px' }}>📈</div>
-          <h3 style={{ marginBottom: '8px' }}>No sessions yet</h3>
-          <p>Start practicing scenarios to see your progress here!</p>
-          <button
-            onClick={() => setActiveTab('scenarios')}
-            style={{
-              backgroundColor: '#667eea',
-              color: 'white',
-              border: 'none',
-              padding: '12px 24px',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              marginTop: '16px'
-            }}
-          >
-            Start First Session
-          </button>
-        </div>
-      ) : (
-        <div style={{ display: 'grid', gap: '15px' }}>
-          {sessions.slice(0, 10).map((session) => (
-            <div key={session.id} style={{
-              border: '1px solid #e5e7eb',
-              borderRadius: '8px',
-              padding: '20px',
-              display: 'grid',
-              gridTemplateColumns: 'auto 1fr auto auto',
-              gap: '20px',
-              alignItems: 'center'
-            }}>
-              <div style={{
-                backgroundColor: session.overall_score ? 
-                  (session.overall_score >= 4 ? '#22c55e' : 
-                   session.overall_score >= 3 ? '#f59e0b' : 
-                   session.overall_score >= 2 ? '#f97316' : '#ef4444') : '#6b7280',
-                color: 'white',
-                width: '50px',
-                height: '50px',
-                borderRadius: '25px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontWeight: 'bold'
-              }}>
-                {session.overall_score ? session.overall_score.toFixed(1) : '✓'}
+                ))}
               </div>
-              
-              <div>
-                <h3 style={{ fontSize: '1rem', fontWeight: '600', margin: '0 0 5px 0' }}>
-                  {session.scenarios?.title || 'Practice Session'}
-                </h3>
-                <p style={{ fontSize: '0.9rem', color: '#6b7280', margin: 0 }}>
-                  {new Date(session.start_time).toLocaleDateString()} • {session.duration_minutes || 0} minutes
-                </p>
-              </div>
-              
-              <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>
-                {session.scenarios?.difficulty && (
-                  <span style={{
-                    backgroundColor: getDifficultyColor(session.scenarios.difficulty),
-                    color: 'white',
-                    padding: '2px 8px',
-                    borderRadius: '10px',
-                    textTransform: 'capitalize'
-                  }}>
-                    {session.scenarios.difficulty}
-                  </span>
-                )}
-              </div>
-              
-              <button
-                onClick={() => handleDownloadReport(session.id)}
-                style={{
-                  backgroundColor: '#10b981',
-                  color: 'white',
-                  border: 'none',
-                  padding: '8px 12px',
-                  borderRadius: '6px',
-                  fontSize: '0.8rem',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#059669'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#10b981'}
-              >
-                📄 PDF
-              </button>
-            </div>
-          ))}
+            )}
+          </div>
         </div>
       )}
-    </div>
-  </div>
-)}
     </div>
   );
 }
