@@ -278,37 +278,60 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
   };
 
   const handleEndSession = async () => {
-    addDebugLog('🛑 User clicked End Session - stopping everything immediately...');
-    
-    // Immediately stop all audio and set session as inactive
-    setIsSessionActive(false);
-    setSessionState('ended');
-    
-    // Force stop both speech recognition and synthesis
-    addDebugLog('🔇 Force stopping all audio...');
-    speechService.stopListening();
-    speechService.stopSpeaking();
-    
-    addDebugLog('✅ All audio stopped, processing session end...');
+  addDebugLog('🛑 User clicked End Session - stopping everything immediately...');
+  
+  // Immediately stop all audio and set session as inactive
+  setIsSessionActive(false);
+  setSessionState('ended');
+  
+  // Force stop both speech recognition and synthesis
+  addDebugLog('🔇 Force stopping all audio...');
+  speechService.stopListening();
+  speechService.stopSpeaking();
+  
+  addDebugLog('✅ All audio stopped, processing session end...');
 
-    try {
-      if (sessionId) {
-        const duration = Math.round((Date.now() - startTime.getTime()) / 60000);
-        const sessionFeedback = generateFeedback();
-        setFeedback(sessionFeedback);
-        
-        await apiService.endSession(sessionId, JSON.stringify(sessionFeedback), duration);
-        addDebugLog('✅ Session ended successfully');
-      }
-      setShowFeedback(true);
+  try {
+    if (sessionId) {
+      const duration = Math.round((Date.now() - startTime.getTime()) / 60000);
+      const basicFeedback = generateFeedback();
+      setFeedback(basicFeedback);
       
-    } catch (err) {
-      addDebugLog(`❌ Error ending session: ${err.message}`);
-      const sessionFeedback = generateFeedback();
-      setFeedback(sessionFeedback);
-      setShowFeedback(true);
+      // End the session first
+      addDebugLog('💾 Ending session in database...');
+      await apiService.endSession(sessionId, JSON.stringify(basicFeedback), duration);
+      addDebugLog('✅ Session ended successfully');
+      
+      // Trigger detailed feedback analysis in background
+      try {
+        addDebugLog('🔬 Triggering detailed feedback analysis...');
+        addDebugLog(`📋 Session data: ID=${sessionId}, Conversation=${conversation.length} messages`);
+        
+        const analysisResult = await apiService.triggerFeedbackAnalysis(
+          sessionId, 
+          conversation, 
+          scenario
+        );
+        
+        addDebugLog('✅ Detailed feedback analysis completed');
+        addDebugLog('📊 Analysis result:', analysisResult);
+        
+      } catch (analysisError) {
+        addDebugLog(`⚠️ Detailed analysis failed: ${analysisError.message}`);
+        console.error('Full analysis error:', analysisError);
+        // Don't fail the session end if analysis fails
+      }
     }
-  };
+    setShowFeedback(true);
+    
+  } catch (err) {
+    addDebugLog(`❌ Error ending session: ${err.message}`);
+    console.error('Full session end error:', err);
+    const basicFeedback = generateFeedback();
+    setFeedback(basicFeedback);
+    setShowFeedback(true);
+  }
+};
 
   const generateFeedback = () => {
     const exchanges = Math.floor(conversation.length / 2);
