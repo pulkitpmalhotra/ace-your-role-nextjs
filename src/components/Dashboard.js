@@ -54,7 +54,14 @@ function Dashboard({ userEmail, onStartSession, onViewFeedbackDashboard }) {
       default: return '📚';
     }
   };
-
+const handleDownloadReport = async (sessionId) => {
+  try {
+    await apiService.downloadFeedbackReport(sessionId, userEmail);
+  } catch (error) {
+    alert('Failed to download report. Please try again.');
+    console.error('Download error:', error);
+  }
+};
   if (loading) {
     return (
       <div style={{ 
@@ -451,52 +458,73 @@ function Dashboard({ userEmail, onStartSession, onViewFeedbackDashboard }) {
               </div>
             ) : (
               <div style={{ display: 'grid', gap: '15px' }}>
-                {sessions.slice(0, 10).map((session) => (
-                  <div key={session.id} style={{
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '8px',
-                    padding: '20px',
-                    display: 'grid',
-                    gridTemplateColumns: 'auto 1fr auto',
-                    gap: '20px',
-                    alignItems: 'center'
-                  }}>
-                    <div style={{
-                      backgroundColor: '#3b82f6',
-                      color: 'white',
-                      width: '50px',
-                      height: '50px',
-                      borderRadius: '25px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontWeight: 'bold'
-                    }}>
-                      {session.overall_score ? session.overall_score.toFixed(1) : '✓'}
-                    </div>
-                    
-                    <div>
-                      <h3 style={{ fontSize: '1rem', fontWeight: '600', margin: '0 0 5px 0' }}>
-                        {session.scenarios?.title || 'Practice Session'}
-                      </h3>
-                      <p style={{ fontSize: '0.9rem', color: '#6b7280', margin: 0 }}>
-                        {new Date(session.start_time).toLocaleDateString()} • {session.duration_minutes || 0} minutes
-                      </p>
-                    </div>
-                    
-                    <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>
-                      {session.scenarios?.difficulty && (
-                        <span style={{
-                          backgroundColor: getDifficultyColor(session.scenarios.difficulty),
-                          color: 'white',
-                          padding: '2px 8px',
-                          borderRadius: '10px',
-                          textTransform: 'capitalize'
-                        }}>
-                          {session.scenarios.difficulty}
-                        </span>
-                      )}
-                    </div>
+{sessions.slice(0, 10).map((session) => (
+  <div key={session.id} style={{
+    border: '1px solid #e5e7eb',
+    borderRadius: '8px',
+    padding: '20px',
+    display: 'grid',
+    gridTemplateColumns: 'auto 1fr auto auto', // Added extra column
+    gap: '20px',
+    alignItems: 'center'
+  }}>
+    <div style={{
+      backgroundColor: '#3b82f6',
+      color: 'white',
+      width: '50px',
+      height: '50px',
+      borderRadius: '25px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontWeight: 'bold'
+    }}>
+      {session.overall_score ? session.overall_score.toFixed(1) : '✓'}
+    </div>
+    
+    <div>
+      <h3 style={{ fontSize: '1rem', fontWeight: '600', margin: '0 0 5px 0' }}>
+        {session.scenarios?.title || 'Practice Session'}
+      </h3>
+      <p style={{ fontSize: '0.9rem', color: '#6b7280', margin: 0 }}>
+        {new Date(session.start_time).toLocaleDateString()} • {session.duration_minutes || 0} minutes
+      </p>
+    </div>
+    
+    <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>
+      {session.scenarios?.difficulty && (
+        <span style={{
+          backgroundColor: getDifficultyColor(session.scenarios.difficulty),
+          color: 'white',
+          padding: '2px 8px',
+          borderRadius: '10px',
+          textTransform: 'capitalize'
+        }}>
+          {session.scenarios.difficulty}
+        </span>
+      )}
+    </div>
+    
+    {/* NEW: Download Button */}
+    <button
+      onClick={() => handleDownloadReport(session.id)}
+      style={{
+        backgroundColor: '#10b981',
+        color: 'white',
+        border: 'none',
+        padding: '8px 12px',
+        borderRadius: '6px',
+        fontSize: '0.8rem',
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '4px'
+      }}
+      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#059669'}
+      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#10b981'}
+    >
+      📄 PDF
+    </button>
                   </div>
                 ))}
               </div>
