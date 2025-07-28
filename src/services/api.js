@@ -180,45 +180,207 @@ class APIService {
     })
   });
 }
-  async downloadFeedbackReport(sessionId, userEmail) {
-  console.log('📄 Downloading feedback report...');
+async downloadFeedbackReport(sessionId, userEmail) {
+  console.log('📄 Generating PDF report client-side...');
   
   try {
-    const response = await fetch(`${this.baseUrl}/api/feedback-report`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        sessionId,
-        userEmail
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to generate report: ${response.status}`);
+    // Get session data
+    const sessions = await this.getUserSessions(userEmail);
+    const session = sessions.find(s => s.id === sessionId);
+    
+    if (!session) {
+      throw new Error('Session not found');
     }
 
-    // Get the PDF blob
-    const blob = await response.blob();
-    
-    // Create download link
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `sales-feedback-${sessionId.substring(0, 8)}.pdf`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
+    // Parse detailed feedback if available
+    let detailedFeedback = null;
+    try {
+      detailedFeedback = session.detailed_feedback ? JSON.parse(session.detailed_feedback) : null;
+    } catch (e) {
+      console.log('No detailed feedback available');
+    }
 
-    console.log('✅ Report downloaded successfully');
+    // Generate PDF using client-side library
+    await this.generateClientSidePDF(session, detailedFeedback);
+    
+    // Log the download (optional - simple version)
+    console.log('✅ PDF generated successfully');
     return true;
 
   } catch (error) {
-    console.error('❌ Download failed:', error);
+    console.error('❌ PDF generation failed:', error);
     throw error;
   }
+}
+
+async generateClientSidePDF(session, detailedFeedback) {
+  // Import jsPDF dynamically to avoid SSR issues
+  const { jsPDF } = await import('jspdf');
+  
+  const doc = new jsPDF();
+  
+  let yPosition = 20;
+  const pageWidth = doc.internal.pageSize.width;
+  const margin = 20;
+  
+  // Helper function to add text
+  const addText = (text, x, y, options = {}) => {
+    const fontSize = options.fontSize || 12;
+    const fontStyle = options.fontStyle || 'normal';
+    const maxWidth = options.maxWidth || (pageWidth - margin * 2);
+    
+    doc.setFontSize(fontSize);
+    doc.setFont('helvetica', fontStyle);
+    
+    const lines = doc.splitTextToSize(text, maxWidth);
+    doc.text(lines, x, y);
+    
+    return y + (lines.length * fontSize * 0.4) + 5;
+  };
+
+  // Header with blue background
+  doc.setFillColor(103, 126, 234);
+  doc.rect(0, 0, pageWidth, 35, 'F');
+  
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(20);
+  doc.setFont('helvetica', 'bold');
+  doc.text('🎯 AI Sales Roleplay - Feedback Report', margin, 25);
+  
+  // Reset colors
+  doc.setTextColor(0, 0, 0);
+  yPosition = 50;
+
+  // Session Information
+  yPosition = addText('Session Information', margin, yPosition, {
+    fontSize: 16,
+    fontStyle: 'bold'
+  });
+
+  const sessionDate = new Date(session.start_time).toLocaleDateString();
+  const sessionTime = new Date(session.start_time).toLocaleTimeString();
+  
+  yPosition = addText(`Scenario: ${session.scenarios?.title || 'Practice Session'}`, margin, yPosition);
+  yPosition = addText(`Character: ${session.scenarios?.character_name || 'N/A'}`, margin, yPosition);
+  yPosition = addText(`Date: ${sessionDate} at ${sessionTime}`, margin, yPosition);
+  yPosition = addText(`Duration: ${session.duration_minutes || 0} minutes`, margin, yPosition);
+  yPosition += 10;
+
+  // Overall Score
+  if (session.overall_score) {
+    yPosition = addText('Overall Performance', margin, yPosition, {
+      fontSize: 16,
+      fontStyle: 'bold'
+    });
+
+    const scoreText = `Overall Score: ${session.overall_score}/5.0`;
+    const scoreLevel = session.overall_score >= 4 ? 'Excellent' :
+                     session.overall_score >= 3 ? 'Good' :
+                     session.overall_score >= 2 ? 'Needs Improvement' : 'Poor';
+    
+    yPosition = addText(`${scoreText} (${scoreLevel})`, margin, yPosition, {
+      fontSize: 14,
+      fontStyle: 'bold'
+    });
+    yPosition += 10;
+  }
+
+  // Category Breakdown
+  if (detailedFeedback && detailedFeedback.categories) {
+    yPosition = addText('Skills Assessment', margin, yPosition, {
+      fontSize: 16,
+      fontStyle: 'bold'
+    });
+
+    const categoryNames = {
+      opening: 'Opening & Rapport Building',
+      discovery: 'Discovery & Needs Assessment', 
+      presentation: 'Solution Presentation',
+      objection: 'Objection Handling',
+      closing: 'Closing & Next Steps'
+    };
+
+    Object.entries(detailedFeedback.categories).forEach(([category, data]) => {
+      // Check if we need a new page
+      if (yPosition > 250) {
+        doc.addPage();
+        yPosition = 20;
+      }
+
+      yPosition = addText(`${categoryNames[category] || category}`, margin, yPosition, {
+        fontSize: 14,
+        fontStyle: 'bold'
+      });
+
+      yPosition = addText(`Score: ${data.score}/5`, margin + 5, yPosition);
+      yPosition = addText(`Feedback: ${data.feedback}`, margin + 5, yPosition);
+
+      if (data.suggestions && data.suggestions.length > 0) {
+        yPosition = addText('Improvement Tips:', margin + 5, yPosition, {
+          fontStyle: 'bold'
+        });
+        data.suggestions.forEach(suggestion => {
+          yPosition = addText(`• ${suggestion}`, margin + 10, yPosition);
+        });
+      }
+      yPosition += 8;
+    });
+  }
+
+  // Overall Insights
+  if (detailedFeedback && detailedFeedback.overall) {
+    if (yPosition > 200) {
+      doc.addPage();
+      yPosition = 20;
+    }
+
+    yPosition = addText('Key Insights', margin, yPosition, {
+      fontSize: 16,
+      fontStyle: 'bold'
+    });
+
+    if (detailedFeedback.overall.strengths.length > 0) {
+      yPosition = addText('Your Strengths:', margin, yPosition, {
+        fontStyle: 'bold'
+      });
+      detailedFeedback.overall.strengths.forEach(strength => {
+        yPosition = addText(`✓ ${strength}`, margin + 5, yPosition);
+      });
+      yPosition += 5;
+    }
+
+    if (detailedFeedback.overall.improvements.length > 0) {
+      yPosition = addText('Areas for Improvement:', margin, yPosition, {
+        fontStyle: 'bold'
+      });
+      detailedFeedback.overall.improvements.forEach(improvement => {
+        yPosition = addText(`→ ${improvement}`, margin + 5, yPosition);
+      });
+      yPosition += 5;
+    }
+
+    if (detailedFeedback.overall.nextFocus) {
+      yPosition = addText('Next Session Focus:', margin, yPosition, {
+        fontStyle: 'bold'
+      });
+      yPosition = addText(detailedFeedback.overall.nextFocus, margin + 5, yPosition);
+    }
+  }
+
+  // Footer
+  const pageCount = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.setTextColor(128, 128, 128);
+    doc.text(`Generated on ${new Date().toLocaleDateString()} | Page ${i} of ${pageCount}`, margin, 285);
+    doc.text('AI Sales Roleplay Platform', pageWidth - margin - 40, 285);
+  }
+
+  // Download the PDF
+  const fileName = `sales-feedback-${session.id.substring(0, 8)}.pdf`;
+  doc.save(fileName);
+}
 }
 }
 
