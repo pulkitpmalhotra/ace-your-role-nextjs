@@ -1,16 +1,21 @@
+// Update src/components/Dashboard.js - Replace the scenarios loading and filtering logic
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../services/api';
-import { Play, User, TrendingUp, BarChart3, Target, Calendar } from 'lucide-react';
+import { Play, User, TrendingUp, BarChart3, Target, Calendar, Loader } from 'lucide-react';
+import ScenarioFilters from './ScenarioFilters';
 
 function Dashboard({ userEmail, onStartSession, onViewFeedbackDashboard }) {
   const [scenarios, setScenarios] = useState([]);
+  const [filteredScenarios, setFilteredScenarios] = useState([]);
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [scenariosLoading, setScenariosLoading] = useState(false);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState('scenarios'); // Single declaration
+  const [activeTab, setActiveTab] = useState('scenarios');
+  const [metadata, setMetadata] = useState({});
 
   useEffect(() => {
-    loadData();
+    loadInitialData();
   }, []);
 
   // Check for saved tab preference
@@ -22,13 +27,12 @@ function Dashboard({ userEmail, onStartSession, onViewFeedbackDashboard }) {
     }
   }, []);
 
-  const loadData = async () => {
+  const loadInitialData = async () => {
     try {
       setLoading(true);
       
-      // Load scenarios
-      const scenariosData = await apiService.getScenarios();
-      setScenarios(scenariosData);
+      // Load scenarios with default filters
+      await loadScenarios();
       
       // Load user sessions for progress tab
       try {
@@ -44,6 +48,32 @@ function Dashboard({ userEmail, onStartSession, onViewFeedbackDashboard }) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadScenarios = async (filters = {}) => {
+    try {
+      setScenariosLoading(true);
+      console.log('🔍 Loading scenarios with filters:', filters);
+      
+      // Call API with filters
+      const response = await apiService.getScenariosWithFilters(filters);
+      
+      console.log('✅ Scenarios loaded:', response);
+      setScenarios(response.data || []);
+      setFilteredScenarios(response.data || []);
+      setMetadata(response.meta || {});
+      
+    } catch (err) {
+      console.error('❌ Failed to load scenarios:', err);
+      setError(err.message || 'Failed to load scenarios');
+    } finally {
+      setScenariosLoading(false);
+    }
+  };
+
+  const handleFiltersChange = (filters) => {
+    console.log('🔄 Filters changed:', filters);
+    loadScenarios(filters);
   };
 
   const getDifficultyColor = (difficulty) => {
@@ -62,6 +92,24 @@ function Dashboard({ userEmail, onStartSession, onViewFeedbackDashboard }) {
       case 'advanced': return '💪';
       default: return '📚';
     }
+  };
+
+  const getCategoryIcon = (category) => {
+    switch (category) {
+      case 'sales': return '💼';
+      case 'leadership': return '👑';
+      case 'healthcare': return '🏥';
+      case 'support': return '🎧';
+      case 'legal': return '⚖️';
+      default: return '📋';
+    }
+  };
+
+  const getSubcategoryDisplay = (subcategory) => {
+    if (!subcategory) return '';
+    return subcategory.split('-').map(word => 
+      word.charAt(0).toUpperCase() + word.slice(1)
+    ).join(' ');
   };
 
   const handleDownloadReport = async (sessionId) => {
@@ -123,7 +171,7 @@ function Dashboard({ userEmail, onStartSession, onViewFeedbackDashboard }) {
         <h2 style={{ color: '#dc2626', marginBottom: '10px' }}>Error Loading Dashboard</h2>
         <p style={{ color: '#b91c1c', marginBottom: '20px' }}>{error}</p>
         <button 
-          onClick={loadData}
+          onClick={loadInitialData}
           style={{
             padding: '10px 20px',
             backgroundColor: '#dc2626',
@@ -226,145 +274,280 @@ function Dashboard({ userEmail, onStartSession, onViewFeedbackDashboard }) {
       {/* Tab Content */}
       {activeTab === 'scenarios' && (
         <div>
+          {/* Search and Filters */}
+          <ScenarioFilters 
+            onFiltersChange={handleFiltersChange}
+            metadata={metadata}
+          />
+
+          {/* Loading indicator for scenarios */}
+          {scenariosLoading && (
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              padding: '40px',
+              gap: '10px'
+            }}>
+              <Loader size={20} className="animate-spin" />
+              <span>Loading scenarios...</span>
+            </div>
+          )}
+
           {/* Scenarios Grid */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
-            gap: '24px',
-            marginBottom: '40px'
-          }}>
-            {scenarios.map((scenario) => (
-              <div
-                key={scenario.id}
-                style={{
-                  backgroundColor: 'white',
-                  borderRadius: '12px',
-                  padding: '24px',
-                  boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-                  border: '1px solid #e5e7eb',
-                  transition: 'all 0.3s ease',
-                  cursor: 'pointer'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'translateY(-4px)';
-                  e.currentTarget.style.boxShadow = '0 8px 25px rgba(0, 0, 0, 0.15)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
-                }}
-              >
-                {/* Scenario Header */}
-                <div style={{ marginBottom: '16px' }}>
-                  <div style={{ 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
-                    alignItems: 'flex-start',
-                    marginBottom: '12px'
-                  }}>
-                    <h3 style={{ 
-                      fontSize: '1.25rem', 
-                      fontWeight: '600', 
-                      margin: 0,
-                      color: '#1f2937',
-                      lineHeight: '1.3'
-                    }}>
-                      {scenario.title}
-                    </h3>
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      backgroundColor: getDifficultyColor(scenario.difficulty),
-                      color: 'white',
-                      padding: '4px 12px',
-                      borderRadius: '20px',
-                      fontSize: '0.75rem',
-                      fontWeight: '600',
-                      textTransform: 'uppercase'
-                    }}>
-                      <span>{getDifficultyIcon(scenario.difficulty)}</span>
-                      {scenario.difficulty}
-                    </div>
-                  </div>
-                  
-                  <p style={{ 
-                    color: '#6b7280', 
-                    margin: 0,
-                    lineHeight: '1.5',
-                    fontSize: '0.95rem'
-                  }}>
-                    {scenario.description}
-                  </p>
-                </div>
-
-                {/* Character Info */}
-                <div style={{
-                  backgroundColor: '#f9fafb',
-                  padding: '16px',
-                  borderRadius: '8px',
-                  marginBottom: '20px'
-                }}>
-                  <div style={{ marginBottom: '8px' }}>
-                    <span style={{ 
-                      fontSize: '0.8rem', 
-                      color: '#6b7280', 
-                      textTransform: 'uppercase',
-                      fontWeight: '600'
-                    }}>
-                      You'll be speaking with:
-                    </span>
-                  </div>
-                  <div style={{ 
-                    fontSize: '1rem', 
-                    fontWeight: '600', 
-                    color: '#1f2937',
-                    marginBottom: '4px'
-                  }}>
-                    {scenario.character_name}
-                  </div>
-                  <div style={{ 
-                    fontSize: '0.9rem', 
-                    color: '#6b7280'
-                  }}>
-                    {scenario.character_role}
-                  </div>
-                </div>
-
-                {/* Start Button */}
-                <button
-                  onClick={() => onStartSession(scenario)}
+          {!scenariosLoading && (
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
+              gap: '24px',
+              marginBottom: '40px'
+            }}>
+              {filteredScenarios.map((scenario) => (
+                <div
+                  key={scenario.id}
                   style={{
-                    width: '100%',
-                    backgroundColor: '#667eea',
-                    color: 'white',
-                    border: 'none',
-                    padding: '14px 20px',
-                    borderRadius: '8px',
-                    fontSize: '1rem',
-                    fontWeight: '600',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '10px',
-                    transition: 'all 0.3s ease'
+                    backgroundColor: 'white',
+                    borderRadius: '12px',
+                    padding: '24px',
+                    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                    border: '1px solid #e5e7eb',
+                    transition: 'all 0.3s ease',
+                    cursor: 'pointer'
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = '#5a67d8';
-                    e.currentTarget.style.transform = 'translateY(-1px)';
+                    e.currentTarget.style.transform = 'translateY(-4px)';
+                    e.currentTarget.style.boxShadow = '0 8px 25px rgba(0, 0, 0, 0.15)';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = '#667eea';
                     e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
                   }}
                 >
-                  <Play size={18} />
-                  Start Practice Session
-                </button>
-              </div>
-            ))}
-          </div>
+                  {/* Scenario Header */}
+                  <div style={{ marginBottom: '16px' }}>
+                    <div style={{ 
+                      display: 'flex', 
+                      justifyContent: 'space-between', 
+                      alignItems: 'flex-start',
+                      marginBottom: '12px'
+                    }}>
+                      <h3 style={{ 
+                        fontSize: '1.25rem', 
+                        fontWeight: '600', 
+                        margin: 0,
+                        color: '#1f2937',
+                        lineHeight: '1.3'
+                      }}>
+                        {getCategoryIcon(scenario.category)} {scenario.title}
+                      </h3>
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        backgroundColor: getDifficultyColor(scenario.difficulty),
+                        color: 'white',
+                        padding: '4px 12px',
+                        borderRadius: '20px',
+                        fontSize: '0.75rem',
+                        fontWeight: '600',
+                        textTransform: 'uppercase'
+                      }}>
+                        <span>{getDifficultyIcon(scenario.difficulty)}</span>
+                        {scenario.difficulty}
+                      </div>
+                    </div>
+                    
+                    {/* Category and Subcategory Tags */}
+                    <div style={{ 
+                      display: 'flex', 
+                      gap: '8px', 
+                      marginBottom: '12px',
+                      flexWrap: 'wrap'
+                    }}>
+                      {scenario.category && (
+                        <span style={{
+                          backgroundColor: '#e0e7ff',
+                          color: '#3730a3',
+                          padding: '2px 8px',
+                          borderRadius: '12px',
+                          fontSize: '0.75rem',
+                          fontWeight: '500'
+                        }}>
+                          {scenario.category}
+                        </span>
+                      )}
+                      {scenario.subcategory && (
+                        <span style={{
+                          backgroundColor: '#f3e8ff',
+                          color: '#6b21a8',
+                          padding: '2px 8px',
+                          borderRadius: '12px',
+                          fontSize: '0.75rem',
+                          fontWeight: '500'
+                        }}>
+                          {getSubcategoryDisplay(scenario.subcategory)}
+                        </span>
+                      )}
+                    </div>
+                    
+                    <p style={{ 
+                      color: '#6b7280', 
+                      margin: 0,
+                      lineHeight: '1.5',
+                      fontSize: '0.95rem'
+                    }}>
+                      {scenario.description}
+                    </p>
+                  </div>
+
+                  {/* Character Info */}
+                  <div style={{
+                    backgroundColor: '#f9fafb',
+                    padding: '16px',
+                    borderRadius: '8px',
+                    marginBottom: '20px'
+                  }}>
+                    <div style={{ marginBottom: '8px' }}>
+                      <span style={{ 
+                        fontSize: '0.8rem', 
+                        color: '#6b7280', 
+                        textTransform: 'uppercase',
+                        fontWeight: '600'
+                      }}>
+                        You'll be speaking with:
+                      </span>
+                    </div>
+                    <div style={{ 
+                      fontSize: '1rem', 
+                      fontWeight: '600', 
+                      color: '#1f2937',
+                      marginBottom: '4px'
+                    }}>
+                      {scenario.character_name}
+                    </div>
+                    <div style={{ 
+                      fontSize: '0.9rem', 
+                      color: '#6b7280'
+                    }}>
+                      {scenario.character_role}
+                    </div>
+                    
+                    {/* Estimated Duration */}
+                    {scenario.estimated_duration_minutes && (
+                      <div style={{ 
+                        fontSize: '0.8rem', 
+                        color: '#6b7280',
+                        marginTop: '8px'
+                      }}>
+                        ⏱️ ~{scenario.estimated_duration_minutes} minutes
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Learning Objectives */}
+                  {scenario.learning_objectives && scenario.learning_objectives.length > 0 && (
+                    <div style={{ marginBottom: '20px' }}>
+                      <div style={{ 
+                        fontSize: '0.8rem', 
+                        color: '#6b7280', 
+                        textTransform: 'uppercase',
+                        fontWeight: '600',
+                        marginBottom: '8px'
+                      }}>
+                        Learning Goals:
+                      </div>
+                      <ul style={{ 
+                        margin: 0, 
+                        paddingLeft: '16px', 
+                        fontSize: '0.85rem',
+                        color: '#4b5563'
+                      }}>
+                        {scenario.learning_objectives.slice(0, 2).map((objective, index) => (
+                          <li key={index} style={{ marginBottom: '4px' }}>
+                            {objective}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Start Button */}
+                  <button
+                    onClick={() => onStartSession(scenario)}
+                    style={{
+                      width: '100%',
+                      backgroundColor: '#667eea',
+                      color: 'white',
+                      border: 'none',
+                      padding: '14px 20px',
+                      borderRadius: '8px',
+                      fontSize: '1rem',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '10px',
+                      transition: 'all 0.3s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = '#5a67d8';
+                      e.currentTarget.style.transform = 'translateY(-1px)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = '#667eea';
+                      e.currentTarget.style.transform = 'translateY(0)';
+                    }}
+                  >
+                    <Play size={18} />
+                    Start Practice Session
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Empty State */}
+          {!scenariosLoading && filteredScenarios.length === 0 && (
+            <div style={{
+              textAlign: 'center',
+              padding: '60px 20px',
+              backgroundColor: 'white',
+              borderRadius: '12px',
+              boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+            }}>
+              <div style={{ fontSize: '4rem', marginBottom: '20px' }}>🔍</div>
+              <h3 style={{ 
+                fontSize: '1.5rem', 
+                marginBottom: '10px', 
+                color: '#374151' 
+              }}>
+                No scenarios found
+              </h3>
+              <p style={{ 
+                color: '#6b7280', 
+                marginBottom: '20px',
+                fontSize: '1.1rem'
+              }}>
+                Try adjusting your filters or search terms
+              </p>
+              <button
+                onClick={() => handleFiltersChange({})}
+                style={{
+                  backgroundColor: '#667eea',
+                  color: 'white',
+                  border: 'none',
+                  padding: '12px 24px',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontSize: '1rem',
+                  fontWeight: '500'
+                }}
+              >
+                Show All Scenarios
+              </button>
+            </div>
+          )}
 
           {/* Footer Info */}
           <div style={{
@@ -394,7 +577,7 @@ function Dashboard({ userEmail, onStartSession, onViewFeedbackDashboard }) {
               </div>
               <div>
                 <div style={{ fontSize: '2rem', marginBottom: '8px' }}>📊</div>
-                <p><strong>Get Feedback</strong><br />Receive coaching tips to improve your skills</p>
+                <p><strong>Get Feedback</strong><br />Receive detailed coaching tips to improve</p>
               </div>
             </div>
           </div>
@@ -735,6 +918,9 @@ function Dashboard({ userEmail, onStartSession, onViewFeedbackDashboard }) {
                       </h3>
                       <p style={{ fontSize: '0.9rem', color: '#6b7280', margin: 0 }}>
                         {new Date(session.start_time).toLocaleDateString()} • {session.duration_minutes || 0} minutes
+                        {session.scenarios?.category && (
+                          <span> • {getCategoryIcon(session.scenarios.category)} {session.scenarios.category}</span>
+                        )}
                       </p>
                     </div>
                     
