@@ -1,7 +1,7 @@
 {
-  "name": "ai-roleplay-free",
+  "name": "ace-your-role",
   "version": "1.0.0",
-  "description": "Free AI-powered sales roleplay platform with Gemini AI",
+  "description": "Ace Your Role - AI-powered roleplay training platform for mastering professional skills",
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
@@ -34,14 +34,21 @@
   "keywords": [
     "ai",
     "roleplay",
-    "sales",
     "training",
-    "gemini",
+    "sales",
+    "leadership", 
+    "professional-development",
     "speech",
     "react",
     "supabase",
-    "authentication"
+    "skill-training",
+    "ace-your-role"
   ],
-  "author": "",
-  "license": "MIT"
+  "author": "Ace Your Role Team",
+  "license": "MIT",
+  "homepage": "https://ace-your-role.vercel.app",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/ace-your-role.git"
+  }
 }
