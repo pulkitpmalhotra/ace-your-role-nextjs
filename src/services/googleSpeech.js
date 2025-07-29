@@ -27,3 +27,26 @@ class GoogleSpeechService {
     return response.results[0]?.alternatives[0]?.transcript;
   }
 }
+// Enhanced TTS with emotional voices
+class GoogleTTSService {
+  async speak(text, characterData) {
+    const request = {
+      input: { text },
+      voice: {
+        languageCode: 'en-US',
+        name: this.selectVoice(characterData),
+        ssmlGender: characterData.gender === 'female' ? 'FEMALE' : 'MALE'
+      },
+      audioConfig: {
+        audioEncoding: 'MP3',
+        speakingRate: this.getEmotionalRate(characterData.emotion),
+        pitch: this.getEmotionalPitch(characterData.emotion),
+        volumeGainDb: 0,
+        effectsProfileId: ['telephony-class-application']
+      }
+    };
+
+    const [response] = await this.ttsClient.synthesizeSpeech(request);
+    return response.audioContent;
+  }
+}
