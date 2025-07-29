@@ -280,75 +280,96 @@ export class SpeechService {
       return this.voices.find(voice => voice.lang.startsWith('en-')) || null;
     }
 
-    // Premium voice preferences (if available)
-    const premiumVoices = englishVoices.filter(voice => {
-      const name = voice.name.toLowerCase();
-      return name.includes('enhanced') || 
-             name.includes('premium') || 
-             name.includes('neural') ||
-             name.includes('natural');
-    });
+    console.log('🔊 Looking for voice - Gender:', gender, 'Character:', characterName);
+    console.log('🔊 Available voices:', englishVoices.map(v => ({ name: v.name, gender: this.guessVoiceGender(v.name) })));
 
-    let targetVoices = premiumVoices.length > 0 ? premiumVoices : englishVoices;
-
-    // Gender-specific voice selection
+    // Gender-specific voice selection with better matching
     if (gender === 'female') {
-      const femaleVoices = targetVoices.filter(voice => {
+      const femaleVoices = englishVoices.filter(voice => {
         const name = voice.name.toLowerCase();
-        return name.includes('female') || 
+        const guessedGender = this.guessVoiceGender(voice.name);
+        
+        // Priority matching: explicit female indicators first
+        return guessedGender === 'female' || 
+               name.includes('female') || 
                name.includes('woman') ||
-               name.includes('samantha') ||
-               name.includes('karen') ||
-               name.includes('susan') ||
-               name.includes('victoria') ||
+               // Common female voice names
                name.includes('zira') ||
                name.includes('hazel') ||
+               name.includes('susan') ||
+               name.includes('karen') ||
+               name.includes('samantha') ||
+               name.includes('victoria') ||
+               name.includes('alex') || // Alex can be female on some systems
                name.includes('monica') ||
                name.includes('paulina') ||
-               voice.name.match(/\b(sara|sarah|emily|anna|kate|amy|lisa|mary)\b/i);
+               // Pattern matching for female names
+               name.match(/\b(sara|sarah|emily|anna|kate|amy|lisa|mary|jennifer|jessica|rachel|melissa|stephanie|nicole|amanda|michelle|angela|heather|maria|jennifer)\b/i);
       });
       
+      console.log('🚺 Female voices found:', femaleVoices.map(v => v.name));
+      
       if (femaleVoices.length > 0) {
-        // Prefer more natural sounding female voices
-        const naturalFemale = femaleVoices.find(voice => 
+        // Prefer enhanced/natural voices
+        const enhancedFemale = femaleVoices.find(voice => 
           voice.name.toLowerCase().includes('enhanced') ||
-          voice.name.toLowerCase().includes('natural')
+          voice.name.toLowerCase().includes('natural') ||
+          voice.name.toLowerCase().includes('premium')
         );
-        return naturalFemale || femaleVoices[0];
+        
+        const selectedVoice = enhancedFemale || femaleVoices[0];
+        console.log('✅ Selected female voice:', selectedVoice.name);
+        return selectedVoice;
       }
     } else if (gender === 'male') {
-      const maleVoices = targetVoices.filter(voice => {
+      const maleVoices = englishVoices.filter(voice => {
         const name = voice.name.toLowerCase();
-        return name.includes('male') || 
+        const guessedGender = this.guessVoiceGender(voice.name);
+        
+        // Priority matching: explicit male indicators first
+        return guessedGender === 'male' || 
+               name.includes('male') || 
                name.includes('man') ||
+               // Common male voice names
                name.includes('david') ||
                name.includes('mark') ||
                name.includes('tom') ||
                name.includes('daniel') ||
-               name.includes('alex') ||
                name.includes('james') ||
                name.includes('ryan') ||
-               voice.name.match(/\b(john|mike|steve|chris|paul|kevin)\b/i);
+               name.includes('kevin') ||
+               name.includes('george') ||
+               // Pattern matching for male names
+               name.match(/\b(john|mike|steve|chris|paul|robert|michael|william|richard|charles|joseph|thomas|christopher|matthew|anthony|donald|andrew|joshua|kenneth|brian|edward|ronald|timothy|jason|jeffrey|gary|nicholas|eric|jonathan|stephen|larry|justin|scott|brandon|benjamin|samuel|frank|gregory|raymond|alexander|patrick|jack|dennis|jerry)\b/i);
       });
       
+      console.log('🚹 Male voices found:', maleVoices.map(v => v.name));
+      
       if (maleVoices.length > 0) {
-        // Prefer more natural sounding male voices
-        const naturalMale = maleVoices.find(voice => 
+        // Prefer enhanced/natural voices
+        const enhancedMale = maleVoices.find(voice => 
           voice.name.toLowerCase().includes('enhanced') ||
-          voice.name.toLowerCase().includes('natural')
+          voice.name.toLowerCase().includes('natural') ||
+          voice.name.toLowerCase().includes('premium')
         );
-        return naturalMale || maleVoices[0];
+        
+        const selectedVoice = enhancedMale || maleVoices[0];
+        console.log('✅ Selected male voice:', selectedVoice.name);
+        return selectedVoice;
       }
     }
 
     // Fallback to best available English voice
-    const bestVoice = targetVoices.find(voice => 
+    console.log('⚠️ No gender-specific voice found, using fallback');
+    const bestVoice = englishVoices.find(voice => 
       voice.default || 
       voice.name.toLowerCase().includes('enhanced') ||
       voice.name.toLowerCase().includes('natural')
     );
 
-    return bestVoice || targetVoices[0] || englishVoices[0] || null;
+    const fallbackVoice = bestVoice || englishVoices[0] || null;
+    console.log('🔄 Fallback voice selected:', fallbackVoice?.name);
+    return fallbackVoice;
   }
 
   // Get speech parameters based on emotion
