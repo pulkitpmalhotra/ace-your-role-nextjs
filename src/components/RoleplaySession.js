@@ -1,14 +1,12 @@
-// ============================================================================
-// 1. UPDATE: src/components/RoleplaySession.js - Complete Enhanced Version
-// ============================================================================
-
+// src/components/RoleplaySession.js - Complete file with proper hook management
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../services/api';
 import { speechService } from '../services/speech';
 import { CheckCircle, Star, Mic, MicOff, User, Bot } from 'lucide-react';
 import EnhancedFeedback from './EnhancedFeedback';
 
-function RoleplaySession({ scenario, userEmail, onEndSession }) {
+function RoleplaySession({ scenario, userEmail, onEndSession, isMobile }) {
+  // All useState hooks must be called in the same order every render
   const [sessionState, setSessionState] = useState('starting');
   const [conversation, setConversation] = useState([]);
   const [currentTranscript, setCurrentTranscript] = useState('');
@@ -18,62 +16,87 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
   const [showFeedback, setShowFeedback] = useState(false);
   const [feedback, setFeedback] = useState(null);
   const [isSessionActive, setIsSessionActive] = useState(true);
-  const [showDebugLog, setShowDebugLog] = useState(false); // Hidden by default
+  const [showDebugLog, setShowDebugLog] = useState(false);
   const [debugLog, setDebugLog] = useState([]);
 
+  // Debug logging function
   const addDebugLog = (message) => {
     const timestamp = new Date().toLocaleTimeString();
     console.log(`[${timestamp}] ${message}`);
     setDebugLog(prev => [...prev.slice(-5), `${timestamp}: ${message}`]);
   };
 
+  // Initialize session effect - runs once when component mounts
   useEffect(() => {
     initializeSession();
     return () => {
       cleanup();
     };
-  }, []);
+  }, []); // Empty dependency array - runs once on mount
 
+  // Session ID change effect - triggers listening when session is ready
   useEffect(() => {
     if (sessionId && sessionState === 'starting' && isSessionActive) {
-      addDebugLog(`🔗 SessionId state updated: ${sessionId}`);
-      setTimeout(() => {
+      addDebugLog(`Session ID set: ${sessionId}, starting listening in 1 second`);
+      const timer = setTimeout(() => {
         if (isSessionActive && sessionId) {
-          addDebugLog('🎧 Starting listening with valid sessionId...');
+          addDebugLog('Starting listening with valid sessionId...');
           startListening();
         }
       }, 1000);
+      
+      return () => clearTimeout(timer);
     }
   }, [sessionId, sessionState, isSessionActive]);
 
+  // Cleanup function for when component unmounts
   const cleanup = () => {
-    addDebugLog('🧹 Cleaning up session - stopping all audio...');
+    addDebugLog('Cleaning up session - stopping all audio...');
     setIsSessionActive(false);
     
     speechService.stopListening();
     speechService.stopSpeaking();
     
-    addDebugLog('✅ All audio stopped');
+    addDebugLog('All audio stopped');
   };
 
+  // Initialize session function
   const initializeSession = async () => {
-  try {
-    console.log('🚀 STARTING SESSION INIT');
-    console.log('📋 Scenario:', scenario);
-    console.log('📧 User email:', userEmail);
-    
-    const newSessionId = await apiService.createSession(scenario.id, userEmail);
-    console.log('✅ API RETURNED SESSION ID:', newSessionId);
-    
-    setSessionId(newSessionId);
-    console.log('✅ SESSION ID SET IN STATE');
-    
-  } catch (err) {
-    console.error('❌ SESSION INIT FAILED:', err);
-    setError(`Failed to start session: ${err.message}`);
-  }
-};
+    try {
+      addDebugLog('Starting session initialization...');
+      
+      // Validate required props
+      if (!scenario || !scenario.id) {
+        throw new Error('Invalid scenario - missing ID');
+      }
+      if (!userEmail) {
+        throw new Error('Invalid user email');
+      }
 
+      addDebugLog('Creating session via API...');
+      const newSessionId = await apiService.createSession(scenario.id, userEmail);
+      
+      if (!newSessionId) {
+        throw new Error('Session creation returned empty ID');
+      }
+      
+      addDebugLog(`Session created with ID: ${newSessionId}`);
+      
+      setSessionId(newSessionId);
+      setStartTime(new Date());
+      
+      addDebugLog('Requesting microphone permission...');
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+      addDebugLog('Microphone permission granted');
+      
+    } catch (err) {
+      addDebugLog(`Session initialization failed: ${err.message}`);
+      console.error('Full error:', err);
+      setError(`Failed to start session: ${err.message}`);
+    }
+  };
+
+  // Start listening function
   const startListening = () => {
     if (!isSessionActive || !sessionId || sessionState === 'ai-speaking') {
       return;
@@ -124,6 +147,7 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
     );
   };
 
+  // Process user speech function
   const processUserSpeech = async (userMessage) => {
     if (!isSessionActive || !sessionId) return;
     
@@ -168,7 +192,7 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
         const characterGender = getCharacterGender(scenario.character_name);
         await speechService.speak(aiResult.response, characterGender);
       } catch (speechError) {
-        addDebugLog(`❌ Speech synthesis error: ${speechError.message}`);
+        addDebugLog(`Speech synthesis error: ${speechError.message}`);
       }
 
       if (!isSessionActive) return;
@@ -180,7 +204,7 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
       }, 500);
 
     } catch (err) {
-      addDebugLog(`💥 Error in processUserSpeech: ${err.message}`);
+      addDebugLog(`Error in processUserSpeech: ${err.message}`);
       console.error('Full error:', err);
       
       setError(`Processing error: ${err.message}`);
@@ -195,6 +219,7 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
     }
   };
 
+  // Utility functions
   const getCharacterGender = (characterName) => {
     const femaleNames = ['sarah', 'lisa', 'jennifer', 'mary', 'susan', 'karen', 'nancy', 'emily', 'jessica', 'rachel'];
     const firstName = characterName.split(' ')[0].toLowerCase();
@@ -203,9 +228,8 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
 
   const getCharacterAvatar = (characterName, characterRole) => {
     const firstName = characterName.split(' ')[0].toLowerCase();
-    const isemale = ['sarah', 'lisa', 'jennifer', 'mary', 'susan', 'karen', 'nancy', 'emily', 'jessica', 'rachel'].includes(firstName);
+    const isFemale = ['sarah', 'lisa', 'jennifer', 'mary', 'susan', 'karen', 'nancy', 'emily', 'jessica', 'rachel'].includes(firstName);
     
-    // Generate avatar based on role and gender
     const avatarStyle = {
       width: '45px',
       height: '45px',
@@ -216,27 +240,26 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
       fontSize: '20px',
       fontWeight: 'bold',
       color: 'white',
-      background: isemale ? 
+      background: isFemale ? 
         'linear-gradient(135deg, #ff6b9d, #c44569)' : 
         'linear-gradient(135deg, #4facfe, #00f2fe)'
     };
 
-    // Choose emoji based on role
     let emoji = '👤';
     const roleLower = (characterRole || '').toLowerCase();
     
     if (roleLower.includes('manager') || roleLower.includes('director')) {
-      emoji = isemale ? '👩‍💼' : '👨‍💼';
+      emoji = isFemale ? '👩‍💼' : '👨‍💼';
     } else if (roleLower.includes('ceo') || roleLower.includes('executive')) {
-      emoji = isemale ? '👩‍💼' : '👨‍💼';
+      emoji = isFemale ? '👩‍💼' : '👨‍💼';
     } else if (roleLower.includes('owner') || roleLower.includes('founder')) {
-      emoji = isemale ? '👩‍💼' : '👨‍💼';
+      emoji = isFemale ? '👩‍💼' : '👨‍💼';
     } else if (roleLower.includes('it') || roleLower.includes('tech')) {
-      emoji = isemale ? '👩‍💻' : '👨‍💻';
+      emoji = isFemale ? '👩‍💻' : '👨‍💻';
     } else if (roleLower.includes('buyer') || roleLower.includes('purchas')) {
-      emoji = isemale ? '👩‍💼' : '👨‍💼';
+      emoji = isFemale ? '👩‍💼' : '👨‍💼';
     } else {
-      emoji = isemale ? '👩' : '👨';
+      emoji = isFemale ? '👩' : '👨';
     }
 
     return (
@@ -264,8 +287,9 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
     );
   };
 
+  // End session handler
   const handleEndSession = async () => {
-    addDebugLog('🛑 User clicked End Session - stopping everything immediately...');
+    addDebugLog('User clicked End Session - stopping everything immediately...');
     
     setIsSessionActive(false);
     setSessionState('ended');
@@ -284,19 +308,20 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
         try {
           await apiService.triggerFeedbackAnalysis(sessionId, conversation, scenario);
         } catch (analysisError) {
-          addDebugLog(`⚠️ Detailed analysis failed: ${analysisError.message}`);
+          addDebugLog(`Detailed analysis failed: ${analysisError.message}`);
         }
       }
       setShowFeedback(true);
       
     } catch (err) {
-      addDebugLog(`❌ Error ending session: ${err.message}`);
+      addDebugLog(`Error ending session: ${err.message}`);
       const basicFeedback = generateFeedback();
       setFeedback(basicFeedback);
       setShowFeedback(true);
     }
   };
 
+  // Generate basic feedback
   const generateFeedback = () => {
     const exchanges = Math.floor(conversation.length / 2);
     const duration = Math.round((Date.now() - startTime.getTime()) / 60000);
@@ -316,6 +341,7 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
     return { performance, exchanges, duration, scenario: scenario.title };
   };
 
+  // State message helper
   const getStateMessage = () => {
     switch (sessionState) {
       case 'starting': return 'Initializing conversation...';
@@ -327,6 +353,7 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
     }
   };
 
+  // Status color helper
   const getStatusColor = () => {
     switch (sessionState) {
       case 'starting': return '#f59e0b';
@@ -338,6 +365,7 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
     }
   };
 
+  // Microphone icon helper
   const getMicrophoneIcon = () => {
     if (sessionState === 'listening') {
       return <Mic size={20} className="animate-pulse" />;
@@ -349,39 +377,65 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
   };
 
   // Enhanced Feedback Screen
-if (showFeedback && feedback) {
-  return (
-    <EnhancedFeedback
-      sessionId={sessionId}
-      basicFeedback={{
-        ...feedback,
-        userEmail: userEmail // Add user email so it can fetch the session
-      }}
-      onContinue={() => {
-        setShowFeedback(false);
-        onEndSession();
-      }}
-      onViewDashboard={(tab = 'progress') => {
-        setShowFeedback(false);
-        onEndSession(tab);
-      }}
-    />
-  );
-}
+  if (showFeedback && feedback) {
+    return (
+      <EnhancedFeedback
+        sessionId={sessionId}
+        basicFeedback={{
+          ...feedback,
+          userEmail: userEmail
+        }}
+        onContinue={() => {
+          setShowFeedback(false);
+          onEndSession();
+        }}
+        onViewDashboard={(tab = 'progress') => {
+          setShowFeedback(false);
+          onEndSession(tab);
+        }}
+      />
+    );
+  }
+
   // Error Screen
   if (error) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fee2e2', padding: '20px' }}>
-        <div style={{ backgroundColor: 'white', padding: '40px', borderRadius: '12px', textAlign: 'center', maxWidth: '600px' }}>
+      <div style={{ 
+        minHeight: '100vh', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        backgroundColor: '#fee2e2', 
+        padding: '20px' 
+      }}>
+        <div style={{ 
+          backgroundColor: 'white', 
+          padding: '40px', 
+          borderRadius: '12px', 
+          textAlign: 'center', 
+          maxWidth: '600px' 
+        }}>
           <div style={{ fontSize: '3rem', marginBottom: '20px' }}>⚠️</div>
           <h2 style={{ color: '#dc2626', marginBottom: '16px' }}>Session Error</h2>
           <p style={{ marginBottom: '24px' }}>{error}</p>
           
           {showDebugLog && (
-            <div style={{ textAlign: 'left', backgroundColor: '#f3f4f6', padding: '16px', borderRadius: '8px', marginBottom: '24px', maxHeight: '200px', overflowY: 'auto' }}>
+            <div style={{ 
+              textAlign: 'left', 
+              backgroundColor: '#f3f4f6', 
+              padding: '16px', 
+              borderRadius: '8px', 
+              marginBottom: '24px', 
+              maxHeight: '200px', 
+              overflowY: 'auto' 
+            }}>
               <h3 style={{ fontSize: '0.9rem', marginBottom: '8px' }}>Debug Log:</h3>
               {debugLog.map((log, index) => (
-                <div key={index} style={{ fontSize: '0.8rem', fontFamily: 'monospace', marginBottom: '4px' }}>
+                <div key={index} style={{ 
+                  fontSize: '0.8rem', 
+                  fontFamily: 'monospace', 
+                  marginBottom: '4px' 
+                }}>
                   {log}
                 </div>
               ))}
@@ -392,8 +446,13 @@ if (showFeedback && feedback) {
             <button 
               onClick={() => setShowDebugLog(!showDebugLog)}
               style={{
-                backgroundColor: '#6b7280', color: 'white', border: 'none', padding: '8px 16px',
-                borderRadius: '6px', cursor: 'pointer', fontSize: '0.9rem'
+                backgroundColor: '#6b7280', 
+                color: 'white', 
+                border: 'none', 
+                padding: '8px 16px',
+                borderRadius: '6px', 
+                cursor: 'pointer', 
+                fontSize: '0.9rem'
               }}
             >
               {showDebugLog ? 'Hide' : 'Show'} Debug Info
@@ -407,17 +466,28 @@ if (showFeedback && feedback) {
                 initializeSession();
               }}
               style={{
-                backgroundColor: '#10b981', color: 'white', border: 'none', padding: '12px 24px',
-                borderRadius: '8px', cursor: 'pointer'
+                backgroundColor: '#10b981', 
+                color: 'white', 
+                border: 'none', 
+                padding: '12px 24px',
+                borderRadius: '8px', 
+                cursor: 'pointer'
               }}
             >
               Try Again
             </button>
             <button 
-              onClick={() => { cleanup(); onEndSession(); }}
+              onClick={() => { 
+                cleanup(); 
+                onEndSession(); 
+              }}
               style={{
-                backgroundColor: '#dc2626', color: 'white', border: 'none', padding: '12px 24px',
-                borderRadius: '8px', cursor: 'pointer'
+                backgroundColor: '#dc2626', 
+                color: 'white', 
+                border: 'none', 
+                padding: '12px 24px',
+                borderRadius: '8px', 
+                cursor: 'pointer'
               }}
             >
               Return to Dashboard
@@ -432,8 +502,18 @@ if (showFeedback && feedback) {
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb' }}>
       {/* Header */}
-      <div style={{ backgroundColor: 'white', borderBottom: '1px solid #e5e7eb', padding: '16px 24px' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ 
+        backgroundColor: 'white', 
+        borderBottom: '1px solid #e5e7eb', 
+        padding: '16px 24px' 
+      }}>
+        <div style={{ 
+          maxWidth: '1200px', 
+          margin: '0 auto', 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center' 
+        }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
             {getCharacterAvatar(scenario.character_name, scenario.character_role)}
             <div>
@@ -490,7 +570,13 @@ if (showFeedback && feedback) {
 
       <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
         {/* Conversation Area */}
-        <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '24px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)', minHeight: '500px' }}>
+        <div style={{ 
+          backgroundColor: 'white', 
+          borderRadius: '12px', 
+          padding: '24px', 
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)', 
+          minHeight: '500px' 
+        }}>
           
           {conversation.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '60px 20px', color: '#6b7280' }}>
@@ -629,7 +715,7 @@ if (showFeedback && feedback) {
           )}
         </div>
 
-        {/* Debug Toggle (Hidden by default) */}
+        {/* Debug Toggle (Development Only) */}
         {process.env.NODE_ENV === 'development' && (
           <div style={{ marginTop: '20px', textAlign: 'center' }}>
             <button
@@ -649,7 +735,7 @@ if (showFeedback && feedback) {
           </div>
         )}
 
-        {/* Debug Log Panel (Hidden by default) */}
+        {/* Debug Log Panel */}
         {showDebugLog && (
           <div style={{ 
             backgroundColor: 'white', 
@@ -659,7 +745,12 @@ if (showFeedback && feedback) {
             boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
           }}>
             <h3 style={{ fontSize: '1rem', marginBottom: '8px' }}>Debug Log:</h3>
-            <div style={{ maxHeight: '120px', overflowY: 'auto', fontSize: '0.8rem', fontFamily: 'monospace' }}>
+            <div style={{ 
+              maxHeight: '120px', 
+              overflowY: 'auto', 
+              fontSize: '0.8rem', 
+              fontFamily: 'monospace' 
+            }}>
               {debugLog.map((log, index) => (
                 <div key={index} style={{ marginBottom: '2px' }}>{log}</div>
               ))}
