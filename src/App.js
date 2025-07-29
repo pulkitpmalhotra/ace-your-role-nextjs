@@ -96,8 +96,6 @@ function App() {
           console.log('📱 Restoring user session:', savedEmail);
           setUserEmail(savedEmail);
           setCurrentState(savedState === 'session' ? 'dashboard' : savedState);
-          
-          showInfo('Welcome back! Your session has been restored.');
         }
       } catch (error) {
         console.error('Failed to load user data:', error);
