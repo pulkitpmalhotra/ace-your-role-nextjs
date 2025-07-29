@@ -209,14 +209,14 @@ function Dashboard({ userEmail, onStartSession, onViewFeedbackDashboard, initial
           WebkitTextFillColor: 'transparent',
           backgroundClip: 'text'
         }}>
-          🎯 AI Sales Roleplay
+          🎯 Ace Your Role
         </h1>
         <p style={{ 
           fontSize: '1.2rem', 
           color: '#666',
           marginBottom: '10px'
         }}>
-          Practice your sales skills with AI-powered scenarios
+          Master your skills with AI-powered roleplay training
         </p>
         <div style={{ 
           display: 'flex', 
