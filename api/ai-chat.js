@@ -231,6 +231,12 @@ CHARACTER PROFILE:
 - Current Emotion: ${emotion}
 - Scenario: ${scenario.description}
 
+ENHANCED CONTEXT (Gemini 2.5):
+- Conversation Turn: ${messageCount + 1}
+- Emotional State: ${emotion}
+- Industry Context: ${scenario.category}
+- Character Arc: ${getCharacterProgression(messageCount)}
+
 COMMUNICATION STYLE:
 ${genderPersonality[gender]}
 ${emotionInstructions[emotion]}
@@ -243,53 +249,43 @@ ${historyText ? `Previous conversation:\n${historyText}\n` : ''}
 CURRENT SITUATION:
 The salesperson just said: "${userMessage}"
 
+THINKING PROCESS:
+1. Analyze user's message intent and emotional tone
+2. Consider my character's realistic response based on role and personality
+3. Determine appropriate emotional progression
+4. Generate contextually relevant response
+
 RESPONSE GUIDELINES:
 - Stay completely in character as ${scenario.character_name}
-- Keep responses 15-30 words (natural speaking length)
-- Match the ${emotion} emotion in your tone
-- Use natural business conversation patterns
+- Respond naturally in 15-30 words (natural speaking length)
+- Show emotional evolution: ${getEmotionalProgression(emotion, messageCount)}
+- Use industry-specific knowledge from ${scenario.category}
 - Ask relevant follow-up questions based on your role
-- Vary your language - avoid repetitive phrases
 - Show personality through word choice and emphasis
 - React authentically to what the salesperson just said
-- If discussing price/budget, respond as a ${scenario.character_role} would
-- Include natural hesitations, enthusiasm, or concerns as appropriate
 
-FORBIDDEN:
-- Never break character or mention you're an AI
-- Don't use overly formal or robotic language
-- Avoid repeating the same phrases from earlier messages
-- Don't be too eager or too resistant - be realistic
-
-Your authentic response as ${scenario.character_name} (${emotion}, ${gender}):`;
+Current situation: "${userMessage}"
+Your authentic response:`;
 }
 
-function getRoleBasedBehavior(role) {
-  const roleLower = role.toLowerCase();
-  
-  if (roleLower.includes('ceo') || roleLower.includes('executive')) {
-    return "Focus on strategic impact and ROI. You make decisions quickly but want to see clear business value. Time is precious.";
-  }
-  
-  if (roleLower.includes('manager') || roleLower.includes('director')) {
-    return "You're practical and results-oriented. You need to justify decisions to your team/boss. Ask about implementation and team impact.";
-  }
-  
-  if (roleLower.includes('owner') || roleLower.includes('founder')) {
-    return "Every decision affects your business personally. You're cost-conscious but willing to invest in proven solutions.";
-  }
-  
-  if (roleLower.includes('buyer') || roleLower.includes('purchas')) {
-    return "You're detail-oriented and comparison-focused. You need specifications, warranties, and vendor reliability information.";
-  }
-  
-  if (roleLower.includes('it') || roleLower.includes('tech')) {
-    return "Focus on technical specifications, integration, and security. You're analytical and want detailed technical information.";
-  }
-  
-  if (roleLower.includes('marketing')) {
-    return "Think about brand impact and customer engagement. You're creative but also data-driven about results.";
-  }
-  
-  return "You're a professional who needs to understand how this solution will specifically help your role and organization.";
+// ADD these new helper functions:
+function getCharacterProgression(messageCount) {
+  if (messageCount === 0) return "Initial contact - polite but reserved";
+  if (messageCount < 3) return "Getting acquainted - cautious interest";
+  if (messageCount < 6) return "Building rapport - increasing engagement";
+  if (messageCount < 10) return "Active discussion - evaluating solutions";
+  return "Decision phase - considering next steps";
+}
+
+function getEmotionalProgression(currentEmotion, messageCount) {
+  const progressions = {
+    curious: messageCount > 5 ? "becoming more interested" : "maintaining curiosity",
+    interested: messageCount > 7 ? "showing genuine engagement" : "growing interest",
+    concerned: messageCount > 4 ? "seeking reassurance" : "expressing concerns",
+    skeptical: messageCount > 6 ? "being open to convincing" : "maintaining skepticism",
+    professional: messageCount > 8 ? "considering business impact" : "staying professional",
+    warming_up: messageCount > 5 ? "becoming more friendly" : "slowly opening up",
+    engaged: messageCount > 3 ? "actively participating" : "showing engagement"
+  };
+  return progressions[currentEmotion] || "maintaining current emotion";
 }
