@@ -1,4 +1,4 @@
-// src/services/speech.js - FIXED VERSION
+// src/services/speech.js - Enhanced with emotional and natural voice synthesis
 
 export class SpeechService {
   constructor() {
@@ -6,14 +6,15 @@ export class SpeechService {
     this.synthesis = window.speechSynthesis;
     this.voices = [];
     this.isListening = false;
-    this.isSpeaking = false; // NEW: Track if AI is speaking
-    this.isProcessing = false; // NEW: Track if processing user input
+    this.isSpeaking = false;
+    this.isProcessing = false;
     this.loadVoices();
   }
 
   loadVoices() {
     const updateVoices = () => {
       this.voices = this.synthesis.getVoices();
+      console.log('🔊 Available voices loaded:', this.voices.length);
     };
 
     updateVoices();
@@ -38,33 +39,20 @@ export class SpeechService {
       return;
     }
 
-    // CRITICAL: Don't start listening if AI is speaking or processing
-    if (this.isSpeaking) {
-      console.log('🔇 Not starting microphone - AI is currently speaking');
+    if (this.isSpeaking || this.isProcessing) {
+      console.log('🔇 Not starting microphone - AI is currently speaking or processing');
       return;
     }
 
-    if (this.isProcessing) {
-      console.log('🔇 Not starting microphone - currently processing input');
-      return;
-    }
-
-    // Stop any existing recognition
     this.stopListening();
 
     const SpeechRecognition = window.webkitSpeechRecognition || window.SpeechRecognition;
     this.recognition = new SpeechRecognition();
 
-    // More robust configuration
     this.recognition.continuous = true;
     this.recognition.interimResults = true;
     this.recognition.lang = 'en-US';
     this.recognition.maxAlternatives = 1;
-    
-    // Add these for better reliability
-    if (this.recognition.serviceURI !== undefined) {
-      this.recognition.serviceURI = 'wss://www.google.com/speech-api/full-duplex/v1/up';
-    }
 
     let silenceTimer = null;
     let hasSpoken = false;
@@ -73,24 +61,18 @@ export class SpeechService {
     this.recognition.onstart = () => {
       console.log('🎤 Speech recognition started successfully');
       this.isListening = true;
-      
-      // Reset silence timer
       clearTimeout(silenceTimer);
       hasSpoken = false;
       lastTranscript = '';
     };
 
     this.recognition.onresult = (event) => {
-      // CRITICAL: Ignore results if AI is speaking or processing
       if (this.isSpeaking || this.isProcessing) {
         console.log('🔇 Ignoring speech input - AI is speaking or processing');
         return;
       }
 
-      console.log('📝 Speech result event received');
       hasSpoken = true;
-      
-      // Clear silence timer since we got speech
       clearTimeout(silenceTimer);
       
       let finalTranscript = '';
@@ -99,9 +81,6 @@ export class SpeechService {
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i];
         const transcript = result[0].transcript;
-        const confidence = result[0].confidence;
-        
-        console.log(`📝 Transcript: "${transcript}", Final: ${result.isFinal}, Confidence: ${confidence}`);
         
         if (result.isFinal) {
           finalTranscript += transcript;
@@ -110,20 +89,15 @@ export class SpeechService {
         }
       }
 
-      // Call onResult with the appropriate transcript
       if (finalTranscript.trim() && finalTranscript.trim() !== lastTranscript.trim()) {
         console.log('✅ Final transcript:', finalTranscript);
         lastTranscript = finalTranscript.trim();
-        
-        // Set processing flag to prevent new input during AI response
         this.isProcessing = true;
-        this.stopListening(); // Stop listening immediately
-        
+        this.stopListening();
         onResult(finalTranscript.trim(), true);
       } else if (interimTranscript.trim() && !this.isSpeaking && !this.isProcessing) {
         onResult(interimTranscript.trim(), false);
         
-        // Set silence timer for interim results
         clearTimeout(silenceTimer);
         silenceTimer = setTimeout(() => {
           if (interimTranscript.trim().length > 2 && !this.isSpeaking && !this.isProcessing) {
@@ -133,7 +107,7 @@ export class SpeechService {
             this.stopListening();
             onResult(interimTranscript.trim(), true);
           }
-        }, 2000); // 2 seconds of silence
+        }, 2000);
       }
     };
 
@@ -142,36 +116,32 @@ export class SpeechService {
       this.isListening = false;
       clearTimeout(silenceTimer);
       
-      let errorMessage = 'Speech recognition error occurred.';
-      
       switch (event.error) {
         case 'not-allowed':
-          errorMessage = 'Microphone access denied. Please allow microphone access and try again.';
+          onError('Microphone access denied. Please allow microphone access and try again.');
           break;
         case 'no-speech':
           console.log('⚠️ No speech detected - this is normal, will restart');
-          // Don't treat no-speech as an error, just restart if not speaking/processing
           if (!this.isSpeaking && !this.isProcessing) {
             setTimeout(() => {
               if (!this.isListening && !this.isSpeaking && !this.isProcessing) {
-                console.log('🔄 Restarting after no-speech...');
                 this.startListening(onResult, onError, onEnd);
               }
             }, 1000);
           }
           return;
         case 'audio-capture':
-          errorMessage = 'Microphone not found. Please check your microphone connection.';
+          onError('Microphone not found. Please check your microphone connection.');
           break;
         case 'network':
-          errorMessage = 'Network error. Please check your internet connection.';
+          onError('Network error. Please check your internet connection.');
           break;
         case 'aborted':
           console.log('ℹ️ Speech recognition aborted - this is normal');
           return;
+        default:
+          onError(`Speech recognition error: ${event.error}`);
       }
-      
-      onError(errorMessage);
     };
 
     this.recognition.onend = () => {
@@ -179,9 +149,7 @@ export class SpeechService {
       this.isListening = false;
       clearTimeout(silenceTimer);
       
-      // Only restart if we're not speaking, processing, and haven't spoken
       if (!hasSpoken && !this.isSpeaking && !this.isProcessing) {
-        console.log('🔄 Recognition ended without speech, will restart...');
         setTimeout(() => {
           if (!this.isSpeaking && !this.isProcessing) {
             onEnd();
@@ -191,7 +159,6 @@ export class SpeechService {
     };
 
     try {
-      console.log('🎤 Starting speech recognition...');
       this.recognition.start();
     } catch (error) {
       console.error('Failed to start speech recognition:', error);
@@ -209,8 +176,8 @@ export class SpeechService {
     }
   }
 
-  // Text-to-speech with better error handling and state management
-  speak(text, characterGender = 'female') {
+  // Enhanced text-to-speech with emotional parameters
+  speak(text, characterData = {}) {
     return new Promise((resolve, reject) => {
       const support = this.isSupported();
       if (!support.synthesis) {
@@ -218,46 +185,47 @@ export class SpeechService {
         return;
       }
 
-      // CRITICAL: Set speaking flag and stop any listening
       this.isSpeaking = true;
-      this.stopListening(); // Force stop listening
-      
-      // Cancel any ongoing speech
+      this.stopListening();
       this.synthesis.cancel();
 
       console.log('🔊 AI starting to speak - microphone OFF');
 
       const utterance = new SpeechSynthesisUtterance(text);
       
-      // Find appropriate voice
-      const voice = this.findBestVoice(characterGender);
-      if (voice) {
-        utterance.voice = voice;
+      // Enhanced voice selection and parameters
+      const voiceConfig = this.getEnhancedVoiceConfig(characterData);
+      
+      if (voiceConfig.voice) {
+        utterance.voice = voiceConfig.voice;
       }
 
-      // Better speech settings
-      utterance.rate = 0.85;  // Slightly slower for clarity
-      utterance.pitch = 1.0;
-      utterance.volume = 0.9;
+      // Apply emotional speech parameters
+      utterance.rate = voiceConfig.rate;
+      utterance.pitch = voiceConfig.pitch;
+      utterance.volume = voiceConfig.volume;
+
+      // Add natural pauses and emphasis
+      const processedText = this.addNaturalSpeechPatterns(text, characterData.emotion);
+      utterance.text = processedText;
 
       utterance.onstart = () => {
-        console.log('🔊 AI speech started');
+        console.log('🔊 AI speech started with voice:', utterance.voice?.name || 'default');
         this.isSpeaking = true;
       };
 
       utterance.onend = () => {
         console.log('🔊 AI speech completed - microphone can restart');
         this.isSpeaking = false;
-        this.isProcessing = false; // Clear processing flag
+        this.isProcessing = false;
         resolve();
       };
       
       utterance.onerror = (event) => {
         console.error('🚨 Speech synthesis error:', event);
         this.isSpeaking = false;
-        this.isProcessing = false; // Clear processing flag
+        this.isProcessing = false;
         
-        // Don't reject for interrupted errors (these are normal)
         if (event.error === 'interrupted') {
           console.log('ℹ️ Speech was interrupted - this is normal');
           resolve();
@@ -266,17 +234,225 @@ export class SpeechService {
         }
       };
 
-      utterance.onpause = () => {
-        console.log('⏸️ Speech paused');
-      };
+      console.log('🔊 Starting emotional speech synthesis:', {
+        text: text.substring(0, 50) + '...',
+        emotion: characterData.emotion,
+        gender: characterData.gender,
+        voice: voiceConfig.voice?.name,
+        rate: voiceConfig.rate,
+        pitch: voiceConfig.pitch
+      });
 
-      utterance.onresume = () => {
-        console.log('▶️ Speech resumed');
-      };
-
-      console.log('🔊 Starting speech synthesis:', text.substring(0, 50) + '...');
       this.synthesis.speak(utterance);
     });
+  }
+
+  // Enhanced voice configuration based on character data
+  getEnhancedVoiceConfig(characterData = {}) {
+    if (this.voices.length === 0) {
+      this.voices = this.synthesis.getVoices();
+    }
+
+    const gender = characterData.gender || 'neutral';
+    const emotion = characterData.emotion || 'professional';
+    
+    // Find the best voice for the character
+    const voice = this.findOptimalVoice(gender, characterData.character_name);
+    
+    // Get emotional speech parameters
+    const emotionalParams = this.getEmotionalSpeechParams(emotion);
+    
+    return {
+      voice: voice,
+      rate: emotionalParams.rate,
+      pitch: emotionalParams.pitch,
+      volume: emotionalParams.volume
+    };
+  }
+
+  // Find the most suitable voice
+  findOptimalVoice(gender, characterName = '') {
+    const englishVoices = this.voices.filter(voice => 
+      voice.lang.startsWith('en-') && voice.localService !== false
+    );
+
+    if (englishVoices.length === 0) {
+      return this.voices.find(voice => voice.lang.startsWith('en-')) || null;
+    }
+
+    // Premium voice preferences (if available)
+    const premiumVoices = englishVoices.filter(voice => {
+      const name = voice.name.toLowerCase();
+      return name.includes('enhanced') || 
+             name.includes('premium') || 
+             name.includes('neural') ||
+             name.includes('natural');
+    });
+
+    let targetVoices = premiumVoices.length > 0 ? premiumVoices : englishVoices;
+
+    // Gender-specific voice selection
+    if (gender === 'female') {
+      const femaleVoices = targetVoices.filter(voice => {
+        const name = voice.name.toLowerCase();
+        return name.includes('female') || 
+               name.includes('woman') ||
+               name.includes('samantha') ||
+               name.includes('karen') ||
+               name.includes('susan') ||
+               name.includes('victoria') ||
+               name.includes('zira') ||
+               name.includes('hazel') ||
+               name.includes('monica') ||
+               name.includes('paulina') ||
+               voice.name.match(/\b(sara|sarah|emily|anna|kate|amy|lisa|mary)\b/i);
+      });
+      
+      if (femaleVoices.length > 0) {
+        // Prefer more natural sounding female voices
+        const naturalFemale = femaleVoices.find(voice => 
+          voice.name.toLowerCase().includes('enhanced') ||
+          voice.name.toLowerCase().includes('natural')
+        );
+        return naturalFemale || femaleVoices[0];
+      }
+    } else if (gender === 'male') {
+      const maleVoices = targetVoices.filter(voice => {
+        const name = voice.name.toLowerCase();
+        return name.includes('male') || 
+               name.includes('man') ||
+               name.includes('david') ||
+               name.includes('mark') ||
+               name.includes('tom') ||
+               name.includes('daniel') ||
+               name.includes('alex') ||
+               name.includes('james') ||
+               name.includes('ryan') ||
+               voice.name.match(/\b(john|mike|steve|chris|paul|kevin)\b/i);
+      });
+      
+      if (maleVoices.length > 0) {
+        // Prefer more natural sounding male voices
+        const naturalMale = maleVoices.find(voice => 
+          voice.name.toLowerCase().includes('enhanced') ||
+          voice.name.toLowerCase().includes('natural')
+        );
+        return naturalMale || maleVoices[0];
+      }
+    }
+
+    // Fallback to best available English voice
+    const bestVoice = targetVoices.find(voice => 
+      voice.default || 
+      voice.name.toLowerCase().includes('enhanced') ||
+      voice.name.toLowerCase().includes('natural')
+    );
+
+    return bestVoice || targetVoices[0] || englishVoices[0] || null;
+  }
+
+  // Get speech parameters based on emotion
+  getEmotionalSpeechParams(emotion) {
+    const baseParams = {
+      rate: 0.85,
+      pitch: 1.0,
+      volume: 0.9
+    };
+
+    switch (emotion) {
+      case 'curious':
+        return {
+          rate: 0.9,   // Slightly faster, showing interest
+          pitch: 1.1,  // Higher pitch for curiosity
+          volume: 0.95
+        };
+        
+      case 'interested':
+        return {
+          rate: 0.95,  // Energetic pace
+          pitch: 1.05, // Slightly elevated
+          volume: 0.95
+        };
+        
+      case 'concerned':
+        return {
+          rate: 0.75,  // Slower, more thoughtful
+          pitch: 0.95, // Slightly lower
+          volume: 0.85
+        };
+        
+      case 'skeptical':
+        return {
+          rate: 0.8,   // Deliberate pace
+          pitch: 0.9,  // Lower, more serious
+          volume: 0.9
+        };
+        
+      case 'professional':
+        return {
+          rate: 0.85,  // Standard business pace
+          pitch: 1.0,  // Neutral
+          volume: 0.9
+        };
+        
+      case 'warming_up':
+        return {
+          rate: 0.88,  // Slightly more relaxed
+          pitch: 1.02, // Warmer tone
+          volume: 0.92
+        };
+        
+      case 'engaged':
+        return {
+          rate: 0.92,  // Active and engaged
+          pitch: 1.08, // More animated
+          volume: 0.95
+        };
+        
+      default:
+        return baseParams;
+    }
+  }
+
+  // Add natural speech patterns and emphasis
+  addNaturalSpeechPatterns(text, emotion = 'professional') {
+    let processedText = text;
+    
+    // Add natural pauses for better pacing
+    processedText = processedText.replace(/\./g, '. ');
+    processedText = processedText.replace(/,/g, ', ');
+    processedText = processedText.replace(/\?/g, '? ');
+    processedText = processedText.replace(/!/g, '! ');
+    
+    // Add emphasis based on emotion
+    switch (emotion) {
+      case 'curious':
+        processedText = processedText.replace(/\?/g, '?');
+        break;
+        
+      case 'interested':
+        // Add slight emphasis to positive words
+        processedText = processedText.replace(/\b(great|excellent|perfect|wonderful|amazing)\b/gi, 
+          (match) => `${match}`);
+        break;
+        
+      case 'concerned':
+        // Add pauses before important concerns
+        processedText = processedText.replace(/\b(but|however|although|though)\b/gi, 
+          (match) => ` ${match}`);
+        break;
+        
+      case 'skeptical':
+        // Add hesitation markers
+        processedText = processedText.replace(/\b(really|actually|truly)\b/gi, 
+          (match) => `${match}`);
+        break;
+    }
+    
+    // Clean up extra spaces
+    processedText = processedText.replace(/\s+/g, ' ').trim();
+    
+    return processedText;
   }
 
   // Stop speech
@@ -289,22 +465,19 @@ export class SpeechService {
     }
   }
 
-  // Check if currently listening
+  // State checking methods
   isCurrentlyListening() {
     return this.isListening;
   }
 
-  // Check if currently speaking
   isCurrentlySpeaking() {
     return this.isSpeaking;
   }
 
-  // Check if currently processing
   isCurrentlyProcessing() {
     return this.isProcessing;
   }
 
-  // Get current state for debugging
   getState() {
     return {
       isListening: this.isListening,
@@ -313,43 +486,16 @@ export class SpeechService {
     };
   }
 
-  // Find best voice for character
-  findBestVoice(gender) {
-    if (this.voices.length === 0) {
-      this.voices = this.synthesis.getVoices();
-    }
-
-    const englishVoices = this.voices.filter(voice => 
-      voice.lang.startsWith('en-')
-    );
-
-    if (englishVoices.length === 0) return null;
-
-    // Look for gender-specific voices
-    const genderVoices = englishVoices.filter(voice => {
-      const name = voice.name.toLowerCase();
-      if (gender === 'female') {
-        return name.includes('female') || 
-               name.includes('zira') || 
-               name.includes('samantha') ||
-               name.includes('karen') ||
-               name.includes('susan') ||
-               name.includes('alex'); // Alex is often female on some systems
-      } else {
-        return name.includes('male') || 
-               name.includes('david') || 
-               name.includes('mark') ||
-               name.includes('tom') ||
-               name.includes('daniel');
-      }
-    });
-
-    return genderVoices[0] || englishVoices[0];
-  }
-
-  // Get debug info
+  // Get debug info including voice capabilities
   getDebugInfo() {
     const support = this.isSupported();
+    const availableVoices = this.voices.map(v => ({
+      name: v.name,
+      lang: v.lang,
+      gender: this.guessVoiceGender(v.name),
+      quality: v.localService ? 'local' : 'remote'
+    }));
+
     return {
       recognition: support.recognition,
       synthesis: support.synthesis,
@@ -358,8 +504,23 @@ export class SpeechService {
       isSpeaking: this.isSpeaking,
       isProcessing: this.isProcessing,
       userAgent: navigator.userAgent.includes('Chrome') ? 'Chrome' : 'Other',
-      availableVoices: this.voices.map(v => ({ name: v.name, lang: v.lang }))
+      availableVoices: availableVoices,
+      recommendedVoices: {
+        female: availableVoices.filter(v => v.gender === 'female').slice(0, 3),
+        male: availableVoices.filter(v => v.gender === 'male').slice(0, 3)
+      }
     };
+  }
+
+  guessVoiceGender(voiceName) {
+    const name = voiceName.toLowerCase();
+    if (name.includes('female') || name.match(/\b(sara|sarah|emily|anna|kate|amy|lisa|mary|karen|susan|victoria|zira|hazel|monica|paulina)\b/)) {
+      return 'female';
+    }
+    if (name.includes('male') || name.match(/\b(david|mark|tom|daniel|alex|james|ryan|john|mike|steve|chris|paul|kevin)\b/)) {
+      return 'male';
+    }
+    return 'unknown';
   }
 }
 
