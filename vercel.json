@@ -4,44 +4,30 @@
       "maxDuration": 30
     }
   },
+  "env": {
+    "GEMINI_MODEL": "gemini-2.5-flash-lite",
+    "ENVIRONMENT": "staging",
+    "GOOGLE_SPEECH_ENABLED": "true"
+  },
+  "regions": ["iad1"],
   "headers": [
     {
-      "source": "/(.*)",
+      "source": "/api/(.*)",
       "headers": [
-        {
-          "key": "X-Frame-Options",
-          "value": "DENY"
-        },
-        {
-          "key": "X-XSS-Protection",
-          "value": "1; mode=block"
-        },
-        {
-          "key": "X-Content-Type-Options",
-          "value": "nosniff"
-        },
-        {
-          "key": "Referrer-Policy",
-          "value": "strict-origin-when-cross-origin"
-        },
-        {
-          "key": "Permissions-Policy",
-          "value": "microphone=*, camera=(), geolocation=(), payment=()"
-        }
+        { "key": "Cache-Control", "value": "s-maxage=1, stale-while-revalidate" }
       ]
-    }
-  ],
-  "redirects": [
+    },
     {
-      "source": "/health",
-      "destination": "/api/health",
-      "permanent": false
+      "source": "/service-worker.js",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
+      ]
     }
   ],
   "rewrites": [
     {
-      "source": "/sitemap.xml",
-      "destination": "/api/sitemap"
+      "source": "/api/health",
+      "destination": "/api/monitoring/health"
     }
   ]
 }
