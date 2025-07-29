@@ -1,9 +1,4 @@
-console.log('🤖 AI Response received:', {
-        response: aiResult.response,
-        emotion: aiResult.emotion,
-        character: aiResult.character,
-        gender: aiResult.gender
-      });// src/components/RoleplaySession.js - Complete file with proper hook management
+// src/components/RoleplaySession.js - Complete file with proper hook management
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../services/api';
 import { speechService } from '../services/speech';
