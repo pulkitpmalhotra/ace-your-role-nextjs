@@ -236,6 +236,28 @@ class APIService {
     });
   }
 
+  // User management methods
+  async createOrVerifyUser(email) {
+    console.log('👤 Creating/verifying user in Supabase:', email);
+    
+    try {
+      // Try to create user via our API
+      const response = await this.makeRequest('/api/user-management', {
+        method: 'POST',
+        body: JSON.stringify({ 
+          action: 'create-or-verify',
+          email: email 
+        })
+      });
+      
+      console.log('✅ User created/verified:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ User creation failed:', error);
+      throw error;
+    }
+  }
+
   // Authentication API methods (for future use)
   async authenticateUser(email, password) {
     console.log('🔐 Authenticating user...');
