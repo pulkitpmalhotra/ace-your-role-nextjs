@@ -1,43 +1,61 @@
-import React from 'react';
+// /components/GoogleAuthProvider.jsx
 import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
 
-function GoogleAuthProvider({ children }) {
+export function AuthProvider({ children }) {
   return (
-    <GoogleOAuthProvider clientId={process.env.REACT_APP_GOOGLE_CLIENT_ID}>
+    <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID}>
       {children}
     </GoogleOAuthProvider>
   );
 }
 
-export function GoogleLoginButton({ onSuccess, onError }) {
+export function LoginComponent() {
+  const [isLoading, setIsLoading] = useState(false);
+  const [showEmailForm, setShowEmailForm] = useState(false);
+  
   const handleGoogleSuccess = async (credentialResponse) => {
+    setIsLoading(true);
     try {
       const response = await fetch('/api/auth/google', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ credential: credentialResponse.credential })
+        body: JSON.stringify({ token: credentialResponse.credential })
       });
       
-      const result = await response.json();
-      if (result.success) {
-        onSuccess(result.data);
-      } else {
-        onError(result.error);
+      const data = await response.json();
+      if (data.success) {
+        // Store user data and redirect
+        localStorage.setItem('userEmail', data.email);
+        router.push('/dashboard');
       }
     } catch (error) {
-      onError('Google login failed');
+      console.error('Login failed:', error);
+      setError('Google login failed');
+    } finally {
+      setIsLoading(false);
     }
   };
-
+  
   return (
-    <GoogleLogin
-      onSuccess={handleGoogleSuccess}
-      onError={() => onError('Google login failed')}
-      useOneTap={true}
-      auto_select={false}
-      disabled={loading || googleLoading}
-    />
+    <div className="login-container">
+      {/* Google Login Button */}
+      <GoogleLogin
+        onSuccess={handleGoogleSuccess}
+        onError={() => setError('Google login failed')}
+        useOneTap={true}
+        auto_select={false}
+        disabled={isLoading || googleLoading}
+      />
+      
+      {/* Divider */}
+      <div className="login-divider">
+        <span>or continue with email</span>
+      </div>
+      
+      {/* Existing email form */}
+      <form onSubmit={handleEmailSubmit}>
+        {/* ... existing form code ... */}
+      </form>
+    </div>
   );
 }
-
-export default GoogleAuthProvider;
