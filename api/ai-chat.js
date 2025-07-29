@@ -6,7 +6,7 @@ const supabase = createClient(
   process.env.SUPABASE_ANON_KEY
 );
 
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent';
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent';
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -175,12 +175,13 @@ async function generateEnhancedGeminiResponse(scenario, userMessage, conversatio
           text: prompt
         }]
       }],
-      generationConfig: {
-        temperature: 0.9, // Higher temperature for more varied responses
-        topK: 50,
-        topP: 0.95,
-        maxOutputTokens: 150,
-      },
+    generationConfig: {
+  temperature: 0.9,
+  topK: 50,
+  topP: 0.95,
+  maxOutputTokens: 150,
+  thinkingBudget: 'low' // New parameter for cost optimization
+}
       safetySettings: [
         {
           category: "HARM_CATEGORY_HARASSMENT",
