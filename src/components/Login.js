@@ -288,7 +288,38 @@ function Login({ onLogin, onShowPrivacy }) {
             )}
           </button>
         </form>
+// ADD after existing login form:
+<div style={{ 
+  display: 'flex', 
+  alignItems: 'center', 
+  margin: '20px 0',
+  textAlign: 'center'
+}}>
+  <div style={{ flex: 1, height: '1px', backgroundColor: '#e5e7eb' }}></div>
+  <span style={{ padding: '0 20px', color: '#6b7280', fontSize: '0.9rem' }}>
+    or continue with email
+  </span>
+  <div style={{ flex: 1, height: '1px', backgroundColor: '#e5e7eb' }}></div>
+</div>
 
+{/* Existing email form */}
+
+{/* Divider */}
+<div style={{ 
+  display: 'flex', 
+  alignItems: 'center', 
+  margin: '20px 0',
+  textAlign: 'center'
+}}>
+  <div style={{ flex: 1, height: '1px', backgroundColor: '#e5e7eb' }}></div>
+  <span style={{ padding: '0 20px', color: '#6b7280', fontSize: '0.9rem' }}>
+    or continue with email
+  </span>
+  <div style={{ flex: 1, height: '1px', backgroundColor: '#e5e7eb' }}></div>
+</div>
+
+{/* Existing email form */}
+</form>
         {/* Enhanced Features Preview */}
         <div style={{
           marginTop: '40px',
