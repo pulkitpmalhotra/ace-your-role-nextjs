@@ -80,7 +80,7 @@ function Login({ onLogin, onShowPrivacy }) {
           marginBottom: '8px',
           color: '#1f2937'
         }}>
-          RolePlay AI Pro
+          Ace Your Role
         </h1>
         
         <p style={{
