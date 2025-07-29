@@ -18,23 +18,23 @@ async registerUser(email, password, userData = {}) {
   });
 }
   async makeRequest(endpoint, options = {}) {
-    const url = `${this.baseUrl}${endpoint}`;
-    
-    console.log('🚀 Making API request to:', url);
-    console.log('📋 Request options:', options);
-    
-    // Get auth token from localStorage if available
-    const authToken = localStorage.getItem('authToken');
-    
-    try {
-      const response = await fetch(url, {
-        headers: {
-          'Content-Type': 'application/json',
-          ...(authToken && { Authorization: `Bearer ${authToken}` }),
-          ...options.headers
-        },
-        ...options
-      });
+  const url = `${this.baseUrl}${endpoint}`;
+  
+  // Get auth token from localStorage if available
+  const authToken = localStorage.getItem('authToken');
+  // Get user email from sessionStorage for legacy auth
+  const userEmail = sessionStorage.getItem('userEmail');
+  
+  try {
+    const response = await fetch(url, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(authToken && { Authorization: `Bearer ${authToken}` }),
+        ...(userEmail && { 'X-User-Email': userEmail }),
+        ...options.headers
+      },
+      ...options
+    });
 
       console.log('📡 Response status:', response.status);
       console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
