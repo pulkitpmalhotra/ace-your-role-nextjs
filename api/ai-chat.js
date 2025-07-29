@@ -144,6 +144,7 @@ function getCharacterEmotion(scenario, userMessage, conversationHistory) {
   return 'professional';
 }
 
+// REPLACE the existing generateEnhancedGeminiResponse function with:
 async function generateEnhancedGeminiResponse(scenario, userMessage, conversationHistory) {
   const apiKey = process.env.GEMINI_API_KEY;
   
@@ -164,6 +165,43 @@ async function generateEnhancedGeminiResponse(scenario, userMessage, conversatio
   // Create enhanced character prompt
   const prompt = generateCharacterPrompt(scenario, characterGender, emotion, messageCount, historyText, userMessage);
 
+  // Enhanced generation config for Gemini 2.5
+  const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.9,
+        topK: 50,
+        topP: 0.95,
+        maxOutputTokens: 150,
+        // New Gemini 2.5 features
+        thinkingBudget: 'low', // Cost optimization
+        responseSchema: {
+          type: "object",
+          properties: {
+            response: { type: "string" },
+            emotion: { type: "string" },
+            confidence: { type: "number" }
+          }
+        }
+      }
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(`Gemini API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  
+  if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
+    throw new Error('Invalid response from Gemini API');
+  }
+
+  return data.candidates[0].content.parts[0].text.trim();
+}
   // Enhanced generation config
 const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
   method: 'POST',
