@@ -1,4 +1,4 @@
-// Enhanced src/App.js with Week 2 improvements
+// src/App.js - Complete file with proper React hook patterns
 import React, { useState, useEffect } from 'react';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
@@ -12,6 +12,7 @@ import { useToast } from './components/Toast';
 import './App.css';
 
 function App() {
+  // All useState hooks must be called in the same order every render
   const [currentState, setCurrentState] = useState('login');
   const [initialDashboardTab, setInitialDashboardTab] = useState('scenarios');
   const [userEmail, setUserEmail] = useState('');
@@ -21,27 +22,20 @@ function App() {
   const [showPrivacyNotice, setShowPrivacyNotice] = useState(false);
   const [performanceMetrics, setPerformanceMetrics] = useState(null);
 
-  // Toast notifications
+  // Toast notifications - this hook must always be called
   const { ToastContainer, showSuccess, showError, showWarning, showInfo } = useToast();
 
-  // Mobile detection
+  // Mobile detection effect - always runs
   useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth <= 768);
     };
-// Add this useEffect near the other useEffects in App.js
-useEffect(() => {
-  console.log('🔄 App state changed:');
-  console.log('  - currentState:', currentState);
-  console.log('  - selectedScenario:', selectedScenario?.title);
-  console.log('  - userEmail:', userEmail);
-}, [currentState, selectedScenario, userEmail]);
-    
+
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  }, []); // Empty dependency array means this only runs once
 
-  // Performance monitoring
+  // Performance monitoring effect - always runs
   useEffect(() => {
     const logPerformanceMetrics = () => {
       if ('performance' in window) {
@@ -60,7 +54,7 @@ useEffect(() => {
 
         setPerformanceMetrics(metrics);
 
-        // Send to performance API
+        // Send to performance API - wrapped in try/catch to prevent errors
         fetch('/api/performance', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -82,17 +76,17 @@ useEffect(() => {
       window.addEventListener('load', logPerformanceMetrics);
       return () => window.removeEventListener('load', logPerformanceMetrics);
     }
-  }, [userEmail]);
+  }, [userEmail]); // Dependency on userEmail is fine as it's stable
 
-  // Privacy notice check
+  // Privacy notice check effect - always runs
   useEffect(() => {
     const privacyAccepted = localStorage.getItem('privacyAccepted');
     if (!privacyAccepted) {
       setShowPrivacyNotice(true);
     }
-  }, []);
+  }, []); // Empty dependency array
 
-  // Load user data with error handling
+  // Load user data effect - always runs
   useEffect(() => {
     const loadUserData = async () => {
       try {
@@ -100,9 +94,12 @@ useEffect(() => {
         const savedState = sessionStorage.getItem('currentState');
         
         if (savedEmail && savedState) {
-          console.log('📱 Restoring user session:', savedEmail);
+          console.log('Restoring user session:', savedEmail);
           setUserEmail(savedEmail);
           setCurrentState(savedState === 'session' ? 'dashboard' : savedState);
+          
+          // Show restoration message only if we actually restored something
+          showInfo('Welcome back! Your session has been restored.');
         }
       } catch (error) {
         console.error('Failed to load user data:', error);
@@ -113,9 +110,9 @@ useEffect(() => {
     };
 
     loadUserData();
-  }, [showInfo, showError]);
+  }, []); // Empty dependency - showInfo and showError are stable functions
 
-  // Save user data with error handling
+  // Save user data effect - depends on userEmail and currentState
   useEffect(() => {
     if (userEmail) {
       try {
@@ -128,50 +125,56 @@ useEffect(() => {
     }
   }, [userEmail, currentState, showWarning]);
 
+  // Debugging effect - separate from main logic, always runs
+  useEffect(() => {
+    console.log('App State Update:', {
+      currentState,
+      userEmail: userEmail || 'Not set',
+      selectedScenario: selectedScenario?.title || 'None',
+      isLoading
+    });
+  }, [currentState, userEmail, selectedScenario, isLoading]);
+
+  // Event handlers - these are stable functions that don't affect hook order
   const handleLogin = (email) => {
-    console.log('🔐 User logged in:', email);
+    console.log('User logged in:', email);
     setUserEmail(email);
     setCurrentState('dashboard');
     showSuccess(`Welcome${email ? `, ${email.split('@')[0]}` : ''}! Ready to start practicing?`);
   };
 
   const handleStartSession = (scenario) => {
-  console.log('🎬 handleStartSession called in App.js');
-  console.log('📋 Received scenario:', scenario);
-  console.log('🆔 Scenario ID:', scenario?.id);
-  console.log('📧 Current user email:', userEmail);
-  
-  // Check if we have all required data
-  if (!scenario || !scenario.id) {
-    console.error('❌ Invalid scenario data');
-    alert('Error: Invalid scenario data');
-    return;
-  }
-  
-  if (!userEmail) {
-    console.error('❌ No user email available');
-    alert('Error: User not logged in');
-    return;
-  }
-  
-  console.log('✅ Setting selected scenario and transitioning to session state');
-  setSelectedScenario(scenario);
-  setCurrentState('session');
-  
-  // Log performance for analytics
-  fetch('/api/performance', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      type: 'session-start',
-      data: { scenarioId: scenario.id, scenarioTitle: scenario.title },
-      userEmail
-    })
-  }).catch(err => console.warn('Failed to log session start:', err));
-};
+    console.log('Starting session with scenario:', scenario?.title);
+    
+    // Simple validation without complex conditionals
+    if (!scenario?.id) {
+      showError('Invalid scenario selected');
+      return;
+    }
+    
+    if (!userEmail) {
+      showError('Please log in to start a session');
+      return;
+    }
+    
+    // Simple state updates
+    setSelectedScenario(scenario);
+    setCurrentState('session');
+    
+    // Log session start for analytics - non-blocking
+    fetch('/api/performance', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'session-start',
+        data: { scenarioId: scenario.id, scenarioTitle: scenario.title },
+        userEmail
+      })
+    }).catch(err => console.warn('Failed to log session start:', err));
+  };
 
   const handleEndSession = (targetTab = 'scenarios') => {
-    console.log('🏁 Session ended, returning to dashboard with tab:', targetTab);
+    console.log('Session ended, returning to dashboard with tab:', targetTab);
     setSelectedScenario(null);
     setCurrentState('dashboard');
     setInitialDashboardTab(targetTab);
@@ -179,7 +182,7 @@ useEffect(() => {
   };
 
   const handleLogout = () => {
-    console.log('👋 User logged out');
+    console.log('User logged out');
     try {
       sessionStorage.removeItem('userEmail');
       sessionStorage.removeItem('currentState');
@@ -196,7 +199,7 @@ useEffect(() => {
   };
 
   const handleViewFeedbackDashboard = (initialTab = 'scenarios') => {
-    console.log('📊 Opening feedback dashboard with tab:', initialTab);
+    console.log('Opening feedback dashboard with tab:', initialTab);
     setCurrentState('feedback-dashboard');
     setInitialDashboardTab(initialTab);
   };
@@ -216,7 +219,6 @@ useEffect(() => {
     setCurrentState('privacy-policy');
   };
 
-  // Mobile tab change handler
   const handleMobileTabChange = (tabId) => {
     setInitialDashboardTab(tabId);
     // Trigger dashboard re-render with new tab
@@ -227,71 +229,7 @@ useEffect(() => {
     }
   };
 
-  // Error fallback for the entire app
-  const AppErrorFallback = ({ error, resetError }) => (
-    <div style={{
-      minHeight: '100vh',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: '#fee2e2',
-      padding: '20px'
-    }}>
-      <div style={{
-        backgroundColor: 'white',
-        padding: '40px',
-        borderRadius: '12px',
-        textAlign: 'center',
-        maxWidth: '500px'
-      }}>
-        <h1 style={{ color: '#dc2626', marginBottom: '16px' }}>
-          Application Error
-        </h1>
-        <p style={{ marginBottom: '24px' }}>
-          The application encountered an unexpected error. This has been reported to our team.
-        </p>
-        <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
-          <button
-            onClick={resetError}
-            style={{
-              backgroundColor: '#dc2626',
-              color: 'white',
-              border: 'none',
-              padding: '12px 24px',
-              borderRadius: '8px',
-              cursor: 'pointer'
-            }}
-          >
-            Try Again
-          </button>
-          <button
-            onClick={() => window.location.reload()}
-            style={{
-              backgroundColor: '#6b7280',
-              color: 'white',
-              border: 'none',
-              padding: '12px 24px',
-              borderRadius: '8px',
-              cursor: 'pointer'
-            }}
-          >
-            Reload Page
-          </button>
-        </div>
-        
-        {/* Performance info for debugging */}
-        {performanceMetrics && process.env.NODE_ENV === 'development' && (
-          <details style={{ marginTop: '20px', textAlign: 'left' }}>
-            <summary>Performance Info (Dev Only)</summary>
-            <pre style={{ fontSize: '0.75rem', overflow: 'auto' }}>
-              {JSON.stringify(performanceMetrics, null, 2)}
-            </pre>
-          </details>
-        )}
-      </div>
-    </div>
-  );
-
+  // Loading screen - simple conditional rendering
   if (isLoading) {
     return (
       <div style={{
@@ -323,10 +261,11 @@ useEffect(() => {
     );
   }
 
+  // Main render - conditional rendering based on currentState
   return (
     <ErrorBoundary>
       <div className="App">
-        {/* Mobile Navigation */}
+        {/* Mobile Navigation - only shown for mobile dashboard */}
         {isMobile && currentState === 'dashboard' && (
           <MobileNavigation
             activeTab={initialDashboardTab}
@@ -336,8 +275,8 @@ useEffect(() => {
           />
         )}
 
-        {/* Main Content */}
-        <ErrorBoundary fallback={AppErrorFallback}>
+        {/* Main Content - conditional rendering that doesn't affect hooks */}
+        <ErrorBoundary>
           {currentState === 'login' && (
             <Login 
               onLogin={handleLogin} 
@@ -386,7 +325,7 @@ useEffect(() => {
           )}
         </ErrorBoundary>
         
-        {/* Desktop Logout Button */}
+        {/* Desktop Logout Button - conditional rendering */}
         {!isMobile && currentState === 'dashboard' && (
           <button
             onClick={handleLogout}
@@ -419,7 +358,7 @@ useEffect(() => {
           </button>
         )}
 
-        {/* Privacy Notice */}
+        {/* Privacy Notice - conditional rendering */}
         {showPrivacyNotice && (
           <div style={{
             position: 'fixed',
