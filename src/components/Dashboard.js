@@ -475,8 +475,19 @@ function Dashboard({ userEmail, onStartSession, onViewFeedbackDashboard }) {
                   )}
 <div style={{ flexGrow: 1 }}></div>
                   {/* Start Button */}
-                <button
-  onClick={() => onStartSession(scenario)}
+<button
+  onClick={(event) => {
+    console.log('🔘 BUTTON CLICKED! Event received');
+    console.log('📋 Scenario data:', scenario);
+    console.log('🎯 onStartSession function exists:', typeof onStartSession);
+    console.log('📧 User email:', userEmail);
+    
+    // Add a visual confirmation
+    alert('Button click detected!');
+    
+    // Call the original function
+    onStartSession(scenario);
+  }}
   style={{
     width: '100%',
     backgroundColor: '#667eea',
