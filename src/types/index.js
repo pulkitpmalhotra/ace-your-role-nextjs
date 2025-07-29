@@ -1,154 +1,113 @@
-// Core type definitions
-export interface User {
-  id: string;
-  email: string;
-  full_name?: string;
-  company?: string;
-  role?: string;
-  created_at: string;
-  updated_at: string;
-  preferences?: UserPreferences;
-}
+// Type definitions converted to JSDoc comments for documentation
 
-export interface UserPreferences {
-  notifications: boolean;
-  theme: 'light' | 'dark';
-  language: string;
-  privacy_level: 'basic' | 'enhanced';
-}
+/**
+ * @typedef {Object} User
+ * @property {string} id
+ * @property {string} email
+ * @property {string} [full_name]
+ * @property {string} [company]
+ * @property {string} [role]
+ * @property {string} created_at
+ * @property {string} updated_at
+ * @property {UserPreferences} [preferences]
+ */
 
-export interface Scenario {
-  id: string;
-  title: string;
-  description: string;
-  character_name: string;
-  character_role: string;
-  character_personality: string;
-  difficulty: 'beginner' | 'intermediate' | 'advanced';
-  category: string;
-  subcategory?: string;
-  tags?: string[];
-  learning_objectives?: string[];
-  estimated_duration_minutes?: number;
-  is_active: boolean;
-  created_at: string;
-}
+/**
+ * @typedef {Object} UserPreferences
+ * @property {boolean} notifications
+ * @property {'light'|'dark'} theme
+ * @property {string} language
+ * @property {'basic'|'enhanced'} privacy_level
+ */
 
-export interface Session {
-  id: string;
-  scenario_id: string;
-  user_email: string;
-  start_time: string;
-  end_time?: string;
-  duration_minutes?: number;
-  conversation: ConversationMessage[];
-  overall_score?: number;
-  detailed_feedback?: string;
-  scenarios?: Scenario;
-}
+/**
+ * @typedef {Object} Scenario
+ * @property {string} id
+ * @property {string} title
+ * @property {string} description
+ * @property {string} character_name
+ * @property {string} character_role
+ * @property {string} character_personality
+ * @property {'beginner'|'intermediate'|'advanced'} difficulty
+ * @property {string} category
+ * @property {string} [subcategory]
+ * @property {string[]} [tags]
+ * @property {string[]} [learning_objectives]
+ * @property {number} [estimated_duration_minutes]
+ * @property {boolean} is_active
+ * @property {string} created_at
+ */
 
-export interface ConversationMessage {
-  speaker: 'user' | 'ai';
-  message: string;
-  timestamp: number;
-}
+/**
+ * @typedef {Object} Session
+ * @property {string} id
+ * @property {string} scenario_id
+ * @property {string} user_email
+ * @property {string} start_time
+ * @property {string} [end_time]
+ * @property {number} [duration_minutes]
+ * @property {ConversationMessage[]} conversation
+ * @property {number} [overall_score]
+ * @property {string} [detailed_feedback]
+ * @property {Scenario} [scenarios]
+ */
 
-export interface FeedbackCategory {
-  score: number;
-  feedback: string;
-  suggestions: string[];
-}
+/**
+ * @typedef {Object} ConversationMessage
+ * @property {'user'|'ai'} speaker
+ * @property {string} message
+ * @property {number} timestamp
+ */
 
-export interface DetailedFeedback {
-  overallScore: number;
-  categories: {
-    opening: FeedbackCategory;
-    discovery: FeedbackCategory;
-    presentation: FeedbackCategory;
-    objection: FeedbackCategory;
-    closing: FeedbackCategory;
-  };
-  overall: {
-    strengths: string[];
-    improvements: string[];
-    nextFocus: string;
-  };
-}
+/**
+ * @typedef {Object} FeedbackCategory
+ * @property {number} score
+ * @property {string} feedback
+ * @property {string[]} suggestions
+ */
 
-export interface APIResponse<T = any> {
-  success: boolean;
-  data?: T;
-  error?: string;
-  meta?: {
-    total?: number;
-    filters?: Record<string, any>;
-    [key: string]: any;
-  };
-}
+/**
+ * @typedef {Object} DetailedFeedback
+ * @property {number} overallScore
+ * @property {Object} categories
+ * @property {FeedbackCategory} categories.opening
+ * @property {FeedbackCategory} categories.discovery
+ * @property {FeedbackCategory} categories.presentation
+ * @property {FeedbackCategory} categories.objection
+ * @property {FeedbackCategory} categories.closing
+ * @property {Object} overall
+ * @property {string[]} overall.strengths
+ * @property {string[]} overall.improvements
+ * @property {string} overall.nextFocus
+ */
 
-// Component Props
-export interface ScenarioFiltersProps {
-  onFiltersChange: (filters: ScenarioFilters) => void;
-  metadata?: {
-    total?: number;
-    availableCategories?: string[];
-    availableSubcategories?: string[];
-    availableDifficulties?: string[];
-  };
-}
+/**
+ * @typedef {Object} APIResponse
+ * @property {boolean} success
+ * @property {*} [data]
+ * @property {string} [error]
+ * @property {Object} [meta]
+ * @property {number} [meta.total]
+ * @property {Object} [meta.filters]
+ */
 
-export interface ScenarioFilters {
-  category: string;
-  difficulty: string;
-  subcategory: string;
-  search: string;
-  tags: string;
-  limit?: number;
-}
+/**
+ * @typedef {Object} ScenarioFilters
+ * @property {string} category
+ * @property {string} difficulty
+ * @property {string} subcategory
+ * @property {string} search
+ * @property {string} tags
+ * @property {number} [limit]
+ */
 
-export interface RoleplaySessionProps {
-  scenario: Scenario;
-  userEmail: string;
-  onEndSession: (targetTab?: string) => void;
-  isMobile: boolean;
-}
+/**
+ * @typedef {Object} AIResponseData
+ * @property {string} response
+ * @property {string} character
+ * @property {string} emotion
+ * @property {string} gender
+ */
 
-export interface EnhancedFeedbackProps {
-  sessionId: string;
-  basicFeedback: {
-    performance: string;
-    exchanges: number;
-    duration: number;
-    scenario: string;
-    userEmail: string;
-  };
-  onContinue: () => void;
-  onViewDashboard: (tab?: string) => void;
-}
-
-// API Service Types
-export interface CreateSessionRequest {
-  scenarioId: string;
-  userEmail: string;
-}
-
-export interface UpdateSessionRequest {
-  sessionId: string;
-  conversation?: ConversationMessage[];
-  feedback?: string;
-  durationMinutes?: number;
-  endSession?: boolean;
-}
-
-export interface AIResponseRequest {
-  scenarioId: string;
-  userMessage: string;
-  conversationHistory: ConversationMessage[];
-}
-
-export interface AIResponseData {
-  response: string;
-  character: string;
-  emotion: string;
-  gender: string;
-}
+// Export empty object for compatibility
+export default {};
