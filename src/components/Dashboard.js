@@ -296,27 +296,27 @@ function Dashboard({ userEmail, onStartSession, onViewFeedbackDashboard }) {
 
           {/* Scenarios Grid */}
           {!scenariosLoading && (
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
-              gap: '24px',
-              marginBottom: '40px'
-            }}>
-              {filteredScenarios.map((scenario) => (
-               <div
-  key={scenario.id}
-  style={{
-    backgroundColor: 'white',
-    borderRadius: '12px',
-    padding: '24px',
-    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-    border: '1px solid #e5e7eb',
-    transition: 'all 0.3s ease',
-    cursor: 'pointer',
-    display: 'flex',           // Add this
-    flexDirection: 'column',   // Add this
-    height: '100%'             // Add this
-  }}
+          <div style={{
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
+  gap: '24px',                    // Ensure this exists
+  marginBottom: '40px'
+}}>
+  {filteredScenarios.map((scenario) => (
+    <div
+      key={scenario.id}
+      style={{
+        backgroundColor: 'white',
+        borderRadius: '12px',
+        padding: '24px',
+        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+        border: '1px solid #e5e7eb',
+        transition: 'all 0.3s ease',
+        cursor: 'pointer',
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: '400px'
+      }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.transform = 'translateY(-4px)';
                     e.currentTarget.style.boxShadow = '0 8px 25px rgba(0, 0, 0, 0.15)';
