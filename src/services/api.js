@@ -1,62 +1,64 @@
-// src/services/api.js - COMPLETE FIXED VERSION with all syntax errors corrected
+// src/services/api.js - COMPLETE FIXED VERSION with authentication headers
 
 class APIService {
   constructor() {
     this.baseUrl = 'https://ai-roleplay-free.vercel.app';
   }
-async authenticateUser(email, password) {
-  return await this.makeRequest('/api/auth?action=login', {
-    method: 'POST',
-    body: JSON.stringify({ email, password })
-  });
-}
 
-async registerUser(email, password, userData = {}) {
-  return await this.makeRequest('/api/auth?action=register', {
-    method: 'POST',
-    body: JSON.stringify({ email, password, ...userData })
-  });
-}
   async makeRequest(endpoint, options = {}) {
-  const url = `${this.baseUrl}${endpoint}`;
-  
-  // Get auth token from localStorage if available
-  const authToken = localStorage.getItem('authToken');
-  // Get user email from sessionStorage for legacy auth
-  const userEmail = sessionStorage.getItem('userEmail');
-  
-  try {
-    const response = await fetch(url, {
-      headers: {
-        'Content-Type': 'application/json',
-        ...(authToken && { Authorization: `Bearer ${authToken}` }),
-        ...(userEmail && { 'X-User-Email': userEmail }),
-        ...options.headers
-      },
-      ...options
+    const url = `${this.baseUrl}${endpoint}`;
+    
+    // Get user email from sessionStorage for authentication
+    const userEmail = sessionStorage.getItem('userEmail');
+    
+    console.log('🚀 API Request:', {
+      url,
+      method: options.method || 'GET',
+      userEmail: userEmail || 'Not found in sessionStorage',
+      endpoint
     });
+    
+    try {
+      const response = await fetch(url, {
+        headers: {
+          'Content-Type': 'application/json',
+          // Always send user email header for legacy auth
+          ...(userEmail && { 'X-User-Email': userEmail }),
+          ...options.headers
+        },
+        ...options
+      });
 
-      console.log('📡 Response status:', response.status);
-      console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
-
-      // Get response text first to see what we're dealing with
-      const responseText = await response.text();
-      console.log('📄 Raw response:', responseText);
+      console.log('📡 API Response:', {
+        status: response.status,
+        statusText: response.statusText,
+        url: response.url
+      });
 
       if (!response.ok) {
-        // Try to parse error details
+        const responseText = await response.text();
+        console.error('❌ API Error Response:', responseText);
+        
+        // Handle authentication errors specifically
+        if (response.status === 401) {
+          console.error('🔐 Authentication failed - check user email in sessionStorage');
+          throw new Error('Authentication failed. Please log in again.');
+        }
+        
         let errorDetails = responseText;
         try {
           const errorJson = JSON.parse(responseText);
           errorDetails = errorJson.error || errorJson.message || responseText;
         } catch (e) {
-          // If it's not JSON, use the raw text
+          // Use raw text if not JSON
         }
         
         throw new Error(`HTTP ${response.status}: ${errorDetails}`);
       }
 
-      // Parse JSON response
+      const responseText = await response.text();
+      console.log('📄 Raw response:', responseText.substring(0, 200) + '...');
+
       let data;
       try {
         data = JSON.parse(responseText);
@@ -134,13 +136,19 @@ async registerUser(email, password, userData = {}) {
     // Validate each message
     for (let i = 0; i < conversation.length; i++) {
       const msg = conversation[i];
-      if (!msg.speaker || !msg.message || !msg.timestamp) {
+      if (!msg || typeof msg !== 'object') {
         console.error(`❌ Invalid message at index ${i}:`, msg);
         throw new Error(`Invalid message format at index ${i}`);
       }
+      
+      if (!msg.speaker || !msg.message || !msg.timestamp) {
+        console.error(`❌ Missing required fields in message ${i}:`, msg);
+        throw new Error(`Missing required fields in message ${i}`);
+      }
+
       if (!['user', 'ai'].includes(msg.speaker)) {
-        console.error(`❌ Invalid speaker at index ${i}:`, msg.speaker);
-        throw new Error(`Invalid speaker "${msg.speaker}" at index ${i}`);
+        console.error(`❌ Invalid speaker in message ${i}:`, msg.speaker);
+        throw new Error(`Invalid speaker "${msg.speaker}" in message ${i}`);
       }
     }
     
@@ -167,7 +175,16 @@ async registerUser(email, password, userData = {}) {
   }
 
   async getUserSessions(userEmail) {
-    console.log('📋 Fetching user sessions...');
+    console.log('📋 Fetching user sessions for:', userEmail);
+    
+    // Double-check sessionStorage has the email
+    const storedEmail = sessionStorage.getItem('userEmail');
+    console.log('📧 SessionStorage email:', storedEmail);
+    
+    if (!storedEmail) {
+      console.warn('⚠️ No email in sessionStorage - this may cause auth issues');
+    }
+    
     return await this.makeRequest(`/api/sessions?userEmail=${encodeURIComponent(userEmail)}`);
   }
 
@@ -222,7 +239,7 @@ async registerUser(email, password, userData = {}) {
   // Authentication API methods (for future use)
   async authenticateUser(email, password) {
     console.log('🔐 Authenticating user...');
-    return await this.makeRequest('/api/auth/login', {
+    return await this.makeRequest('/api/auth?action=login', {
       method: 'POST',
       body: JSON.stringify({ email, password })
     });
@@ -230,7 +247,7 @@ async registerUser(email, password, userData = {}) {
 
   async registerUser(email, password, userData = {}) {
     console.log('📝 Registering new user...');
-    return await this.makeRequest('/api/auth/register', {
+    return await this.makeRequest('/api/auth?action=register', {
       method: 'POST',
       body: JSON.stringify({ email, password, ...userData })
     });
@@ -568,6 +585,14 @@ async registerUser(email, password, userData = {}) {
         olderThan: olderThanDays
       })
     });
+  }
+
+  // Debug helper method
+  debugSessionStorage() {
+    console.log('🔍 SessionStorage Debug:');
+    console.log('  - userEmail:', sessionStorage.getItem('userEmail'));
+    console.log('  - currentState:', sessionStorage.getItem('currentState'));
+    console.log('  - all keys:', Object.keys(sessionStorage));
   }
 }
 
