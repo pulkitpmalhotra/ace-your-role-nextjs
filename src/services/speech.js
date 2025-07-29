@@ -10,7 +10,31 @@ export class SpeechService {
     this.isProcessing = false;
     this.loadVoices();
   }
+// ADD to existing SpeechService class:
+class HybridSpeechService {
+  constructor() {
+    this.googleSpeech = new GoogleSpeechService();
+    this.webSpeech = new WebSpeechService(); // existing service
+    this.useGoogle = process.env.GOOGLE_SPEECH_ENABLED === 'true';
+  }
 
+  async transcribe(audioData) {
+    try {
+      if (this.useGoogle) {
+        const result = await this.googleSpeech.transcribeRealTime(audioData);
+        if (result.confidence > 0.8) {
+          return result;
+        }
+        console.log('Low confidence, falling back to Web Speech API');
+      }
+    } catch (error) {
+      console.error('Google Speech failed, using Web Speech fallback:', error);
+    }
+
+    // Fallback to Web Speech API
+    return await this.webSpeech.transcribe(audioData);
+  }
+}
   loadVoices() {
     const updateVoices = () => {
       this.voices = this.synthesis.getVoices();
