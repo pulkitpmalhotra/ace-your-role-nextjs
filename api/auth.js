@@ -1,5 +1,34 @@
 import { AuthService, withAuth } from '../lib/auth.js';
 
+// api/auth.js - Add Google OAuth support
+async function handleGoogleAuth(req, res) {
+  const { credential } = req.body;
+  
+  try {
+    // Verify Google JWT token
+    const ticket = await googleAuthClient.verifyIdToken({
+      idToken: credential,
+      audience: process.env.GOOGLE_CLIENT_ID
+    });
+    
+    const payload = ticket.getPayload();
+    
+    // Create or update user
+    const user = await createOrUpdateGoogleUser({
+      email: payload.email,
+      name: payload.name,
+      picture: payload.picture,
+      googleId: payload.sub,
+      emailVerified: payload.email_verified
+    });
+    
+    const token = AuthService.generateToken(user.id);
+    res.json({ success: true, data: { user, token } });
+    
+  } catch (error) {
+    res.status(401).json({ success: false, error: 'Invalid Google token' });
+  }
+}
 async function handler(req, res) {
   const { action } = req.query;
   
