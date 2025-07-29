@@ -89,7 +89,7 @@ export default async function handler(req, res) {
 }
 
 async function generateRealFeedback(conversation, scenario, apiKey) {
-  console.log('🤖 Generating REAL Gemini feedback - No mock data allowed...');
+  console.log('🤖 Generating REAL Gemini feedback - Enhanced Analysis...');
 
   try {
     // Format conversation for analysis
@@ -102,81 +102,26 @@ async function generateRealFeedback(conversation, scenario, apiKey) {
     }
 
     const analysisPrompt = `
-You are an expert sales trainer with 20+ years of experience. Analyze this roleplay conversation using strict professional standards. Be BRUTALLY HONEST but constructive.
+GEMINI 2.5 ADVANCED ANALYSIS:
+You are an expert sales trainer with 20+ years experience. Analyze this roleplay conversation using advanced reasoning.
 
-SCENARIO CONTEXT:
-- Title: ${scenario.title || 'Sales Practice'}
-- Character: ${scenario.character_name || 'Customer'} (${scenario.character_role || 'Potential Client'})
-- Character Personality: ${scenario.character_personality || 'Professional contact'}
+THINKING PROCESS:
+1. Read the entire conversation for context
+2. Identify key sales methodology elements
+3. Assess each category with specific evidence
+4. Generate actionable improvement recommendations  
+5. Predict next session focus areas
 
-ACTUAL CONVERSATION:
-${conversationText}
+ENHANCED SCORING CRITERIA (1-5 scale with 0.1 precision):
+- Consider micro-expressions in language
+- Evaluate emotional intelligence demonstrated
+- Assess adaptability to character responses
+- Measure outcome probability
 
-SCORING CRITERIA (1-5 scale):
-1 = Poor/Unacceptable - Fundamental skills missing, would lose the deal
-2 = Below Standard - Significant improvements needed, weak performance  
-3 = Acceptable - Meets basic requirements, average performance
-4 = Good - Strong performance with minor areas for improvement
-5 = Excellent - Exceptional execution, textbook sales technique
+CONVERSATION ANALYSIS:
+${conversationText.map(msg => `> ${msg.speaker}: ${msg.message}`).join('\n')}
 
-EVALUATE EACH CATEGORY WITH BRUTAL HONESTY:
-
-1. OPENING & RAPPORT BUILDING (Weight: 15%)
-Analyze: Professional greeting, rapport building, agenda setting, first impression
-Look for: Did they introduce themselves professionally? Build natural rapport? Set clear expectations?
-Score harshly - most beginners score 1-2 here.
-
-2. DISCOVERY & NEEDS ASSESSMENT (Weight: 30% - MOST CRITICAL)
-Analyze: Quality and quantity of questions, pain point identification, qualification
-Look for: Open-ended questions, budget qualification, timeline, decision-making process, genuine needs discovery
-This is THE most important skill - be extremely critical. Score 3+ only if they asked multiple discovery questions.
-
-3. SOLUTION PRESENTATION (Weight: 25%)
-Analyze: Tailoring solution to needs, benefits vs features, compelling presentation
-Look for: Did they connect solution to discovered needs? Focus on benefits? Use examples/proof?
-Score harshly - generic presentations get 1-2.
-
-4. OBJECTION HANDLING (Weight: 20%)
-Analyze: How they handled pushback, concerns, or resistance
-Look for: Acknowledgment, clarifying questions, logical responses, relationship maintenance
-Most people can't handle objections well - score accordingly.
-
-5. CLOSING & NEXT STEPS (Weight: 10%)
-Analyze: Asking for commitment, defining next steps, creating urgency
-Look for: Did they ask for the sale/meeting? Clear next steps? Appropriate urgency?
-Most people don't close - score 1-2 unless they clearly asked for something.
-
-PROVIDE SPECIFIC EXAMPLES from the conversation to support each score.
-
-FORMAT YOUR RESPONSE EXACTLY AS:
-OPENING_SCORE: [1-5]
-OPENING_FEEDBACK: [2-3 brutal but constructive sentences with specific examples from conversation]
-OPENING_SUGGESTIONS: [3 specific improvements separated by |]
-
-DISCOVERY_SCORE: [1-5]
-DISCOVERY_FEEDBACK: [2-3 brutal but constructive sentences with specific examples]
-DISCOVERY_SUGGESTIONS: [3 specific improvements separated by |]
-
-PRESENTATION_SCORE: [1-5]
-PRESENTATION_FEEDBACK: [2-3 brutal but constructive sentences with specific examples]
-PRESENTATION_SUGGESTIONS: [3 specific improvements separated by |]
-
-OBJECTION_SCORE: [1-5]
-OBJECTION_FEEDBACK: [2-3 brutal but constructive sentences with specific examples]
-OBJECTION_SUGGESTIONS: [3 specific improvements separated by |]
-
-CLOSING_SCORE: [1-5]
-CLOSING_FEEDBACK: [2-3 brutal but constructive sentences with specific examples]
-CLOSING_SUGGESTIONS: [3 specific improvements separated by |]
-
-OVERALL_STRENGTHS: [Top 2-3 strengths demonstrated separated by |]
-OVERALL_IMPROVEMENTS: [Top 3-4 critical areas for improvement separated by |]
-NEXT_SESSION_FOCUS: [What to focus on in next practice session - be specific]
-
-Remember: Be tough but fair. Real sales is competitive. Only exceptional performance deserves 4-5 scores.
-`;
-
-    console.log('🚀 Calling Gemini API for real analysis...');
+Provide detailed analysis with specific examples and nuanced scoring.`;
 
     const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
       method: 'POST',
@@ -184,21 +129,10 @@ Remember: Be tough but fair. Real sales is competitive. Only exceptional perform
       body: JSON.stringify({
         contents: [{ parts: [{ text: analysisPrompt }] }],
         generationConfig: {
-          temperature: 0.3,
-          topK: 40,
-          topP: 0.95,
-          maxOutputTokens: 1500,
-        },
-        safetySettings: [
-          {
-            category: "HARM_CATEGORY_HARASSMENT",
-            threshold: "BLOCK_MEDIUM_AND_ABOVE"
-          },
-          {
-            category: "HARM_CATEGORY_HATE_SPEECH", 
-            threshold: "BLOCK_MEDIUM_AND_ABOVE"
-          }
-        ]
+          temperature: 0.3, // Lower for consistency
+          maxOutputTokens: 2000, // More detailed feedback
+          thinkingBudget: 'medium' // Allow deeper analysis
+        }
       })
     });
 
@@ -216,7 +150,7 @@ Remember: Be tough but fair. Real sales is competitive. Only exceptional perform
     }
 
     const analysisText = data.candidates[0].content.parts[0].text;
-    console.log('✅ Gemini response received, parsing...');
+    console.log('✅ Enhanced Gemini response received, parsing...');
     
     return parseAnalysisResponse(analysisText);
 
