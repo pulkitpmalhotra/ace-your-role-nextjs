@@ -1,6 +1,3 @@
-// Install dependencies
-npm install @react-oauth/google
-
 // Update src/components/Login.js
 import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
 
