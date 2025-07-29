@@ -242,4 +242,4 @@ async function handler(req, res) {
 }
 
 // Export with authentication middleware
-export default withAuth(handler);
+export default withAuth(handler, { public: true });
