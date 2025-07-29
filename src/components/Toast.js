@@ -130,7 +130,7 @@ function Toast({
       </div>
 
       {/* Close Button */}
-     <button
+ <button
   onClick={handleClose}
   style={{
     flexShrink: 0,
@@ -141,11 +141,8 @@ function Toast({
     borderRadius: '4px',
     display: 'flex',
     alignItems: 'center',
-    justifyContent: 'center',
-    transition: 'background-color 0.2s ease',
-    zIndex: 1001  // Add this
+    justifyContent: 'center'
   }}
->
         onMouseEnter={(e) => {
           e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.1)';
         }}
