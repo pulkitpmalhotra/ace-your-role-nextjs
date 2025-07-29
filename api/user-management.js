@@ -1,4 +1,4 @@
-// api/user-management.js - Handle user creation and verification
+// api/user-management.js - Fixed to work with proper database schema
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
@@ -85,16 +85,15 @@ async function createOrVerifyUser(email) {
       };
     }
 
-    // Create new user
+    // Create new user - removed updated_at as it's handled by trigger
     console.log('➕ Creating new user:', email);
     const { data: newUser, error: createError } = await supabase
       .from('users')
       .insert({
         email: email,
         legacy_email_login: true,
-        email_verified: true,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        email_verified: true
+        // created_at and updated_at are handled automatically by database
       })
       .select()
       .single();
