@@ -129,21 +129,39 @@ function App() {
   };
 
   const handleStartSession = (scenario) => {
-    console.log('🎬 Starting session with scenario:', scenario.title);
-    setSelectedScenario(scenario);
-    setCurrentState('session');
-    
-    // Log session start for analytics
-    fetch('/api/performance', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        type: 'session-start',
-        data: { scenarioId: scenario.id, scenarioTitle: scenario.title },
-        userEmail
-      })
-    }).catch(err => console.warn('Failed to log session start:', err));
-  };
+  console.log('🎬 handleStartSession called in App.js');
+  console.log('📋 Received scenario:', scenario);
+  console.log('🆔 Scenario ID:', scenario?.id);
+  console.log('📧 Current user email:', userEmail);
+  
+  // Check if we have all required data
+  if (!scenario || !scenario.id) {
+    console.error('❌ Invalid scenario data');
+    alert('Error: Invalid scenario data');
+    return;
+  }
+  
+  if (!userEmail) {
+    console.error('❌ No user email available');
+    alert('Error: User not logged in');
+    return;
+  }
+  
+  console.log('✅ Setting selected scenario and transitioning to session state');
+  setSelectedScenario(scenario);
+  setCurrentState('session');
+  
+  // Log performance for analytics
+  fetch('/api/performance', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      type: 'session-start',
+      data: { scenarioId: scenario.id, scenarioTitle: scenario.title },
+      userEmail
+    })
+  }).catch(err => console.warn('Failed to log session start:', err));
+};
 
   const handleEndSession = (targetTab = 'scenarios') => {
     console.log('🏁 Session ended, returning to dashboard with tab:', targetTab);
