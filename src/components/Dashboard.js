@@ -1,10 +1,11 @@
-// Update src/components/Dashboard.js - Replace the scenarios loading and filtering logic
+// src/components/Dashboard.js - Complete file with proper button handling
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../services/api';
 import { Play, User, TrendingUp, BarChart3, Target, Calendar, Loader } from 'lucide-react';
 import ScenarioFilters from './ScenarioFilters';
 
-function Dashboard({ userEmail, onStartSession, onViewFeedbackDashboard }) {
+function Dashboard({ userEmail, onStartSession, onViewFeedbackDashboard, initialTab, isMobile, onShowPrivacy }) {
+  // All useState hooks must be called in the same order every render
   const [scenarios, setScenarios] = useState([]);
   const [filteredScenarios, setFilteredScenarios] = useState([]);
   const [sessions, setSessions] = useState([]);
@@ -14,19 +15,19 @@ function Dashboard({ userEmail, onStartSession, onViewFeedbackDashboard }) {
   const [activeTab, setActiveTab] = useState('scenarios');
   const [metadata, setMetadata] = useState({});
 
+  // Initial data loading effect - always runs once
   useEffect(() => {
     loadInitialData();
-  }, []);
+  }, []); // Empty dependency array
 
-  // Check for saved tab preference
+  // Tab preference loading effect - always runs once
   useEffect(() => {
-    const savedTab = sessionStorage.getItem('dashboardTab');
-    if (savedTab) {
-      setActiveTab(savedTab);
-      sessionStorage.removeItem('dashboardTab');
+    if (initialTab) {
+      setActiveTab(initialTab);
     }
-  }, []);
+  }, [initialTab]); // Dependency on initialTab prop
 
+  // Load initial data function
   const loadInitialData = async () => {
     try {
       setLoading(true);
@@ -50,32 +51,61 @@ function Dashboard({ userEmail, onStartSession, onViewFeedbackDashboard }) {
     }
   };
 
+  // Load scenarios function
   const loadScenarios = async (filters = {}) => {
     try {
       setScenariosLoading(true);
-      console.log('🔍 Loading scenarios with filters:', filters);
+      console.log('Loading scenarios with filters:', filters);
       
       // Call API with filters
       const response = await apiService.getScenariosWithFilters(filters);
       
-      console.log('✅ Scenarios loaded:', response);
+      console.log('Scenarios loaded:', response);
       setScenarios(response.data || []);
       setFilteredScenarios(response.data || []);
       setMetadata(response.meta || {});
       
     } catch (err) {
-      console.error('❌ Failed to load scenarios:', err);
+      console.error('Failed to load scenarios:', err);
       setError(err.message || 'Failed to load scenarios');
     } finally {
       setScenariosLoading(false);
     }
   };
 
+  // Filter change handler
   const handleFiltersChange = (filters) => {
-    console.log('🔄 Filters changed:', filters);
+    console.log('Filters changed:', filters);
     loadScenarios(filters);
   };
 
+  // Button click handler - clean and simple
+  const handleStartSession = (scenario) => {
+    console.log('Dashboard: Start session button clicked for:', scenario.title);
+    
+    // Simple validation
+    if (!scenario || !scenario.id) {
+      console.error('Invalid scenario data');
+      return;
+    }
+    
+    // Call the parent function
+    onStartSession(scenario);
+  };
+
+  // PDF download handler
+  const handleDownloadReport = async (sessionId) => {
+    try {
+      console.log('Starting PDF download for session:', sessionId);
+      await apiService.downloadFeedbackReport(sessionId, userEmail);
+      console.log('PDF downloaded successfully');
+    } catch (error) {
+      console.error('Download error:', error);
+      alert('Failed to download report. Please try again.');
+    }
+  };
+
+  // Utility functions for display
   const getDifficultyColor = (difficulty) => {
     switch (difficulty) {
       case 'beginner': return '#22c55e';
@@ -112,30 +142,7 @@ function Dashboard({ userEmail, onStartSession, onViewFeedbackDashboard }) {
     ).join(' ');
   };
 
-  const handleDownloadReport = async (sessionId) => {
-    try {
-      console.log('📄 Starting PDF download for session:', sessionId);
-      await apiService.downloadFeedbackReport(sessionId, userEmail);
-      
-      // Optional: Log the download
-      try {
-        await fetch('/api/log-download', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sessionId, userEmail })
-        });
-      } catch (logError) {
-        console.log('Failed to log download, but PDF was successful');
-      }
-      
-      console.log('✅ PDF downloaded successfully');
-      
-    } catch (error) {
-      console.error('❌ Download error:', error);
-      alert('Failed to download report. Please try again.');
-    }
-  };
-
+  // Loading state
   if (loading) {
     return (
       <div style={{ 
@@ -159,6 +166,7 @@ function Dashboard({ userEmail, onStartSession, onViewFeedbackDashboard }) {
     );
   }
 
+  // Error state
   if (error) {
     return (
       <div style={{ 
@@ -187,6 +195,7 @@ function Dashboard({ userEmail, onStartSession, onViewFeedbackDashboard }) {
     );
   }
 
+  // Main render
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '20px' }}>
       {/* Header */}
@@ -296,27 +305,27 @@ function Dashboard({ userEmail, onStartSession, onViewFeedbackDashboard }) {
 
           {/* Scenarios Grid */}
           {!scenariosLoading && (
-          <div style={{
-  display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
-  gap: '24px',                    // Ensure this exists
-  marginBottom: '40px'
-}}>
-  {filteredScenarios.map((scenario) => (
-    <div
-      key={scenario.id}
-      style={{
-        backgroundColor: 'white',
-        borderRadius: '12px',
-        padding: '24px',
-        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-        border: '1px solid #e5e7eb',
-        transition: 'all 0.3s ease',
-        cursor: 'pointer',
-        display: 'flex',
-        flexDirection: 'column',
-        minHeight: '400px'
-      }}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
+              gap: '24px',
+              marginBottom: '40px'
+            }}>
+              {filteredScenarios.map((scenario) => (
+                <div
+                  key={scenario.id}
+                  style={{
+                    backgroundColor: 'white',
+                    borderRadius: '12px',
+                    padding: '24px',
+                    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                    border: '1px solid #e5e7eb',
+                    transition: 'all 0.3s ease',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    minHeight: '400px'
+                  }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.transform = 'translateY(-4px)';
                     e.currentTarget.style.boxShadow = '0 8px 25px rgba(0, 0, 0, 0.15)';
@@ -473,24 +482,16 @@ function Dashboard({ userEmail, onStartSession, onViewFeedbackDashboard }) {
                       </ul>
                     </div>
                   )}
-<div style={{ flexGrow: 1 }}></div>
-                  {/* Start Button */}
-<button
-  onClick={(event) => {
-    console.log('🔘 BUTTON CLICKED! Event received');
-    console.log('📋 Scenario data:', scenario);
-    console.log('🎯 onStartSession function exists:', typeof onStartSession);
-    console.log('📧 User email:', userEmail);
-    
-    // Add a visual confirmation
-    alert('Button click detected!');
-    
-    // Call the original function
-    onStartSession(scenario);
-  }}
-  style={{
-    width: '100%',
-    backgroundColor: '#667eea',
+
+                  {/* Flexible spacer to push button to bottom */}
+                  <div style={{ flexGrow: 1 }}></div>
+
+                  {/* Start Button - positioned at bottom */}
+                  <button
+                    onClick={() => handleStartSession(scenario)}
+                    style={{
+                      width: '100%',
+                      backgroundColor: '#667eea',
                       color: 'white',
                       border: 'none',
                       padding: '14px 20px',
@@ -756,114 +757,7 @@ function Dashboard({ userEmail, onStartSession, onViewFeedbackDashboard }) {
                 );
               })()}
             </div>
-            
-            {/* Improvement Trend Card */}
-            <div style={{
-              backgroundColor: 'white',
-              padding: '24px',
-              borderRadius: '12px',
-              boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-              textAlign: 'center',
-              position: 'relative',
-              overflow: 'hidden'
-            }}>
-              <div style={{
-                position: 'absolute',
-                top: 0,
-                right: 0,
-                width: '60px',
-                height: '60px',
-                background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
-                borderRadius: '0 12px 0 60px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}>
-                <span style={{ color: 'white', fontSize: '1.5rem' }}>📈</span>
-              </div>
-              {(() => {
-                const sessionsWithScores = sessions.filter(s => s.overall_score).slice(-5);
-                const trend = sessionsWithScores.length >= 2 ? 
-                  sessionsWithScores[sessionsWithScores.length - 1].overall_score - sessionsWithScores[0].overall_score : 0;
-                const trendIcon = trend > 0.2 ? '↗️' : trend < -0.2 ? '↘️' : '→';
-                const trendColor = trend > 0.2 ? '#10b981' : trend < -0.2 ? '#ef4444' : '#6b7280';
-                return (
-                  <>
-                    <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: trendColor, marginBottom: '8px' }}>
-                      {trendIcon}
-                    </div>
-                    <div style={{ color: '#6b7280', fontSize: '0.9rem', marginBottom: '12px' }}>Trend (Last 5)</div>
-                    <div style={{ fontSize: '1.2rem', fontWeight: '600', color: trendColor }}>
-                      {trend > 0 ? '+' : ''}{trend.toFixed(1)}
-                    </div>
-                    <div style={{ fontSize: '0.7rem', color: '#9ca3af', marginTop: '4px' }}>
-                      {trend > 0.2 ? 'Improving!' : trend < -0.2 ? 'Keep practicing' : 'Steady progress'}
-                    </div>
-                  </>
-                );
-              })()}
-            </div>
           </div>
-
-          {/* Score Distribution Chart */}
-          {sessions.filter(s => s.overall_score).length > 0 && (
-            <div style={{
-              backgroundColor: 'white',
-              padding: '30px',
-              borderRadius: '12px',
-              boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-              marginBottom: '30px'
-            }}>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '25px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                📊 Score Distribution
-              </h2>
-              
-              {(() => {
-                const sessionsWithScores = sessions.filter(s => s.overall_score);
-                const scoreRanges = {
-                  'Excellent (4.0-5.0)': sessionsWithScores.filter(s => s.overall_score >= 4).length,
-                  'Good (3.0-3.9)': sessionsWithScores.filter(s => s.overall_score >= 3 && s.overall_score < 4).length,
-                  'Needs Work (2.0-2.9)': sessionsWithScores.filter(s => s.overall_score >= 2 && s.overall_score < 3).length,
-                  'Poor (1.0-1.9)': sessionsWithScores.filter(s => s.overall_score >= 1 && s.overall_score < 2).length
-                };
-                
-                const maxCount = Math.max(...Object.values(scoreRanges));
-                const colors = ['#22c55e', '#f59e0b', '#f97316', '#ef4444'];
-                
-                return (
-                  <div style={{ display: 'grid', gap: '15px' }}>
-                    {Object.entries(scoreRanges).map(([range, count], index) => (
-                      <div key={range} style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                        <div style={{ minWidth: '140px', fontSize: '0.9rem', fontWeight: '500' }}>
-                          {range}
-                        </div>
-                        <div style={{ flex: 1, backgroundColor: '#f1f5f9', height: '25px', borderRadius: '12px', position: 'relative', overflow: 'hidden' }}>
-                          <div style={{
-                            height: '100%',
-                            backgroundColor: colors[index],
-                            width: maxCount > 0 ? `${(count / maxCount) * 100}%` : '0%',
-                            borderRadius: '12px',
-                            transition: 'width 0.5s ease',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            color: 'white',
-                            fontSize: '0.8rem',
-                            fontWeight: 'bold'
-                          }}>
-                            {count > 0 && count}
-                          </div>
-                        </div>
-                        <div style={{ minWidth: '80px', textAlign: 'right', fontSize: '0.9rem', color: '#6b7280' }}>
-                          {count} session{count !== 1 ? 's' : ''}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                );
-              })()}
-            </div>
-          )}
 
           {/* Recent Sessions */}
           <div style={{
