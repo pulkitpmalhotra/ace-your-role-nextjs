@@ -4,7 +4,19 @@ class APIService {
   constructor() {
     this.baseUrl = 'https://ai-roleplay-free.vercel.app';
   }
+async authenticateUser(email, password) {
+  return await this.makeRequest('/api/auth?action=login', {
+    method: 'POST',
+    body: JSON.stringify({ email, password })
+  });
+}
 
+async registerUser(email, password, userData = {}) {
+  return await this.makeRequest('/api/auth?action=register', {
+    method: 'POST',
+    body: JSON.stringify({ email, password, ...userData })
+  });
+}
   async makeRequest(endpoint, options = {}) {
     const url = `${this.baseUrl}${endpoint}`;
     
