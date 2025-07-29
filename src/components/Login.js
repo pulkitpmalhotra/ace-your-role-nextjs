@@ -1,6 +1,6 @@
-// src/components/Login.js - Fixed to properly store user data
+// src/components/Login.js - Updated with complete Ace Your Role branding
 import React, { useState } from 'react';
-import { Mail, ArrowRight } from 'lucide-react';
+import { Mail, ArrowRight, Play, Zap, Shield } from 'lucide-react';
 import { apiService } from '../services/api';
 
 function Login({ onLogin, onShowPrivacy }) {
@@ -24,7 +24,7 @@ function Login({ onLogin, onShowPrivacy }) {
     setError('');
     
     try {
-      console.log('🔐 Logging in user:', email);
+      console.log('🎯 Ace Your Role - Logging in user:', email);
       
       // Store email in sessionStorage immediately
       sessionStorage.setItem('userEmail', email.trim());
@@ -54,43 +54,121 @@ function Login({ onLogin, onShowPrivacy }) {
       alignItems: 'center',
       justifyContent: 'center',
       background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      padding: '20px'
+      padding: '20px',
+      position: 'relative',
+      overflow: 'hidden'
     }}>
+      {/* Background Animation */}
+      <div style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        opacity: 0.1,
+        zIndex: 1
+      }}>
+        <div style={{
+          position: 'absolute',
+          top: '10%',
+          left: '10%',
+          fontSize: '4rem',
+          animation: 'float 6s ease-in-out infinite'
+        }}>🎤</div>
+        <div style={{
+          position: 'absolute',
+          top: '20%',
+          right: '15%',
+          fontSize: '3rem',
+          animation: 'float 6s ease-in-out infinite 2s'
+        }}>🎯</div>
+        <div style={{
+          position: 'absolute',
+          bottom: '30%',
+          left: '20%',
+          fontSize: '3.5rem',
+          animation: 'float 6s ease-in-out infinite 4s'
+        }}>💼</div>
+        <div style={{
+          position: 'absolute',
+          bottom: '10%',
+          right: '10%',
+          fontSize: '2.5rem',
+          animation: 'float 6s ease-in-out infinite 1s'
+        }}>🧠</div>
+      </div>
+
       <div style={{
         backgroundColor: 'white',
-        borderRadius: '16px',
-        padding: '40px',
-        boxShadow: '0 20px 40px rgba(0, 0, 0, 0.1)',
+        borderRadius: '20px',
+        padding: '50px',
+        boxShadow: '0 30px 60px rgba(0, 0, 0, 0.2)',
         width: '100%',
-        maxWidth: '400px',
-        textAlign: 'center'
+        maxWidth: '480px',
+        textAlign: 'center',
+        position: 'relative',
+        zIndex: 2
       }}>
-        {/* Logo/Icon */}
+        {/* Logo/Icon with Animation */}
         <div style={{
-          fontSize: '4rem',
-          marginBottom: '20px'
+          fontSize: '5rem',
+          marginBottom: '24px',
+          animation: 'bounce 2s infinite'
         }}>
           🎯
         </div>
 
-        {/* Title */}
+        {/* Brand Title */}
         <h1 style={{
-          fontSize: '2rem',
-          fontWeight: 'bold',
+          fontSize: '2.5rem',
+          fontWeight: '800',
           marginBottom: '8px',
-          color: '#1f2937'
+          background: 'linear-gradient(135deg, #667eea, #764ba2)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          backgroundClip: 'text'
         }}>
           Ace Your Role
         </h1>
         
+        {/* Enhanced Tagline */}
         <p style={{
           color: '#6b7280',
           marginBottom: '32px',
-          fontSize: '1.1rem',
-          lineHeight: '1.5'
+          fontSize: '1.2rem',
+          lineHeight: '1.5',
+          fontWeight: '500'
         }}>
-          Master your skills with AI-powered roleplay training
+          Master any professional skill with<br />
+          <strong style={{ color: '#667eea' }}>AI-powered voice roleplay training</strong>
         </p>
+
+        {/* Value Propositions */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(3, 1fr)',
+          gap: '20px',
+          marginBottom: '32px',
+          padding: '20px',
+          backgroundColor: '#f8fafc',
+          borderRadius: '12px'
+        }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '2rem', marginBottom: '8px' }}>🎤</div>
+            <div style={{ fontSize: '0.9rem', color: '#374151', fontWeight: '600' }}>Voice AI</div>
+            <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>Real conversations</div>
+          </div>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '2rem', marginBottom: '8px' }}>⚡</div>
+            <div style={{ fontSize: '0.9rem', color: '#374151', fontWeight: '600' }}>Instant Feedback</div>
+            <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>AI coaching</div>
+          </div>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '2rem', marginBottom: '8px' }}>💰</div>
+            <div style={{ fontSize: '0.9rem', color: '#374151', fontWeight: '600' }}>From $1</div>
+            <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>Pay per use</div>
+          </div>
+        </div>
 
         {/* Error Message */}
         {error && (
@@ -100,7 +178,8 @@ function Login({ onLogin, onShowPrivacy }) {
             padding: '12px',
             borderRadius: '8px',
             marginBottom: '20px',
-            fontSize: '0.9rem'
+            fontSize: '0.9rem',
+            border: '1px solid #fecaca'
           }}>
             {error}
           </div>
@@ -124,21 +203,22 @@ function Login({ onLogin, onShowPrivacy }) {
             
             <input
               type="email"
-              placeholder="Enter your email to get started"
+              placeholder="Enter your email to start training"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
               disabled={loading}
               style={{
                 width: '100%',
-                padding: '16px 16px 16px 48px',
+                padding: '18px 18px 18px 50px',
                 border: '2px solid #e5e7eb',
                 borderRadius: '12px',
                 fontSize: '1rem',
                 transition: 'all 0.3s ease',
                 outline: 'none',
                 boxSizing: 'border-box',
-                opacity: loading ? 0.7 : 1
+                opacity: loading ? 0.7 : 1,
+                fontWeight: '500'
               }}
               onFocus={(e) => {
                 e.target.style.borderColor = '#667eea';
@@ -159,28 +239,31 @@ function Login({ onLogin, onShowPrivacy }) {
               backgroundColor: loading ? '#9ca3af' : '#667eea',
               color: 'white',
               border: 'none',
-              padding: '16px 24px',
+              padding: '18px 24px',
               borderRadius: '12px',
-              fontSize: '1rem',
-              fontWeight: '600',
+              fontSize: '1.1rem',
+              fontWeight: '700',
               cursor: loading ? 'not-allowed' : 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '10px',
+              gap: '12px',
               transition: 'all 0.3s ease',
-              opacity: !email.trim() ? 0.5 : 1
+              opacity: !email.trim() ? 0.5 : 1,
+              boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)'
             }}
             onMouseEnter={(e) => {
               if (!loading && email.trim()) {
                 e.currentTarget.style.backgroundColor = '#5a67d8';
-                e.currentTarget.style.transform = 'translateY(-1px)';
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 8px 20px rgba(102, 126, 234, 0.4)';
               }
             }}
             onMouseLeave={(e) => {
               if (!loading) {
                 e.currentTarget.style.backgroundColor = '#667eea';
                 e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.3)';
               }
             }}
           >
@@ -198,47 +281,102 @@ function Login({ onLogin, onShowPrivacy }) {
               </>
             ) : (
               <>
-                Start Training
+                <Play size={20} />
+                🎁 Start FREE 10-Min Trial
                 <ArrowRight size={20} />
               </>
             )}
           </button>
         </form>
 
-        {/* Features */}
+        {/* Enhanced Features Preview */}
         <div style={{
-          marginTop: '32px',
-          padding: '24px',
-          backgroundColor: '#f9fafb',
-          borderRadius: '12px'
+          marginTop: '40px',
+          padding: '28px',
+          backgroundColor: '#f8fafc',
+          borderRadius: '16px',
+          border: '1px solid #e5e7eb'
         }}>
           <h3 style={{
-            fontSize: '1rem',
-            fontWeight: '600',
-            marginBottom: '16px',
-            color: '#374151'
+            fontSize: '1.2rem',
+            fontWeight: '700',
+            marginBottom: '20px',
+            color: '#1f2937',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px'
           }}>
-            ✨ What You'll Master
+            ✨ What You'll Experience
           </h3>
           <div style={{
             display: 'grid',
-            gap: '12px',
+            gap: '16px',
             textAlign: 'left',
-            fontSize: '0.9rem',
-            color: '#6b7280'
+            fontSize: '0.95rem',
+            color: '#374151'
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span>🎤</span> Natural voice conversations with AI
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <span style={{ fontSize: '1.5rem' }}>🎤</span>
+              <div>
+                <strong>Natural Voice Conversations</strong><br />
+                <span style={{ color: '#6b7280', fontSize: '0.85rem' }}>
+                  Talk to AI characters that understand and respond naturally
+                </span>
+              </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span>🎭</span> Realistic character personalities
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <span style={{ fontSize: '1.5rem' }}>🎭</span>
+              <div>
+                <strong>Realistic Character Personalities</strong><br />
+                <span style={{ color: '#6b7280', fontSize: '0.85rem' }}>
+                  Practice with diverse personas across multiple industries
+                </span>
+              </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span>📊</span> Detailed performance analytics
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <span style={{ fontSize: '1.5rem' }}>📊</span>
+              <div>
+                <strong>Detailed Performance Analytics</strong><br />
+                <span style={{ color: '#6b7280', fontSize: '0.85rem' }}>
+                  Get actionable feedback to improve your skills fast
+                </span>
+              </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span>🏆</span> Professional skill development
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <span style={{ fontSize: '1.5rem' }}>🏆</span>
+              <div>
+                <strong>Multi-Domain Training</strong><br />
+                <span style={{ color: '#6b7280', fontSize: '0.85rem' }}>
+                  Sales, leadership, healthcare, support, and more
+                </span>
+              </div>
             </div>
+          </div>
+        </div>
+
+        {/* Trust Indicators */}
+        <div style={{
+          marginTop: '32px',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          gap: '20px',
+          flexWrap: 'wrap',
+          fontSize: '0.85rem',
+          color: '#6b7280'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Shield size={16} />
+            <span>GDPR Compliant</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Zap size={16} />
+            <span>Instant Access</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span>💳</span>
+            <span>No Credit Card</span>
           </div>
         </div>
 
@@ -249,7 +387,7 @@ function Login({ onLogin, onShowPrivacy }) {
           color: '#9ca3af',
           lineHeight: '1.4'
         }}>
-          Secure training environment. Your data is protected.{' '}
+          🔒 Your conversations are encrypted and automatically deleted after 90 days.{' '}
           <button
             onClick={onShowPrivacy}
             style={{
@@ -257,13 +395,33 @@ function Login({ onLogin, onShowPrivacy }) {
               border: 'none',
               color: '#667eea',
               cursor: 'pointer',
-              textDecoration: 'underline'
+              textDecoration: 'underline',
+              fontWeight: '600'
             }}
           >
             Privacy Policy
           </button>
         </p>
       </div>
+
+      {/* CSS Animations */}
+      <style jsx>{`
+        @keyframes float {
+          0%, 100% { transform: translateY(0px) rotate(0deg); }
+          50% { transform: translateY(-20px) rotate(5deg); }
+        }
+        
+        @keyframes bounce {
+          0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+          40% { transform: translateY(-10px); }
+          60% { transform: translateY(-5px); }
+        }
+        
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 }
