@@ -57,38 +57,22 @@ function RoleplaySession({ scenario, userEmail, onEndSession }) {
   };
 
   const initializeSession = async () => {
-    try {
-      addDebugLog('🚀 Starting session initialization...');
-      
-      if (!scenario || !scenario.id) {
-        throw new Error('Invalid scenario - missing ID');
-      }
-      if (!userEmail) {
-        throw new Error('Invalid user email');
-      }
-
-      addDebugLog('🎬 Creating session via API...');
-      const newSessionId = await apiService.createSession(scenario.id, userEmail);
-      
-      if (!newSessionId) {
-        throw new Error('Session creation returned empty ID');
-      }
-      
-      addDebugLog(`✅ Session created with ID: ${newSessionId}`);
-      
-      setSessionId(newSessionId);
-      setStartTime(new Date());
-      
-      addDebugLog('🎤 Requesting microphone permission...');
-      await navigator.mediaDevices.getUserMedia({ audio: true });
-      addDebugLog('✅ Microphone permission granted');
-      
-    } catch (err) {
-      addDebugLog(`❌ Session initialization failed: ${err.message}`);
-      console.error('Full error:', err);
-      setError(`Failed to start session: ${err.message}`);
-    }
-  };
+  try {
+    console.log('🚀 STARTING SESSION INIT');
+    console.log('📋 Scenario:', scenario);
+    console.log('📧 User email:', userEmail);
+    
+    const newSessionId = await apiService.createSession(scenario.id, userEmail);
+    console.log('✅ API RETURNED SESSION ID:', newSessionId);
+    
+    setSessionId(newSessionId);
+    console.log('✅ SESSION ID SET IN STATE');
+    
+  } catch (err) {
+    console.error('❌ SESSION INIT FAILED:', err);
+    setError(`Failed to start session: ${err.message}`);
+  }
+};
 
   const startListening = () => {
     if (!isSessionActive || !sessionId || sessionState === 'ai-speaking') {
