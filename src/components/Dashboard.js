@@ -303,17 +303,20 @@ function Dashboard({ userEmail, onStartSession, onViewFeedbackDashboard }) {
               marginBottom: '40px'
             }}>
               {filteredScenarios.map((scenario) => (
-                <div
-                  key={scenario.id}
-                  style={{
-                    backgroundColor: 'white',
-                    borderRadius: '12px',
-                    padding: '24px',
-                    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-                    border: '1px solid #e5e7eb',
-                    transition: 'all 0.3s ease',
-                    cursor: 'pointer'
-                  }}
+               <div
+  key={scenario.id}
+  style={{
+    backgroundColor: 'white',
+    borderRadius: '12px',
+    padding: '24px',
+    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+    border: '1px solid #e5e7eb',
+    transition: 'all 0.3s ease',
+    cursor: 'pointer',
+    display: 'flex',           // Add this
+    flexDirection: 'column',   // Add this
+    height: '100%'             // Add this
+  }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.transform = 'translateY(-4px)';
                     e.currentTarget.style.boxShadow = '0 8px 25px rgba(0, 0, 0, 0.15)';
@@ -470,13 +473,13 @@ function Dashboard({ userEmail, onStartSession, onViewFeedbackDashboard }) {
                       </ul>
                     </div>
                   )}
-
+<div style={{ flexGrow: 1 }}></div>
                   {/* Start Button */}
-                  <button
-                    onClick={() => onStartSession(scenario)}
-                    style={{
-                      width: '100%',
-                      backgroundColor: '#667eea',
+                <button
+  onClick={() => onStartSession(scenario)}
+  style={{
+    width: '100%',
+    backgroundColor: '#667eea',
                       color: 'white',
                       border: 'none',
                       padding: '14px 20px',
