@@ -1,9 +1,12 @@
+// src/components/Login.js - Fixed to properly store user data
 import React, { useState } from 'react';
 import { Mail, ArrowRight } from 'lucide-react';
+import { apiService } from '../services/api';
 
-function Login({ onLogin }) {
+function Login({ onLogin, onShowPrivacy }) {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -13,17 +16,35 @@ function Login({ onLogin }) {
     // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      alert('Please enter a valid email address');
+      setError('Please enter a valid email address');
       return;
     }
 
     setLoading(true);
+    setError('');
     
-    // Simulate a brief loading period for better UX
-    setTimeout(() => {
+    try {
+      console.log('🔐 Logging in user:', email);
+      
+      // Store email in sessionStorage immediately
+      sessionStorage.setItem('userEmail', email.trim());
+      console.log('✅ Email stored in sessionStorage:', sessionStorage.getItem('userEmail'));
+      
+      // Create/verify user in Supabase
+      await apiService.createOrVerifyUser(email.trim());
+      
+      // Call the login callback
       onLogin(email.trim());
+      
+    } catch (err) {
+      console.error('❌ Login failed:', err);
+      setError(err.message || 'Login failed. Please try again.');
+      
+      // Clear sessionStorage on error
+      sessionStorage.removeItem('userEmail');
+    } finally {
       setLoading(false);
-    }, 500);
+    }
   };
 
   return (
@@ -59,7 +80,7 @@ function Login({ onLogin }) {
           marginBottom: '8px',
           color: '#1f2937'
         }}>
-          AI Sales Roleplay
+          RolePlay AI Pro
         </h1>
         
         <p style={{
@@ -68,8 +89,22 @@ function Login({ onLogin }) {
           fontSize: '1.1rem',
           lineHeight: '1.5'
         }}>
-          Practice your sales skills with AI-powered conversations
+          Master your skills with AI-powered roleplay training
         </p>
+
+        {/* Error Message */}
+        {error && (
+          <div style={{
+            backgroundColor: '#fee2e2',
+            color: '#dc2626',
+            padding: '12px',
+            borderRadius: '8px',
+            marginBottom: '20px',
+            fontSize: '0.9rem'
+          }}>
+            {error}
+          </div>
+        )}
 
         {/* Login Form */}
         <form onSubmit={handleSubmit}>
@@ -93,6 +128,7 @@ function Login({ onLogin }) {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              disabled={loading}
               style={{
                 width: '100%',
                 padding: '16px 16px 16px 48px',
@@ -101,7 +137,8 @@ function Login({ onLogin }) {
                 fontSize: '1rem',
                 transition: 'all 0.3s ease',
                 outline: 'none',
-                boxSizing: 'border-box'
+                boxSizing: 'border-box',
+                opacity: loading ? 0.7 : 1
               }}
               onFocus={(e) => {
                 e.target.style.borderColor = '#667eea';
@@ -157,11 +194,11 @@ function Login({ onLogin }) {
                   borderRadius: '50%',
                   animation: 'spin 1s linear infinite'
                 }} />
-                Getting Ready...
+                Setting Up Your Account...
               </>
             ) : (
               <>
-                Start Practicing
+                Start Training
                 <ArrowRight size={20} />
               </>
             )}
@@ -181,7 +218,7 @@ function Login({ onLogin }) {
             marginBottom: '16px',
             color: '#374151'
           }}>
-            ✨ What You'll Get
+            ✨ What You'll Master
           </h3>
           <div style={{
             display: 'grid',
@@ -191,16 +228,16 @@ function Login({ onLogin }) {
             color: '#6b7280'
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span>🎤</span> Voice-based roleplay sessions
+              <span>🎤</span> Natural voice conversations with AI
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span>🤖</span> AI characters that respond naturally
+              <span>🎭</span> Realistic character personalities
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span>📊</span> Instant feedback and coaching tips
+              <span>📊</span> Detailed performance analytics
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span>🆓</span> Completely free to use
+              <span>🏆</span> Professional skill development
             </div>
           </div>
         </div>
@@ -212,7 +249,19 @@ function Login({ onLogin }) {
           color: '#9ca3af',
           lineHeight: '1.4'
         }}>
-          We only use your email to save your practice sessions. No spam, ever.
+          Secure training environment. Your data is protected.{' '}
+          <button
+            onClick={onShowPrivacy}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#667eea',
+              cursor: 'pointer',
+              textDecoration: 'underline'
+            }}
+          >
+            Privacy Policy
+          </button>
         </p>
       </div>
     </div>
