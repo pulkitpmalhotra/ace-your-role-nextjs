@@ -6,7 +6,26 @@ const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_ANON_KEY
 );
-
+// api/data-management.js - Add granular controls
+const dataHandlers = {
+  'export-category': async (req, res) => {
+    const { category, userEmail } = req.body;
+    const data = await exportUserDataByCategory(userEmail, category);
+    res.json({ success: true, data, downloadUrl: generateSecureDownloadLink(data) });
+  },
+  
+  'delete-category': async (req, res) => {
+    const { category, userEmail, confirmation } = req.body;
+    await deleteUserDataByCategory(userEmail, category, confirmation);
+    await logGDPRAction('category-deletion', userEmail, { category });
+    res.json({ success: true, message: `${category} data deleted` });
+  },
+  
+  'data-summary': async (req, res) => {
+    const summary = await generateDataSummary(req.user.email);
+    res.json({ success: true, data: summary });
+  }
+};
 async function handler(req, res) {
   console.log('🛡️ Data Management API called');
   console.log('Method:', req.method);
