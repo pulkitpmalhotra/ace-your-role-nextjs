@@ -1,4 +1,4 @@
-// api/data-management.js - GDPR compliance and data management
+// api/data-management.js - Fixed GDPR compliance and data management
 import { createClient } from '@supabase/supabase-js';
 import { withAuth } from '../lib/auth.js';
 
@@ -91,7 +91,7 @@ async function handleDataExport(req, res) {
       metadata: {
         format: 'JSON',
         version: '1.0',
-        description: 'Complete export of your AI Roleplay data'
+        description: 'Complete export of your Ace Your Role data'
       }
     };
 
@@ -229,12 +229,12 @@ async function handlePreferencesUpdate(req, res) {
 
     console.log('⚙️ Updating preferences for user:', userEmail);
 
-    // Update user preferences in database
+    // Update user preferences in database - removed updated_at as it's handled by trigger
     const { error } = await supabase
       .from('users')
       .update({ 
-        preferences: preferences,
-        updated_at: new Date().toISOString()
+        preferences: preferences
+        // updated_at is handled automatically by database trigger
       })
       .eq('email', userEmail);
 
