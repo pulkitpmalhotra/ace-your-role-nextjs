@@ -29,7 +29,14 @@ function App() {
     const handleResize = () => {
       setIsMobile(window.innerWidth <= 768);
     };
-
+// Add this useEffect near the other useEffects in App.js
+useEffect(() => {
+  console.log('🔄 App state changed:');
+  console.log('  - currentState:', currentState);
+  console.log('  - selectedScenario:', selectedScenario?.title);
+  console.log('  - userEmail:', userEmail);
+}, [currentState, selectedScenario, userEmail]);
+    
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
