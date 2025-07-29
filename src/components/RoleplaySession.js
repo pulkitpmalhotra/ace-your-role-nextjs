@@ -23,6 +23,7 @@ function RoleplaySession({ scenario, userEmail, onEndSession, isMobile }) {
   const [isSessionActive, setIsSessionActive] = useState(true);
   const [showDebugLog, setShowDebugLog] = useState(false);
   const [debugLog, setDebugLog] = useState([]);
+  const [isGeneratingFeedback, setIsGeneratingFeedback] = useState(false);
 
   // Debug logging function
   const addDebugLog = (message) => {
@@ -337,6 +338,7 @@ function RoleplaySession({ scenario, userEmail, onEndSession, isMobile }) {
     
     setIsSessionActive(false);
     setSessionState('ended');
+    setIsGeneratingFeedback(true); // Show loading state
     
     speechService.stopListening();
     speechService.stopSpeaking();
@@ -347,20 +349,26 @@ function RoleplaySession({ scenario, userEmail, onEndSession, isMobile }) {
         const basicFeedback = generateFeedback();
         setFeedback(basicFeedback);
         
+        addDebugLog('Ending session and generating feedback...');
         await apiService.endSession(sessionId, JSON.stringify(basicFeedback), duration);
         
         try {
+          addDebugLog('Triggering detailed AI feedback analysis...');
           await apiService.triggerFeedbackAnalysis(sessionId, conversation, scenario);
+          addDebugLog('Feedback analysis completed');
         } catch (analysisError) {
           addDebugLog(`Detailed analysis failed: ${analysisError.message}`);
         }
       }
+      
+      setIsGeneratingFeedback(false);
       setShowFeedback(true);
       
     } catch (err) {
       addDebugLog(`Error ending session: ${err.message}`);
       const basicFeedback = generateFeedback();
       setFeedback(basicFeedback);
+      setIsGeneratingFeedback(false);
       setShowFeedback(true);
     }
   };
@@ -419,6 +427,182 @@ function RoleplaySession({ scenario, userEmail, onEndSession, isMobile }) {
       return <Mic size={20} />;
     }
   };
+
+  // Loading screen for feedback generation
+  if (isGeneratingFeedback) {
+    return (
+      <div style={{ 
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#f0f9ff',
+        padding: '20px'
+      }}>
+        <div style={{ textAlign: 'center', maxWidth: '500px' }}>
+          {/* Loading Animation */}
+          <div style={{
+            width: '80px',
+            height: '80px',
+            margin: '0 auto 30px',
+            position: 'relative'
+          }}>
+            <div style={{
+              width: '80px',
+              height: '80px',
+              border: '4px solid #e0f2fe',
+              borderTop: '4px solid #0ea5e9',
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite'
+            }}></div>
+            <div style={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              fontSize: '2rem'
+            }}>
+              🧠
+            </div>
+          </div>
+
+          {/* Main Message */}
+          <h2 style={{ 
+            fontSize: '2rem', 
+            marginBottom: '16px',
+            color: '#0f172a',
+            fontWeight: '600'
+          }}>
+            Analyzing Your Performance
+          </h2>
+          
+          <p style={{ 
+            color: '#64748b', 
+            fontSize: '1.2rem',
+            marginBottom: '32px',
+            lineHeight: '1.6'
+          }}>
+            Our AI is carefully reviewing your conversation to provide detailed insights and personalized coaching recommendations.
+          </p>
+
+          {/* Progress Steps */}
+          <div style={{
+            backgroundColor: 'white',
+            padding: '24px',
+            borderRadius: '12px',
+            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)',
+            marginBottom: '24px'
+          }}>
+            <h3 style={{ 
+              fontSize: '1.1rem', 
+              marginBottom: '20px',
+              color: '#334155',
+              fontWeight: '600'
+            }}>
+              What We're Analyzing:
+            </h3>
+            
+            <div style={{ display: 'grid', gap: '16px', textAlign: 'left' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  width: '24px',
+                  height: '24px',
+                  borderRadius: '50%',
+                  backgroundColor: '#22c55e',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <span style={{ color: 'white', fontSize: '0.8rem' }}>✓</span>
+                </div>
+                <span style={{ color: '#475569' }}>Conversation flow and engagement</span>
+              </div>
+              
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  width: '24px',
+                  height: '24px',
+                  borderRadius: '50%',
+                  backgroundColor: '#22c55e',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <span style={{ color: 'white', fontSize: '0.8rem' }}>✓</span>
+                </div>
+                <span style={{ color: '#475569' }}>Communication skills assessment</span>
+              </div>
+              
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  width: '24px',
+                  height: '24px',
+                  borderRadius: '50%',
+                  backgroundColor: '#eab308',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  animation: 'pulse 2s infinite'
+                }}>
+                  <span style={{ color: 'white', fontSize: '0.8rem' }}>⟳</span>
+                </div>
+                <span style={{ color: '#475569' }}>Personalized improvement recommendations</span>
+              </div>
+              
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  width: '24px',
+                  height: '24px',
+                  borderRadius: '50%',
+                  backgroundColor: '#94a3b8',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <span style={{ color: 'white', fontSize: '0.8rem' }}>⋯</span>
+                </div>
+                <span style={{ color: '#64748b' }}>Generating detailed feedback report</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Tips */}
+          <div style={{
+            backgroundColor: '#fef7cd',
+            border: '1px solid #fed7aa',
+            borderRadius: '8px',
+            padding: '16px',
+            textAlign: 'left'
+          }}>
+            <h4 style={{ 
+              fontSize: '0.9rem', 
+              marginBottom: '8px',
+              color: '#92400e',
+              fontWeight: '600'
+            }}>
+              💡 Did You Know?
+            </h4>
+            <p style={{ 
+              fontSize: '0.85rem', 
+              color: '#a16207',
+              margin: 0,
+              lineHeight: '1.5'
+            }}>
+              Our AI analyzes over 20 different communication factors including tone, pacing, question quality, and objection handling to give you professional-level feedback.
+            </p>
+          </div>
+
+          <p style={{
+            fontSize: '0.9rem',
+            color: '#94a3b8',
+            marginTop: '24px'
+          }}>
+            This usually takes 10-15 seconds...
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // Enhanced Feedback Screen
   if (showFeedback && feedback) {
