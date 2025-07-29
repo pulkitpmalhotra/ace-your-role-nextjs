@@ -535,12 +535,48 @@ export class SpeechService {
 
   guessVoiceGender(voiceName) {
     const name = voiceName.toLowerCase();
-    if (name.includes('female') || name.match(/\b(sara|sarah|emily|anna|kate|amy|lisa|mary|karen|susan|victoria|zira|hazel|monica|paulina)\b/)) {
+    
+    // Explicit gender indicators (highest priority)
+    if (name.includes('female') || name.includes('woman')) return 'female';
+    if (name.includes('male') && !name.includes('female')) return 'male';
+    
+    // Common female voice names and patterns
+    const femalePatterns = [
+      'zira', 'hazel', 'susan', 'karen', 'samantha', 'victoria', 'monica', 'paulina',
+      'sara', 'sarah', 'emily', 'anna', 'kate', 'amy', 'lisa', 'mary', 'jennifer', 
+      'jessica', 'rachel', 'melissa', 'stephanie', 'nicole', 'amanda', 'michelle', 
+      'angela', 'heather', 'maria', 'julie', 'joyce', 'kelly', 'christina', 'joan', 
+      'evelyn', 'judith', 'margaret', 'cheryl', 'andrea', 'hannah', 'megan', 'olivia', 
+      'sophia', 'emma', 'isabella', 'ava', 'mia', 'abigail', 'elizabeth', 'chloe'
+    ];
+    
+    // Common male voice names and patterns
+    const malePatterns = [
+      'david', 'mark', 'tom', 'daniel', 'james', 'ryan', 'kevin', 'george',
+      'john', 'mike', 'steve', 'chris', 'paul', 'robert', 'michael', 'william',
+      'richard', 'charles', 'joseph', 'thomas', 'christopher', 'matthew', 'anthony',
+      'donald', 'andrew', 'joshua', 'kenneth', 'brian', 'edward', 'ronald', 'timothy',
+      'jason', 'jeffrey', 'gary', 'nicholas', 'eric', 'jonathan', 'stephen', 'larry',
+      'justin', 'scott', 'brandon', 'benjamin', 'samuel', 'frank', 'gregory', 'raymond',
+      'alexander', 'patrick', 'jack', 'dennis', 'jerry', 'tyler', 'aaron', 'henry'
+    ];
+    
+    // Check for female patterns
+    for (const pattern of femalePatterns) {
+      if (name.includes(pattern)) return 'female';
+    }
+    
+    // Check for male patterns
+    for (const pattern of malePatterns) {
+      if (name.includes(pattern)) return 'male';
+    }
+    
+    // Special cases for ambiguous names
+    if (name.includes('alex')) {
+      // Alex can be either gender, but often female in TTS systems
       return 'female';
     }
-    if (name.includes('male') || name.match(/\b(david|mark|tom|daniel|alex|james|ryan|john|mike|steve|chris|paul|kevin)\b/)) {
-      return 'male';
-    }
+    
     return 'unknown';
   }
 }
