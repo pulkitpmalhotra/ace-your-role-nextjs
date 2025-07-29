@@ -1,4 +1,9 @@
-// src/components/RoleplaySession.js - Complete file with proper hook management
+console.log('🤖 AI Response received:', {
+        response: aiResult.response,
+        emotion: aiResult.emotion,
+        character: aiResult.character,
+        gender: aiResult.gender
+      });// src/components/RoleplaySession.js - Complete file with proper hook management
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../services/api';
 import { speechService } from '../services/speech';
@@ -173,6 +178,13 @@ function RoleplaySession({ scenario, userEmail, onEndSession, isMobile }) {
         conversation
       );
 
+      console.log('🤖 AI Response received:', {
+        response: aiResult.response,
+        emotion: aiResult.emotion,
+        character: aiResult.character,
+        gender: aiResult.gender
+      });
+
       const aiMsg = {
         speaker: 'ai',
         message: aiResult.response,
@@ -189,8 +201,16 @@ function RoleplaySession({ scenario, userEmail, onEndSession, isMobile }) {
       setSessionState('ai-speaking');
       
       try {
-        const characterGender = getCharacterGender(scenario.character_name);
-        await speechService.speak(aiResult.response, characterGender);
+        // Enhanced character data for better voice synthesis
+        const characterData = {
+          gender: getCharacterGender(scenario.character_name),
+          emotion: aiResult.emotion || 'professional',
+          character_name: scenario.character_name,
+          character_role: scenario.character_role
+        };
+        
+        console.log('🎭 Using enhanced character data for speech:', characterData);
+        await speechService.speak(aiResult.response, characterData);
       } catch (speechError) {
         addDebugLog(`Speech synthesis error: ${speechError.message}`);
       }
@@ -220,10 +240,34 @@ function RoleplaySession({ scenario, userEmail, onEndSession, isMobile }) {
   };
 
   // Utility functions
+  // Enhanced character gender detection
   const getCharacterGender = (characterName) => {
-    const femaleNames = ['sarah', 'lisa', 'jennifer', 'mary', 'susan', 'karen', 'nancy', 'emily', 'jessica', 'rachel'];
-    const firstName = characterName.split(' ')[0].toLowerCase();
-    return femaleNames.includes(firstName) ? 'female' : 'male';
+    const femaleNames = [
+      'sarah', 'lisa', 'jennifer', 'mary', 'susan', 'karen', 'nancy', 'emily', 
+      'jessica', 'rachel', 'amanda', 'michelle', 'angela', 'melissa', 'deborah',
+      'stephanie', 'carol', 'rebecca', 'sharon', 'cynthia', 'anna', 'brenda',
+      'amy', 'kathleen', 'virginia', 'pamela', 'maria', 'heather', 'diane',
+      'julie', 'joyce', 'victoria', 'kelly', 'christina', 'joan', 'evelyn',
+      'judith', 'margaret', 'cheryl', 'andrea', 'hannah', 'megan', 'nicole',
+      'olivia', 'sophia', 'emma', 'isabella', 'ava', 'mia', 'abigail'
+    ];
+
+    const maleNames = [
+      'james', 'john', 'robert', 'michael', 'william', 'david', 'richard', 
+      'charles', 'joseph', 'thomas', 'christopher', 'daniel', 'paul', 'mark',
+      'donald', 'steven', 'andrew', 'kenneth', 'joshua', 'kevin',
+      'brian', 'george', 'timothy', 'ronald', 'jason', 'edward', 'jeffrey',
+      'ryan', 'jacob', 'gary', 'nicholas', 'eric', 'jonathan', 'stephen',
+      'larry', 'justin', 'scott', 'brandon', 'benjamin', 'samuel', 'frank',
+      'gregory', 'raymond', 'alexander', 'patrick', 'jack', 'dennis', 'jerry'
+    ];
+
+    const firstName = characterName.toLowerCase().split(' ')[0];
+    
+    if (femaleNames.includes(firstName)) return 'female';
+    if (maleNames.includes(firstName)) return 'male';
+    
+    return 'neutral';
   };
 
   const getCharacterAvatar = (characterName, characterRole) => {
