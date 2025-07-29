@@ -164,36 +164,30 @@ async function generateEnhancedGeminiResponse(scenario, userMessage, conversatio
   // Create enhanced character prompt
   const prompt = generateCharacterPrompt(scenario, characterGender, emotion, messageCount, historyText, userMessage);
 
-  const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      contents: [{
-        parts: [{
-          text: prompt
-        }]
-      }],
+  // Enhanced generation config
+const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    contents: [{ parts: [{ text: prompt }] }],
     generationConfig: {
-  temperature: 0.9,
-  topK: 50,
-  topP: 0.95,
-  maxOutputTokens: 150,
-  thinkingBudget: 'low' // New parameter for cost optimization
-}
-      safetySettings: [
-        {
-          category: "HARM_CATEGORY_HARASSMENT",
-          threshold: "BLOCK_MEDIUM_AND_ABOVE"
-        },
-        {
-          category: "HARM_CATEGORY_HATE_SPEECH",
-          threshold: "BLOCK_MEDIUM_AND_ABOVE"
+      temperature: 0.9,
+      topK: 50,
+      topP: 0.95,
+      maxOutputTokens: 150,
+      // New Gemini 2.5 features
+      thinkingBudget: 'low', // Cost optimization
+      responseSchema: {
+        type: "object",
+        properties: {
+          response: { type: "string" },
+          emotion: { type: "string" },
+          confidence: { type: "number" }
         }
-      ]
-    })
-  });
+      }
+    }
+  })
+});
 
   if (!response.ok) {
     throw new Error(`Gemini API error: ${response.status}`);
