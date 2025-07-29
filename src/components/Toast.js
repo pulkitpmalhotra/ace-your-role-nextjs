@@ -130,20 +130,22 @@ function Toast({
       </div>
 
       {/* Close Button */}
-      <button
-        onClick={handleClose}
-        style={{
-          flexShrink: 0,
-          backgroundColor: 'transparent',
-          border: 'none',
-          cursor: 'pointer',
-          padding: '2px',
-          borderRadius: '4px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          transition: 'background-color 0.2s ease'
-        }}
+     <button
+  onClick={handleClose}
+  style={{
+    flexShrink: 0,
+    backgroundColor: 'transparent',
+    border: 'none',
+    cursor: 'pointer',
+    padding: '2px',
+    borderRadius: '4px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    transition: 'background-color 0.2s ease',
+    zIndex: 1001  // Add this
+  }}
+>
         onMouseEnter={(e) => {
           e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.1)';
         }}
