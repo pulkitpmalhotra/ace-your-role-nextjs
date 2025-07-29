@@ -362,11 +362,11 @@ class APIService {
     doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(22);
-    doc.text('🎯 AI Sales Roleplay', margin, 25);
+    doc.text('🎯 Ace Your Role', margin, 25);
     
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(14);
-    doc.text('Professional Feedback Report', margin, 35);
+    doc.text('Professional Skills Development Report', margin, 35);
     
     // Reset position
     yPosition = 55;
