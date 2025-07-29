@@ -53,7 +53,7 @@ function MobileNavigation({
         }}>
           <span style={{ fontSize: '1.5rem' }}>🎯</span>
           <div>
-            <h1 style={{
+<h1 style={{
               fontSize: '1.25rem',
               fontWeight: '700',
               margin: 0,
@@ -62,14 +62,14 @@ function MobileNavigation({
               WebkitTextFillColor: 'transparent',
               backgroundClip: 'text'
             }}>
-              AI Roleplay
+              Ace Your Role
             </h1>
             <p style={{
               fontSize: '0.75rem',
               color: '#6b7280',
               margin: 0
             }}>
-              Sales Training
+              Skill Training
             </p>
           </div>
         </div>
