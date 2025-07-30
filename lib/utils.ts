@@ -1,4 +1,4 @@
-// lib/utils.ts - Utility functions
+// lib/utils.ts
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 
@@ -102,7 +102,6 @@ export function createBasicFeedback(exchanges: number, duration: number, scenari
   };
 }
 
-// Error handling utilities
 export class APIError extends Error {
   constructor(
     message: string,
@@ -130,7 +129,6 @@ export function handleAPIError(error: unknown): Response {
   );
 }
 
-// Development helpers
 export function logPerformance(operation: string, startTime: number) {
   if (process.env.NODE_ENV === 'development') {
     const duration = Date.now() - startTime;
