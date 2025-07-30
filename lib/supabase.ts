@@ -1,4 +1,4 @@
-// lib/supabase.ts - Supabase client configuration
+// lib/supabase.ts
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/types';
 
@@ -10,5 +10,5 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
 // Server-side client (for API routes)
 export const supabaseAdmin = createClient<Database>(
   supabaseUrl,
-  process.env.SUPABASE_SERVICE_KEY!
+  process.env.SUPABASE_SERVICE_KEY || supabaseAnonKey
 );
