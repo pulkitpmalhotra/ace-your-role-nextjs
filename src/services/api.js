@@ -1,10 +1,7 @@
-// src/services/api.js - Updated to use your new Next.js API
 class APIService {
   constructor() {
-    // Update this to your new Vercel deployment URL
-    this.baseUrl = 'https://ace-your-role-nextjs.vercel.app';
-    
-    // Keep existing error handling and debug logging
+    // Replace with your actual Next.js Vercel URL
+    this.baseUrl = 'https://your-nextjs-app.vercel.app';
     this.debug = true;
   }
 
