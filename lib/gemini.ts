@@ -1,4 +1,4 @@
-/ lib/gemini.ts - Gemini 2.5 Flash-Lite integration (43% cost reduction!)
+// lib/gemini.ts
 import type { GeminiResponse, AIResponseData, Scenario } from '@/types';
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY!;
@@ -48,7 +48,6 @@ Your authentic response:`;
           topK: 50,
           topP: 0.95,
           maxOutputTokens: 150,
-          // Gemini 2.5 specific optimizations
           candidateCount: 1,
           stopSequences: [],
         }
@@ -73,7 +72,6 @@ Your authentic response:`;
   } catch (error) {
     console.error('Gemini API error:', error);
     
-    // Fallback response
     return {
       response: "I appreciate you sharing that. Could you elaborate on your needs?",
       character: scenario.character_name,
