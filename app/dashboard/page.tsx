@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 
 interface Scenario {
@@ -15,25 +16,28 @@ interface Scenario {
 }
 
 export default function DashboardPage() {
+  const { data: session, status } = useSession();
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
   const [loading, setLoading] = useState(true);
-  const [userEmail, setUserEmail] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedDifficulty, setSelectedDifficulty] = useState('all');
+  const [showDataManagement, setShowDataManagement] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
-    // Check if user is logged in
-    const email = localStorage.getItem('userEmail');
-    if (!email) {
-      router.push('/');
-      return;
-    }
-    setUserEmail(email);
+    if (status === 'loading') return; // Still loading
     
-    // Load scenarios
+    if (status === 'unauthenticated') {
+      // Check for legacy localStorage email
+      const legacyEmail = localStorage.getItem('userEmail');
+      if (!legacyEmail) {
+        router.push('/');
+        return;
+      }
+    }
+    
     loadScenarios();
-  }, [router]);
+  }, [status, router]);
 
   const loadScenarios = async () => {
     try {
@@ -60,16 +64,43 @@ export default function DashboardPage() {
   });
 
   const startSession = (scenario: Scenario) => {
-    // Store scenario for session page
     localStorage.setItem('currentScenario', JSON.stringify(scenario));
     router.push(`/session/${scenario.id}`);
   };
 
-  const logout = () => {
+  const handleSignOut = async () => {
+    // Clear legacy localStorage
     localStorage.removeItem('userEmail');
     localStorage.removeItem('currentScenario');
-    router.push('/');
+    
+    if (session) {
+      await signOut({ callbackUrl: '/' });
+    } else {
+      router.push('/');
+    }
   };
+
+  const getUserDisplayInfo = () => {
+    if (session?.user) {
+      return {
+        name: session.user.name || 'User',
+        email: session.user.email || '',
+        image: session.user.image,
+        isGoogleAuth: true
+      };
+    } else {
+      // Legacy email user
+      const legacyEmail = localStorage.getItem('userEmail');
+      return {
+        name: legacyEmail?.split('@')[0] || 'User',
+        email: legacyEmail || '',
+        image: null,
+        isGoogleAuth: false
+      };
+    }
+  };
+
+  const userInfo = getUserDisplayInfo();
 
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
@@ -95,12 +126,12 @@ export default function DashboardPage() {
     return emojiMap[category] || '🎯';
   };
 
-  if (loading) {
+  if (status === 'loading' || loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading scenarios...</p>
+          <p className="text-gray-600">Loading your dashboard...</p>
         </div>
       </div>
     );
@@ -117,12 +148,44 @@ export default function DashboardPage() {
               <h1 className="text-2xl font-bold text-gray-900">Ace Your Role</h1>
             </div>
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">{userEmail}</span>
+              {/* User Info */}
+              <div className="flex items-center space-x-3">
+                {userInfo.image ? (
+                  <img
+                    src={userInfo.image}
+                    alt="Profile"
+                    className="w-8 h-8 rounded-full"
+                  />
+                ) : (
+                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                    <span className="text-blue-600 text-sm font-medium">
+                      {userInfo.name[0]?.toUpperCase()}
+                    </span>
+                  </div>
+                )}
+                <div className="text-sm">
+                  <p className="font-medium text-gray-900">{userInfo.name}</p>
+                  <p className="text-gray-500 text-xs">{userInfo.email}</p>
+                </div>
+                {userInfo.isGoogleAuth && (
+                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                    Google
+                  </span>
+                )}
+              </div>
+
+              {/* Action Buttons */}
               <button
-                onClick={logout}
+                onClick={() => setShowDataManagement(true)}
+                className="text-sm text-blue-600 hover:text-blue-700 underline"
+              >
+                Data & Privacy
+              </button>
+              <button
+                onClick={handleSignOut}
                 className="text-sm text-red-600 hover:text-red-700 underline"
               >
-                Logout
+                Sign Out
               </button>
             </div>
           </div>
@@ -130,9 +193,46 @@ export default function DashboardPage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Welcome Section */}
+        <div className="mb-8">
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">
+            Welcome back, {userInfo.name}! 👋
+          </h2>
+          <p className="text-gray-600">
+            Continue your AI-powered roleplay training with enhanced speech features and personalized feedback.
+          </p>
+        </div>
+
+        {/* Feature Highlights */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="bg-white rounded-lg shadow-sm border p-6">
+            <div className="flex items-center mb-3">
+              <span className="text-2xl mr-3">🤖</span>
+              <h3 className="font-semibold text-gray-900">Gemini 2.5 Flash-Lite</h3>
+            </div>
+            <p className="text-sm text-gray-600">43% cost reduction with enhanced conversation quality</p>
+          </div>
+          
+          <div className="bg-white rounded-lg shadow-sm border p-6">
+            <div className="flex items-center mb-3">
+              <span className="text-2xl mr-3">🎤</span>
+              <h3 className="font-semibold text-gray-900">Google Speech APIs</h3>
+            </div>
+            <p className="text-sm text-gray-600">95%+ accuracy with 380+ professional voices</p>
+          </div>
+          
+          <div className="bg-white rounded-lg shadow-sm border p-6">
+            <div className="flex items-center mb-3">
+              <span className="text-2xl mr-3">🔒</span>
+              <h3 className="font-semibold text-gray-900">GDPR Compliant</h3>
+            </div>
+            <p className="text-sm text-gray-600">Full data control and privacy protection</p>
+          </div>
+        </div>
+
         {/* Filters */}
         <div className="mb-8 bg-white rounded-lg shadow-sm p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Filter Scenarios</h2>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Filter Scenarios</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -208,28 +308,7 @@ export default function DashboardPage() {
                   onClick={() => startSession(scenario)}
                   className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors font-medium"
                 >
-                  Start Session
+                  Start Voice Session
                 </button>
               </div>
             </div>
-          ))}
-        </div>
-
-        {filteredScenarios.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-gray-500 text-lg">No scenarios match your current filters.</p>
-            <button
-              onClick={() => {
-                setSelectedCategory('all');
-                setSelectedDifficulty('all');
-              }}
-              className="mt-4 text-blue-600 hover:text-blue-700 underline"
-            >
-              Clear filters
-            </button>
-          </div>
-        )}
-      </main>
-    </div>
-  );
-}
