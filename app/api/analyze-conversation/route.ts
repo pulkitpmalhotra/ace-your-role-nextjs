@@ -1,4 +1,4 @@
-// app/api/analyze-conversation/route.ts - AI-Powered Conversation Analysis
+// app/api/analyze-conversation/route.ts - AI-Powered Conversation Analysis (Fixed TypeScript)
 export async function POST(request: Request) {
   try {
     const { conversation, scenario, session_id } = await request.json();
@@ -447,10 +447,10 @@ function identifyStrengths(scores: any, analysis: any): string[] {
   return strengths;
 }
 
-// Generate next session focus
+// Generate next session focus - FIXED TypeScript error
 function generateNextSessionFocus(scores: any, category: string): string {
   const lowestArea = Object.entries(scores.categories).reduce((lowest, [area, score]) => 
-    score < lowest.score ? { area, score } : lowest, 
+    (score as number) < lowest.score ? { area, score: score as number } : lowest, 
     { area: 'overall', score: 5 }
   );
 
