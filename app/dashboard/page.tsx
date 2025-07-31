@@ -23,7 +23,7 @@ export default function DashboardPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // Check if user is logged in (simple email check)
+    // Check if user is logged in
     const email = localStorage.getItem('userEmail');
     if (!email) {
       router.push('/');
@@ -70,17 +70,13 @@ export default function DashboardPage() {
     router.push('/');
   };
 
-  const getDifficultyColor = (difficulty: string) => {
-    switch (difficulty) {
-      case 'beginner':
-        return 'bg-green-100 text-green-800';
-      case 'intermediate':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'advanced':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
+  const getUserName = () => {
+    return userEmail ? userEmail.split('@')[0] : 'User';
+  };
+
+  const getUserInitials = () => {
+    const name = getUserName();
+    return name.slice(0, 2).toUpperCase();
   };
 
   const getCategoryEmoji = (category: string) => {
@@ -94,69 +90,66 @@ export default function DashboardPage() {
     return emojiMap[category] || '🎯';
   };
 
-  const getUserName = () => {
-    return userEmail ? userEmail.split('@')[0] : 'User';
+  const getCategoryGradient = (category: string) => {
+    const gradientMap: Record<string, string> = {
+      'sales': 'from-blue-500 to-indigo-600',
+      'healthcare': 'from-green-500 to-emerald-600',
+      'support': 'from-purple-500 to-violet-600',
+      'legal': 'from-orange-500 to-red-600',
+      'leadership': 'from-pink-500 to-rose-600'
+    };
+    return gradientMap[category] || 'from-gray-500 to-gray-600';
   };
 
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ 
-            width: '48px', 
-            height: '48px', 
-            border: '4px solid #e5e7eb', 
-            borderTop: '4px solid #2563eb',
-            borderRadius: '50%',
-            margin: '0 auto 16px',
-            animation: 'spin 1s linear infinite'
-          }}></div>
-          <p style={{ color: '#6b7280' }}>Loading your dashboard...</p>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center animate-fade-in">
+          <div className="spinner w-12 h-12 mx-auto mb-4"></div>
+          <p className="text-gray-600 text-lg">Loading your dashboard...</p>
+          <p className="text-gray-500 text-sm mt-2">Preparing your AI training scenarios</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb' }}>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+      {/* Background decorations */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-blue-400/10 to-indigo-600/10 rounded-full blur-3xl"></div>
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-purple-400/10 to-pink-600/10 rounded-full blur-3xl"></div>
+      </div>
+
       {/* Header */}
-      <header style={{ backgroundColor: 'white', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderBottom: '1px solid #e5e7eb' }}>
-        <div style={{ maxWidth: '80rem', margin: '0 auto', padding: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', alignItems: 'center' }}>
-              <span style={{ fontSize: '32px', marginRight: '12px' }}>🎯</span>
-              <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827', margin: 0 }}>Ace Your Role</h1>
+      <header className="relative glass border-b border-white/20 backdrop-blur-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
+            {/* Logo and title */}
+            <div className="flex items-center space-x-4">
+              <div className="h-10 w-10 bg-gradient-primary rounded-xl flex items-center justify-center shadow-soft">
+                <span className="text-xl">🎯</span>
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-gradient">Ace Your Role</h1>
+                <p className="text-sm text-gray-600">AI-Powered Training Platform</p>
+              </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{ 
-                  width: '32px', 
-                  height: '32px', 
-                  backgroundColor: '#dbeafe', 
-                  borderRadius: '50%', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center' 
-                }}>
-                  <span style={{ color: '#2563eb', fontSize: '14px', fontWeight: '500' }}>
-                    {getUserName()[0]?.toUpperCase()}
-                  </span>
+
+            {/* User profile */}
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-3 p-2 rounded-xl bg-white/50 backdrop-blur-sm border border-white/30">
+                <div className="h-10 w-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-lg flex items-center justify-center text-white font-medium text-sm shadow-soft">
+                  {getUserInitials()}
                 </div>
-                <div>
-                  <p style={{ fontSize: '14px', fontWeight: '500', color: '#111827', margin: 0 }}>{getUserName()}</p>
-                  <p style={{ fontSize: '12px', color: '#6b7280', margin: 0 }}>{userEmail}</p>
+                <div className="hidden sm:block">
+                  <p className="font-medium text-gray-900 text-sm">{getUserName()}</p>
+                  <p className="text-xs text-gray-600">{userEmail}</p>
                 </div>
               </div>
               <button
                 onClick={logout}
-                style={{
-                  fontSize: '14px',
-                  color: '#dc2626',
-                  textDecoration: 'underline',
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer'
-                }}
+                className="btn-ghost btn-sm text-gray-600 hover:text-gray-800"
               >
                 Sign Out
               </button>
@@ -165,219 +158,217 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      <main style={{ maxWidth: '80rem', margin: '0 auto', padding: '32px 16px' }}>
+      <main className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Welcome Section */}
-        <div style={{ marginBottom: '32px' }}>
-          <h2 style={{ fontSize: '20px', fontWeight: '600', color: '#111827', marginBottom: '8px' }}>
-            Welcome back, {getUserName()}! 👋
-          </h2>
-          <p style={{ color: '#6b7280', margin: 0 }}>
-            Continue your AI-powered roleplay training with enhanced speech features and personalized feedback.
-          </p>
+        <div className="mb-8 animate-fade-in">
+          <div className="card p-6 bg-gradient-to-r from-white/80 to-white/60 backdrop-blur-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                  Welcome back, {getUserName()}! 👋
+                </h2>
+                <p className="text-gray-600 text-lg">
+                  Ready to enhance your conversation skills with AI-powered roleplay training?
+                </p>
+              </div>
+              <div className="hidden lg:block">
+                <div className="flex items-center space-x-4">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-primary-600">{scenarios.length}</div>
+                    <div className="text-xs text-gray-500">Scenarios</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-success-600">95%</div>
+                    <div className="text-xs text-gray-500">Accuracy</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-warning-600">43%</div>
+                    <div className="text-xs text-gray-500">Cost ↓</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Feature Highlights */}
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', 
-          gap: '24px', 
-          marginBottom: '32px' 
-        }}>
-          <div style={{ backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', border: '1px solid #e5e7eb', padding: '24px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '12px' }}>
-              <span style={{ fontSize: '24px', marginRight: '12px' }}>🤖</span>
-              <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#111827', margin: 0 }}>Gemini 2.5 Flash-Lite</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 animate-slide-in">
+          <div className="card-hover p-6 bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200">
+            <div className="flex items-center mb-4">
+              <div className="h-12 w-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center text-white text-xl shadow-soft mr-4">
+                🤖
+              </div>
+              <div>
+                <h3 className="font-semibold text-blue-900">Gemini 2.5 Flash-Lite</h3>
+                <p className="text-sm text-blue-700">Enhanced AI conversations</p>
+              </div>
             </div>
-            <p style={{ fontSize: '14px', color: '#6b7280', margin: 0 }}>43% cost reduction with enhanced conversation quality</p>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-blue-600">43% cost reduction</span>
+              <span className="badge-primary">Active</span>
+            </div>
           </div>
           
-          <div style={{ backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', border: '1px solid #e5e7eb', padding: '24px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '12px' }}>
-              <span style={{ fontSize: '24px', marginRight: '12px' }}>🎤</span>
-              <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#111827', margin: 0 }}>Voice Conversations</h3>
+          <div className="card-hover p-6 bg-gradient-to-br from-green-50 to-emerald-50 border-green-200">
+            <div className="flex items-center mb-4">
+              <div className="h-12 w-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center text-white text-xl shadow-soft mr-4">
+                🎤
+              </div>
+              <div>
+                <h3 className="font-semibold text-green-900">Voice Conversations</h3>
+                <p className="text-sm text-green-700">Natural speech interaction</p>
+              </div>
             </div>
-            <p style={{ fontSize: '14px', color: '#6b7280', margin: 0 }}>Natural speech-to-speech conversations with AI characters</p>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-green-600">95%+ accuracy</span>
+              <span className="badge-success">Ready</span>
+            </div>
           </div>
           
-          <div style={{ backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', border: '1px solid #e5e7eb', padding: '24px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '12px' }}>
-              <span style={{ fontSize: '24px', marginRight: '12px' }}>📊</span>
-              <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#111827', margin: 0 }}>Smart Feedback</h3>
+          <div className="card-hover p-6 bg-gradient-to-br from-purple-50 to-violet-50 border-purple-200">
+            <div className="flex items-center mb-4">
+              <div className="h-12 w-12 bg-gradient-to-br from-purple-500 to-violet-600 rounded-xl flex items-center justify-center text-white text-xl shadow-soft mr-4">
+                📊
+              </div>
+              <div>
+                <h3 className="font-semibold text-purple-900">Smart Feedback</h3>
+                <p className="text-sm text-purple-700">AI-powered analysis</p>
+              </div>
             </div>
-            <p style={{ fontSize: '14px', color: '#6b7280', margin: 0 }}>Personalized performance analysis and improvement suggestions</p>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-purple-600">Personalized insights</span>
+              <span className="badge badge-purple-100 text-purple-800">Enhanced</span>
+            </div>
           </div>
         </div>
 
         {/* Filters */}
-        <div style={{ marginBottom: '32px', backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', padding: '24px' }}>
-          <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#111827', marginBottom: '16px' }}>Filter Scenarios</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+        <div className="card p-6 mb-8 animate-slide-in">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+            <span className="mr-2">🎯</span>
+            Find Your Perfect Scenario
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
-              <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
                 Category
               </label>
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
-                style={{
-                  width: '100%',
-                  border: '1px solid #d1d5db',
-                  borderRadius: '8px',
-                  padding: '8px 12px',
-                  fontSize: '14px',
-                  outline: 'none'
-                }}
+                className="input"
               >
                 <option value="all">All Categories</option>
-                <option value="sales">Sales</option>
-                <option value="healthcare">Healthcare</option>
-                <option value="support">Support</option>
-                <option value="legal">Legal</option>
-                <option value="leadership">Leadership</option>
+                <option value="sales">💼 Sales</option>
+                <option value="healthcare">🏥 Healthcare</option>
+                <option value="support">🎧 Support</option>
+                <option value="legal">⚖️ Legal</option>
+                <option value="leadership">👥 Leadership</option>
               </select>
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
                 Difficulty
               </label>
               <select
                 value={selectedDifficulty}
                 onChange={(e) => setSelectedDifficulty(e.target.value)}
-                style={{
-                  width: '100%',
-                  border: '1px solid #d1d5db',
-                  borderRadius: '8px',
-                  padding: '8px 12px',
-                  fontSize: '14px',
-                  outline: 'none'
-                }}
+                className="input"
               >
                 <option value="all">All Difficulties</option>
-                <option value="beginner">Beginner</option>
-                <option value="intermediate">Intermediate</option>
-                <option value="advanced">Advanced</option>
+                <option value="beginner">🟢 Beginner</option>
+                <option value="intermediate">🟡 Intermediate</option>
+                <option value="advanced">🔴 Advanced</option>
               </select>
+            </div>
+            <div className="md:col-span-2 flex items-end">
+              <div className="text-sm text-gray-600">
+                Showing <span className="font-medium text-primary-600">{filteredScenarios.length}</span> scenarios
+              </div>
             </div>
           </div>
         </div>
 
         {/* Scenarios Grid */}
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', 
-          gap: '24px' 
-        }}>
-          {filteredScenarios.map((scenario) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-slide-in">
+          {filteredScenarios.map((scenario, index) => (
             <div 
               key={scenario.id} 
-              style={{ 
-                backgroundColor: 'white', 
-                borderRadius: '8px', 
-                boxShadow: '0 1px 3px rgba(0,0,0,0.1)', 
-                border: '1px solid #e5e7eb',
-                transition: 'box-shadow 0.2s',
-                cursor: 'pointer'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
-              }}
+              className="card-hover group"
+              style={{ animationDelay: `${index * 0.1}s` }}
             >
-              <div style={{ padding: '24px' }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '16px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <span style={{ fontSize: '24px', marginRight: '8px' }}>{getCategoryEmoji(scenario.category)}</span>
-                    <span className={getDifficultyColor(scenario.difficulty)} style={{ 
-                      padding: '4px 8px', 
-                      borderRadius: '12px', 
-                      fontSize: '12px', 
-                      fontWeight: '500' 
-                    }}>
-                      {scenario.difficulty}
-                    </span>
+              <div className="p-6">
+                {/* Category badge and difficulty */}
+                <div className="flex items-center justify-between mb-4">
+                  <div className={`h-12 w-12 bg-gradient-to-br ${getCategoryGradient(scenario.category)} rounded-xl flex items-center justify-center text-white text-xl shadow-soft`}>
+                    {getCategoryEmoji(scenario.category)}
                   </div>
+                  <span className={`badge difficulty-${scenario.difficulty}`}>
+                    {scenario.difficulty}
+                  </span>
                 </div>
                 
-                <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#111827', marginBottom: '8px', margin: '0 0 8px 0' }}>
+                {/* Title and description */}
+                <h3 className="text-lg font-semibold text-gray-900 mb-2 group-hover:text-primary-600 transition-colors">
                   {scenario.title}
                 </h3>
                 
                 {scenario.description && (
-                  <p style={{ color: '#6b7280', fontSize: '14px', marginBottom: '16px', lineHeight: '1.5' }}>
+                  <p className="text-gray-600 text-sm mb-4 line-clamp-2 leading-relaxed">
                     {scenario.description}
                   </p>
                 )}
                 
-                <div style={{ marginBottom: '16px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', fontSize: '14px', color: '#6b7280', marginBottom: '4px' }}>
-                    <span style={{ fontWeight: '500' }}>Character:</span>
-                    <span style={{ marginLeft: '8px' }}>{scenario.character_name}</span>
+                {/* Character info */}
+                <div className="space-y-2 mb-6">
+                  <div className="flex items-center text-sm">
+                    <span className="font-medium text-gray-700 w-20">Character:</span>
+                    <span className="text-gray-900">{scenario.character_name}</span>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', fontSize: '14px', color: '#6b7280' }}>
-                    <span style={{ fontWeight: '500' }}>Role:</span>
-                    <span style={{ marginLeft: '8px' }}>{scenario.character_role}</span>
+                  <div className="flex items-center text-sm">
+                    <span className="font-medium text-gray-700 w-20">Role:</span>
+                    <span className="text-gray-900">{scenario.character_role}</span>
                   </div>
                 </div>
                 
+                {/* Action button */}
                 <button
                   onClick={() => startSession(scenario)}
-                  style={{
-                    width: '100%',
-                    backgroundColor: '#2563eb',
-                    color: 'white',
-                    padding: '12px 16px',
-                    borderRadius: '8px',
-                    border: 'none',
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                    fontWeight: '500',
-                    transition: 'background-color 0.2s'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = '#1d4ed8';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = '#2563eb';
-                  }}
+                  className="btn-primary w-full group-hover:shadow-glow transition-all duration-300"
                 >
-                  🎙️ Start Voice Session
+                  <span className="flex items-center justify-center">
+                    <span className="mr-2">🎙️</span>
+                    Start Voice Session
+                    <span className="ml-2 group-hover:translate-x-1 transition-transform">→</span>
+                  </span>
                 </button>
               </div>
             </div>
           ))}
         </div>
 
+        {/* Empty state */}
         {filteredScenarios.length === 0 && (
-          <div style={{ textAlign: 'center', padding: '48px 0' }}>
-            <p style={{ color: '#6b7280', fontSize: '18px', marginBottom: '16px' }}>No scenarios match your current filters.</p>
+          <div className="text-center py-16 animate-fade-in">
+            <div className="h-24 w-24 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center mx-auto mb-6">
+              <span className="text-4xl">🔍</span>
+            </div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">No scenarios found</h3>
+            <p className="text-gray-600 mb-6">
+              No scenarios match your current filters. Try adjusting your search criteria.
+            </p>
             <button
               onClick={() => {
                 setSelectedCategory('all');
                 setSelectedDifficulty('all');
               }}
-              style={{
-                color: '#2563eb',
-                textDecoration: 'underline',
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: '16px'
-              }}
+              className="btn-primary"
             >
-              Clear filters
+              Clear All Filters
             </button>
           </div>
         )}
       </main>
-      
-      <style jsx>{`
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-      `}</style>
     </div>
   );
 }
