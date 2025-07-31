@@ -1,4 +1,4 @@
-// app/api/progress/route.ts - User Progress Tracking
+// app/api/progress/route.ts - User Progress Tracking (Fixed TypeScript)
 import { createClient } from '@supabase/supabase-js';
 
 // Get user progress
@@ -112,7 +112,7 @@ export async function GET(request: Request) {
   }
 }
 
-// Calculate practice streak
+// Calculate practice streak (Fixed TypeScript compatibility)
 function calculateStreak(sessions: any[]): number {
   if (!sessions.length) return 0;
   
@@ -122,14 +122,16 @@ function calculateStreak(sessions: any[]): number {
   let streak = 0;
   let currentDate = new Date(today);
   
-  // Get unique practice dates
-  const practiceDates = [...new Set(
-    sessions.map(s => {
-      const date = new Date(s.start_time);
-      date.setHours(0, 0, 0, 0);
-      return date.getTime();
-    })
-  )].sort((a, b) => b - a); // Sort descending
+  // Get unique practice dates - Fixed TypeScript issue
+  const sessionDates = sessions.map(s => {
+    const date = new Date(s.start_time);
+    date.setHours(0, 0, 0, 0);
+    return date.getTime();
+  });
+  
+  // Remove duplicates using Array.from instead of spread operator
+  const uniqueDateSet = new Set(sessionDates);
+  const practiceDates = Array.from(uniqueDateSet).sort((a, b) => b - a); // Sort descending
   
   // Check for consecutive days
   for (const practiceDate of practiceDates) {
@@ -142,4 +144,117 @@ function calculateStreak(sessions: any[]): number {
   }
   
   return streak;
+}
+
+// Update or create progress (manual endpoint for admin use)
+export async function POST(request: Request) {
+  try {
+    const { user_email, category, session_data } = await request.json();
+    
+    if (!user_email || !category) {
+      return Response.json(
+        { success: false, error: 'User email and category are required' },
+        { status: 400 }
+      );
+    }
+
+    console.log('📈 Manually updating progress for:', user_email, category);
+
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_ANON_KEY;
+    
+    if (!supabaseUrl || !supabaseKey) {
+      return Response.json(
+        { success: false, error: 'Database configuration missing' },
+        { status: 500 }
+      );
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    
+    // Get user ID
+    const { data: user } = await supabase
+      .from('users')
+      .select('id')
+      .eq('email', user_email)
+      .single();
+
+    if (!user) {
+      return Response.json(
+        { success: false, error: 'User not found' },
+        { status: 404 }
+      );
+    }
+
+    // Check if progress exists
+    const { data: existingProgress } = await supabase
+      .from('user_progress')
+      .select('*')
+      .eq('user_email', user_email)
+      .eq('category', category)
+      .single();
+
+    let result;
+    
+    if (existingProgress) {
+      // Update existing progress
+      const { data, error } = await supabase
+        .from('user_progress')
+        .update({
+          ...session_data,
+          last_session_date: new Date().toISOString()
+        })
+        .eq('user_email', user_email)
+        .eq('category', category)
+        .select()
+        .single();
+        
+      if (error) {
+        console.error('❌ Error updating progress:', error);
+        return Response.json(
+          { success: false, error: 'Failed to update progress' },
+          { status: 500 }
+        );
+      }
+      
+      result = data;
+    } else {
+      // Create new progress
+      const { data, error } = await supabase
+        .from('user_progress')
+        .insert({
+          user_id: user.id,
+          user_email,
+          category,
+          ...session_data,
+          last_session_date: new Date().toISOString()
+        })
+        .select()
+        .single();
+        
+      if (error) {
+        console.error('❌ Error creating progress:', error);
+        return Response.json(
+          { success: false, error: 'Failed to create progress' },
+          { status: 500 }
+        );
+      }
+      
+      result = data;
+    }
+
+    console.log('✅ Progress updated for:', user_email, category);
+
+    return Response.json({
+      success: true,
+      data: result
+    });
+
+  } catch (error) {
+    console.error('💥 Progress POST API error:', error);
+    return Response.json(
+      { success: false, error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
 }
