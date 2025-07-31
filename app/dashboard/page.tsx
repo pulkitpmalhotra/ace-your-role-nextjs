@@ -95,6 +95,10 @@ export default function DashboardPage() {
     router.push(`/session/${scenario.id}`);
   };
 
+  const viewAnalytics = () => {
+    router.push('/analytics');
+  };
+
   const logout = () => {
     localStorage.removeItem('userEmail');
     localStorage.removeItem('userId');
@@ -158,7 +162,7 @@ export default function DashboardPage() {
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">Practice Dashboard</h1>
-                <p className="text-sm text-gray-600">Improve your conversation skills with AI</p>
+                <p className="text-sm text-gray-600">AI-powered conversation training</p>
               </div>
             </div>
 
@@ -180,12 +184,12 @@ export default function DashboardPage() {
 
       <main className="max-w-6xl mx-auto px-4 py-6">
         
-        {/* Quick Stats */}
+        {/* Enhanced Quick Stats with Analytics */}
         {progressSummary && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
             <div className="bg-white/80 backdrop-blur-sm rounded-lg p-4 text-center">
               <div className="text-2xl font-bold text-blue-600">{progressSummary.total_sessions}</div>
-              <div className="text-sm text-gray-600">Total Sessions</div>
+              <div className="text-sm text-gray-600">Sessions</div>
             </div>
             <div className="bg-white/80 backdrop-blur-sm rounded-lg p-4 text-center">
               <div className="text-2xl font-bold text-green-600">{progressSummary.total_minutes}m</div>
@@ -201,6 +205,11 @@ export default function DashboardPage() {
               <div className="text-2xl font-bold text-purple-600">{progressSummary.streak_days}</div>
               <div className="text-sm text-gray-600">Day Streak</div>
             </div>
+            {/* Analytics Button */}
+            <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg p-4 text-center text-white cursor-pointer hover:from-indigo-600 hover:to-purple-700 transition-all" onClick={viewAnalytics}>
+              <div className="text-2xl font-bold">📊</div>
+              <div className="text-sm">Analytics</div>
+            </div>
           </div>
         )}
 
@@ -208,23 +217,29 @@ export default function DashboardPage() {
         <div className="flex space-x-4 mb-6">
           <button
             onClick={() => setSelectedView('scenarios')}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+            className={`px-6 py-3 rounded-lg font-medium transition-colors ${
               selectedView === 'scenarios' 
-                ? 'bg-blue-500 text-white' 
+                ? 'bg-blue-500 text-white shadow-lg' 
                 : 'bg-white/80 text-gray-700 hover:bg-white'
             }`}
           >
-            Practice Scenarios ({scenarios.length})
+            🎯 Practice Scenarios ({scenarios.length})
           </button>
           <button
             onClick={() => setSelectedView('progress')}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+            className={`px-6 py-3 rounded-lg font-medium transition-colors ${
               selectedView === 'progress' 
-                ? 'bg-blue-500 text-white' 
+                ? 'bg-blue-500 text-white shadow-lg' 
                 : 'bg-white/80 text-gray-700 hover:bg-white'
             }`}
           >
-            My Progress ({userProgress.length} categories)
+            📈 My Progress ({userProgress.length} categories)
+          </button>
+          <button
+            onClick={viewAnalytics}
+            className="px-6 py-3 rounded-lg font-medium bg-gradient-to-r from-indigo-500 to-purple-600 text-white hover:from-indigo-600 hover:to-purple-700 transition-all shadow-lg"
+          >
+            🔬 Advanced Analytics
           </button>
         </div>
 
@@ -233,7 +248,7 @@ export default function DashboardPage() {
           <div>
             <div className="mb-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-3">Choose a Conversation</h2>
-              <p className="text-gray-600">Select a scenario below and start practicing</p>
+              <p className="text-gray-600">Select a scenario below and start practicing with AI characters</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -293,12 +308,20 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Progress View */}
+        {/* Quick Progress View */}
         {selectedView === 'progress' && (
           <div>
-            <div className="mb-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-3">Your Progress</h2>
-              <p className="text-gray-600">Track your improvement across different skill areas</p>
+            <div className="mb-6 flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900 mb-3">Your Progress Summary</h2>
+                <p className="text-gray-600">Track your improvement across different skill areas</p>
+              </div>
+              <button
+                onClick={viewAnalytics}
+                className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-6 py-3 rounded-lg font-medium hover:from-indigo-600 hover:to-purple-700 transition-all shadow-lg"
+              >
+                🔬 View Detailed Analytics
+              </button>
             </div>
 
             {userProgress.length > 0 ? (
@@ -356,21 +379,24 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Help Section */}
-        <div className="mt-12 bg-blue-50 rounded-lg p-6 text-center">
-          <h3 className="font-semibold text-blue-900 mb-2">How it works:</h3>
-          <div className="flex flex-col md:flex-row justify-center items-center space-y-4 md:space-y-0 md:space-x-8 text-sm text-blue-800">
-            <div className="flex items-center space-x-2">
-              <span className="bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">1</span>
-              <span>Pick a conversation topic</span>
+        {/* Enhanced Help Section */}
+        <div className="mt-12 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-6 text-center border border-blue-200">
+          <h3 className="font-semibold text-blue-900 mb-4">✨ Enhanced Features Now Available!</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm text-blue-800">
+            <div className="flex flex-col items-center space-y-2">
+              <span className="text-2xl">🧠</span>
+              <span className="font-medium">AI Analysis</span>
+              <span>Get detailed feedback on your conversation skills</span>
             </div>
-            <div className="flex items-center space-x-2">
-              <span className="bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">2</span>
-              <span>Talk naturally with AI character</span>
+            <div className="flex flex-col items-center space-y-2">
+              <span className="text-2xl">📊</span>
+              <span className="font-medium">Progress Tracking</span>
+              <span>Monitor improvement across multiple skill areas</span>
             </div>
-            <div className="flex items-center space-x-2">
-              <span className="bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">3</span>
-              <span>Get feedback and track progress</span>
+            <div className="flex flex-col items-center space-y-2">
+              <span className="text-2xl">💡</span>
+              <span className="font-medium">Personalized Coaching</span>
+              <span>Receive specific recommendations for growth</span>
             </div>
           </div>
         </div>
