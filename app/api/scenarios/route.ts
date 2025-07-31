@@ -69,8 +69,8 @@ export async function GET(request: Request) {
       .select('difficulty')
       .eq('is_active', true);
 
-    const categories = [...new Set(categoryStats?.map(s => s.category) || [])];
-    const difficulties = [...new Set(difficultyStats?.map(s => s.difficulty) || [])];
+    const categories = Array.from(new Set(categoryStats?.map(s => s.category) || []));
+    const difficulties = Array.from(new Set(difficultyStats?.map(s => s.difficulty) || []));
 
     return Response.json({
       success: true,
