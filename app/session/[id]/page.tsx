@@ -86,7 +86,7 @@ export default function SessionPage({ params }: { params: { id: string } }) {
       return;
     }
 
-    const SpeechRecognition = window.webkitSpeechRecognition || window.SpeechRecognition;
+    const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
     const recognition = new SpeechRecognition();
     
     recognition.continuous = false;
@@ -101,7 +101,7 @@ export default function SessionPage({ params }: { params: { id: string } }) {
       console.log('🎤 Listening started');
     };
 
-    recognition.onresult = (event) => {
+    recognition.onresult = (event: any) => {
       let transcript = '';
       for (let i = event.resultIndex; i < event.results.length; i++) {
         transcript += event.results[i][0].transcript;
@@ -115,7 +115,7 @@ export default function SessionPage({ params }: { params: { id: string } }) {
       }
     };
 
-    recognition.onerror = (event) => {
+    recognition.onerror = (event: any) => {
       console.error('Speech recognition error:', event.error);
       setIsListening(false);
       if (event.error !== 'no-speech') {
