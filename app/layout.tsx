@@ -1,12 +1,10 @@
-// FILE 1: app/layout.tsx (TypeScript only)
+// app/layout.tsx - Root layout with NextAuth provider
 import './globals.css'
-import { Inter } from 'next/font/google'
-
-const inter = Inter({ subsets: ['latin'] })
+import { NextAuthProvider } from '../components/auth/AuthProvider'
 
 export const metadata = {
   title: 'Ace Your Role - AI Roleplay Training',
-  description: 'Practice sales conversations with AI-powered roleplay scenarios.',
+  description: 'Practice conversations with AI-powered roleplay scenarios.',
 }
 
 export default function RootLayout({
@@ -16,7 +14,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>{children}</body>
+      <body>
+        <NextAuthProvider>
+          {children}
+        </NextAuthProvider>
+      </body>
     </html>
   )
 }
