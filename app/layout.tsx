@@ -1,6 +1,5 @@
-// app/layout.tsx - Root layout with NextAuth provider
+// app/layout.tsx - Simple layout without NextAuth
 import './globals.css'
-import { NextAuthProvider } from '../components/auth/AuthProvider'
 
 export const metadata = {
   title: 'Ace Your Role - AI Roleplay Training',
@@ -14,11 +13,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>
-        <NextAuthProvider>
-          {children}
-        </NextAuthProvider>
-      </body>
+      <body>{children}</body>
     </html>
   )
 }
