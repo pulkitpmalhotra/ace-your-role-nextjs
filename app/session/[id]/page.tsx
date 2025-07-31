@@ -24,6 +24,7 @@ export default function SessionPage({ params }: { params: { id: string } }) {
   const [scenario, setScenario] = useState<Scenario | null>(null);
   const [conversation, setConversation] = useState<ConversationMessage[]>([]);
   const [userEmail, setUserEmail] = useState('');
+  const [sessionId, setSessionId] = useState('');
   const [sessionStartTime] = useState(Date.now());
   
   // Simple states
@@ -32,6 +33,7 @@ export default function SessionPage({ params }: { params: { id: string } }) {
   const [currentUserSpeech, setCurrentUserSpeech] = useState('');
   const [sessionActive, setSessionActive] = useState(false);
   const [error, setError] = useState('');
+  const [isEndingSession, setIsEndingSession] = useState(false);
   
   const router = useRouter();
   const recognitionRef = useRef<any>(null);
@@ -52,9 +54,71 @@ export default function SessionPage({ params }: { params: { id: string } }) {
     }
   }, [router]);
 
+  // Create database session when scenario is loaded
+  useEffect(() => {
+    if (scenario && userEmail && !sessionId) {
+      createDatabaseSession();
+    }
+  }, [scenario, userEmail]);
+
+  // Create session in database
+  const createDatabaseSession = async () => {
+    try {
+      console.log('💾 Creating database session for:', scenario?.title);
+      
+      const response = await fetch('/api/sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          scenario_id: scenario?.id,
+          user_email: userEmail
+        })
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        setSessionId(data.data.id);
+        console.log('✅ Database session created:', data.data.id);
+      } else {
+        console.error('❌ Failed to create session:', data.error);
+        setError('Failed to start session. Please try again.');
+      }
+    } catch (err) {
+      console.error('❌ Error creating session:', err);
+      setError('Connection error. Please try again.');
+    }
+  };
+
+  // Save conversation to database
+  const saveConversationToDatabase = async (updatedConversation: ConversationMessage[]) => {
+    if (!sessionId) return;
+    
+    try {
+      const response = await fetch('/api/sessions', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session_id: sessionId,
+          conversation: updatedConversation
+        })
+      });
+
+      const data = await response.json();
+      if (!data.success) {
+        console.error('❌ Failed to save conversation:', data.error);
+      }
+    } catch (err) {
+      console.error('❌ Error saving conversation:', err);
+    }
+  };
+
   // Start the conversation
   const startConversation = async () => {
-    if (!scenario) return;
+    if (!scenario || !sessionId) {
+      setError('Session not ready. Please wait or refresh the page.');
+      return;
+    }
     
     setSessionActive(true);
     setError('');
@@ -68,7 +132,11 @@ export default function SessionPage({ params }: { params: { id: string } }) {
       timestamp: Date.now()
     };
     
-    setConversation([aiMessage]);
+    const initialConversation = [aiMessage];
+    setConversation(initialConversation);
+    
+    // Save to database
+    await saveConversationToDatabase(initialConversation);
     
     // Speak the greeting
     await speakText(greeting);
@@ -140,7 +208,7 @@ export default function SessionPage({ params }: { params: { id: string } }) {
 
   // Process what user said
   const processUserMessage = async (userMessage: string) => {
-    if (!userMessage || !scenario) return;
+    if (!userMessage || !scenario || !sessionId) return;
     
     setIsListening(false);
     setCurrentUserSpeech('');
@@ -154,6 +222,9 @@ export default function SessionPage({ params }: { params: { id: string } }) {
     
     const updatedConversation = [...conversation, userMsg];
     setConversation(updatedConversation);
+
+    // Save to database
+    await saveConversationToDatabase(updatedConversation);
 
     // Get AI response
     try {
@@ -179,6 +250,9 @@ export default function SessionPage({ params }: { params: { id: string } }) {
         
         const finalConversation = [...updatedConversation, aiMessage];
         setConversation(finalConversation);
+        
+        // Save to database
+        await saveConversationToDatabase(finalConversation);
         
         // AI speaks response
         await speakText(data.data.response);
@@ -237,24 +311,75 @@ export default function SessionPage({ params }: { params: { id: string } }) {
     });
   };
 
-  // End session
-  const endSession = () => {
+  // End session with enhanced analysis
+  const endSession = async () => {
+    if (isEndingSession) return; // Prevent double-clicks
+    
+    setIsEndingSession(true);
     setSessionActive(false);
     stopListening();
     speechSynthesis.cancel();
     
+    if (!sessionId || conversation.length === 0) {
+      router.push('/dashboard');
+      return;
+    }
+    
     const duration = Math.floor((Date.now() - sessionStartTime) / 60000);
     const exchanges = Math.floor(conversation.length / 2);
     
+    try {
+      console.log('🔚 Ending session and saving to database...');
+      
+      // Calculate basic score
+      let score = 2.0; // Base score
+      if (exchanges >= 2) score += 0.5;
+      if (exchanges >= 4) score += 0.5;
+      if (exchanges >= 6) score += 0.5;
+      if (duration >= 3) score += 0.5;
+      score = Math.min(5.0, score);
+      
+      // End session in database
+      const response = await fetch('/api/sessions', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session_id: sessionId,
+          session_status: 'completed',
+          duration_minutes: duration,
+          overall_score: score,
+          feedback: {
+            exchanges,
+            duration,
+            performance: exchanges >= 4 ? 'Great conversation!' : 'Good practice session!',
+            suggestions: exchanges < 3 ? 
+              ['Try asking more questions to extend the conversation'] :
+              ['Keep practicing to improve your skills']
+          }
+        })
+      });
+
+      if (response.ok) {
+        console.log('✅ Session ended and saved to database');
+      }
+    } catch (err) {
+      console.error('❌ Error ending session:', err);
+    }
+    
+    // Store session data for enhanced feedback page
     const sessionData = {
       scenario,
       conversation,
       duration,
       exchanges,
-      userEmail
+      userEmail,
+      sessionId // This is important for the analysis
     };
     
     localStorage.setItem('lastSession', JSON.stringify(sessionData));
+    
+    // Navigate to enhanced feedback page
+    console.log('🧠 Redirecting to enhanced feedback with analysis...');
     router.push('/feedback');
   };
 
@@ -263,7 +388,7 @@ export default function SessionPage({ params }: { params: { id: string } }) {
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
+          <p className="text-gray-600">Loading session...</p>
         </div>
       </div>
     );
@@ -277,12 +402,20 @@ export default function SessionPage({ params }: { params: { id: string } }) {
           <div>
             <h1 className="text-xl font-bold text-gray-900">{scenario.title}</h1>
             <p className="text-sm text-gray-600">Talking with {scenario.character_name}</p>
+            {sessionId && (
+              <p className="text-xs text-green-600">✓ Session connected to database</p>
+            )}
           </div>
           <button
             onClick={endSession}
-            className="bg-red-500 text-white px-6 py-2 rounded-lg hover:bg-red-600 transition-colors font-medium"
+            disabled={isEndingSession}
+            className={`px-6 py-2 rounded-lg font-medium transition-colors ${
+              isEndingSession 
+                ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
+                : 'bg-red-500 text-white hover:bg-red-600'
+            }`}
           >
-            End Chat
+            {isEndingSession ? 'Ending...' : 'End Chat'}
           </button>
         </div>
       </header>
@@ -292,23 +425,41 @@ export default function SessionPage({ params }: { params: { id: string } }) {
         
         {/* Status Indicator */}
         <div className="bg-white/80 rounded-lg p-4 mb-6 text-center">
-          {!sessionActive && (
+          {!sessionActive && !isEndingSession && (
             <div>
               <div className="text-4xl mb-4">🎤</div>
               <h2 className="text-xl font-semibold mb-2">Ready to start your conversation</h2>
               <p className="text-gray-600 mb-4">
                 Click "Start Talking" and {scenario.character_name} will greet you
               </p>
-              <button
-                onClick={startConversation}
-                className="bg-green-500 text-white px-8 py-3 rounded-lg text-lg font-semibold hover:bg-green-600 transition-colors"
-              >
-                Start Talking
-              </button>
+              {sessionId ? (
+                <button
+                  onClick={startConversation}
+                  className="bg-green-500 text-white px-8 py-3 rounded-lg text-lg font-semibold hover:bg-green-600 transition-colors"
+                >
+                  Start Talking
+                </button>
+              ) : (
+                <div className="text-yellow-600">
+                  <p className="mb-2">Setting up your session...</p>
+                  <div className="w-6 h-6 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                </div>
+              )}
             </div>
           )}
           
-          {sessionActive && (
+          {isEndingSession && (
+            <div className="text-blue-600">
+              <div className="text-4xl mb-4">📊</div>
+              <h2 className="text-xl font-semibold mb-2">Ending Session</h2>
+              <p className="text-gray-600 mb-4">
+                Saving your conversation and preparing detailed analysis...
+              </p>
+              <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+            </div>
+          )}
+          
+          {sessionActive && !isEndingSession && (
             <div>
               {isAISpeaking && (
                 <div className="text-blue-600">
@@ -361,7 +512,10 @@ export default function SessionPage({ params }: { params: { id: string } }) {
         {/* Conversation Display */}
         {conversation.length > 0 && (
           <div className="bg-white/80 rounded-lg p-6">
-            <h3 className="font-semibold mb-4">Conversation:</h3>
+            <h3 className="font-semibold mb-4">
+              Conversation ({conversation.length} messages) 
+              {conversation.length >= 6 && <span className="text-green-600 ml-2">🎯 Great conversation!</span>}
+            </h3>
             <div className="space-y-4 max-h-96 overflow-y-auto">
               {conversation.map((message, index) => (
                 <div
@@ -387,7 +541,7 @@ export default function SessionPage({ params }: { params: { id: string } }) {
         )}
 
         {/* Simple Controls */}
-        {sessionActive && (
+        {sessionActive && !isEndingSession && (
           <div className="mt-6 text-center">
             <div className="bg-white/80 rounded-lg p-4">
               <h4 className="font-medium mb-3">Quick Actions:</h4>
@@ -409,6 +563,14 @@ export default function SessionPage({ params }: { params: { id: string } }) {
                 >
                   Stop Audio
                 </button>
+              </div>
+              
+              {/* Progress indicator */}
+              <div className="mt-4 text-sm text-gray-600">
+                <p>Messages: {conversation.length} | Duration: {Math.floor((Date.now() - sessionStartTime) / 60000)}min</p>
+                {conversation.length >= 6 && (
+                  <p className="text-green-600 font-medium">🌟 Excellent conversation depth!</p>
+                )}
               </div>
             </div>
           </div>
