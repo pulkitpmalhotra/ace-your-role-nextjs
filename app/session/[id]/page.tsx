@@ -1,13 +1,15 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 
 interface Scenario {
   id: string;
   title: string;
+  description?: string;
   character_name: string;
   character_role: string;
+  character_personality?: string;
   difficulty: string;
   category: string;
 }
@@ -17,24 +19,38 @@ interface ConversationMessage {
   message: string;
   timestamp: number;
   audioUrl?: string;
+  confidence?: number;
 }
+
+type ConversationState = 
+  | 'idle' 
+  | 'listening' 
+  | 'processing_speech' 
+  | 'ai_thinking' 
+  | 'ai_speaking' 
+  | 'waiting_to_listen';
 
 export default function SessionPage({ params }: { params: { id: string } }) {
   const [scenario, setScenario] = useState<Scenario | null>(null);
   const [conversation, setConversation] = useState<ConversationMessage[]>([]);
-  const [currentMessage, setCurrentMessage] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
   const [userEmail, setUserEmail] = useState('');
   const [sessionStartTime] = useState(Date.now());
   
-  // Speech features
+  // Voice conversation state
+  const [conversationState, setConversationState] = useState<ConversationState>('idle');
   const [isRecording, setIsRecording] = useState(false);
-  const [speechEnabled, setSpeechEnabled] = useState(true);
-  const [currentlyPlaying, setCurrentlyPlaying] = useState<string | null>(null);
+  const [currentTranscript, setCurrentTranscript] = useState('');
+  const [voiceModeEnabled, setVoiceModeEnabled] = useState(false);
+  const [silenceDetected, setSilenceDetected] = useState(false);
+  const [audioLevel, setAudioLevel] = useState(0);
   
   const router = useRouter();
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const listeningTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const email = localStorage.getItem('userEmail');
@@ -50,19 +66,154 @@ export default function SessionPage({ params }: { params: { id: string } }) {
     } else {
       router.push('/dashboard');
     }
+
+    // Cleanup on unmount
+    return () => {
+      cleanup();
+    };
   }, [router]);
 
-  const startRecording = async () => {
+  const cleanup = useCallback(() => {
+    if (mediaRecorderRef.current?.state === 'recording') {
+      mediaRecorderRef.current.stop();
+    }
+    if (audioContextRef.current?.state !== 'closed') {
+      audioContextRef.current?.close();
+    }
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+    }
+    if (listeningTimeoutRef.current) {
+      clearTimeout(listeningTimeoutRef.current);
+    }
+  }, []);
+
+  // Start voice conversation mode
+  const startVoiceConversation = async () => {
     try {
-      console.log('🎤 Starting recording...');
+      setVoiceModeEnabled(true);
+      setConversationState('ai_thinking');
+      
+      // Start with AI greeting if this is the first message
+      if (conversation.length === 0) {
+        await generateAIGreeting();
+      } else {
+        // Resume listening
+        setTimeout(() => {
+          startListening();
+        }, 1000);
+      }
+    } catch (error) {
+      console.error('❌ Error starting voice conversation:', error);
+    }
+  };
+
+  // Generate AI greeting based on scenario
+  const generateAIGreeting = async () => {
+    if (!scenario) return;
+
+    setConversationState('ai_thinking');
+    
+    const greetingPrompt = `You are ${scenario.character_name}, a ${scenario.character_role}. 
+
+SCENARIO CONTEXT:
+- Title: ${scenario.title}
+- Description: ${scenario.description || ''}
+- Your personality: ${scenario.character_personality || 'Professional and engaging'}
+- Industry: ${scenario.category}
+
+Start this roleplay conversation with a natural, contextual greeting that fits the scenario. Be brief (10-20 words) and set the stage for why someone would be talking to you in this situation.
+
+Your opening greeting:`;
+
+    try {
+      const response = await fetch('/api/ai-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          scenario,
+          userMessage: greetingPrompt,
+          conversationHistory: [],
+          messageCount: 0,
+          isGreeting: true
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        const greetingMessage: ConversationMessage = {
+          speaker: 'ai',
+          message: data.data.response,
+          timestamp: Date.now()
+        };
+
+        setConversation([greetingMessage]);
+        
+        // Speak the greeting and then start listening
+        await speakAIResponse(data.data.response, data.data);
+      }
+    } catch (error) {
+      console.error('❌ Error generating greeting:', error);
+      // Fallback greeting
+      const fallbackGreeting = `Hi, I'm ${scenario.character_name}. How can I help you today?`;
+      const greetingMessage: ConversationMessage = {
+        speaker: 'ai',
+        message: fallbackGreeting,
+        timestamp: Date.now()
+      };
+      setConversation([greetingMessage]);
+      await speakAIResponse(fallbackGreeting, { emotion: 'professional', gender: 'neutral' });
+    }
+  };
+
+  // Start listening with silence detection
+  const startListening = async () => {
+    try {
+      console.log('🎤 Starting to listen with silence detection...');
+      setConversationState('listening');
+      setCurrentTranscript('');
+      setSilenceDetected(false);
+      
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
-          sampleRate: 44100
+          sampleRate: 44100,
+          channelCount: 1
         } 
       });
       
+      // Set up audio analysis for silence detection
+      audioContextRef.current = new AudioContext();
+      analyserRef.current = audioContextRef.current.createAnalyser();
+      const source = audioContextRef.current.createMediaStreamSource(stream);
+      source.connect(analyserRef.current);
+      
+      analyserRef.current.fftSize = 256;
+      const bufferLength = analyserRef.current.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+      
+      // Start monitoring audio levels
+      const checkAudioLevel = () => {
+        if (analyserRef.current && conversationState === 'listening') {
+          analyserRef.current.getByteFrequencyData(dataArray);
+          const average = dataArray.reduce((a, b) => a + b) / bufferLength;
+          setAudioLevel(average);
+          
+          // Detect silence (adjust threshold as needed)
+          if (average < 10) {
+            handleSilenceDetected();
+          } else {
+            resetSilenceTimer();
+          }
+          
+          requestAnimationFrame(checkAudioLevel);
+        }
+      };
+      checkAudioLevel();
+      
+      // Set up MediaRecorder
       const mediaRecorder = new MediaRecorder(stream, {
         mimeType: 'audio/webm;codecs=opus'
       });
@@ -77,40 +228,80 @@ export default function SessionPage({ params }: { params: { id: string } }) {
       };
 
       mediaRecorder.onstop = async () => {
-        console.log('🎤 Recording stopped, processing...');
+        console.log('🎤 Recording stopped, processing speech...');
+        setConversationState('processing_speech');
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        await processVoiceInput(audioBlob);
+        await processUserSpeech(audioBlob);
+        
+        // Cleanup stream
         stream.getTracks().forEach(track => track.stop());
+        if (audioContextRef.current?.state !== 'closed') {
+          audioContextRef.current?.close();
+        }
       };
 
-      mediaRecorder.start(1000); // Collect data every second
+      mediaRecorder.start(100); // Collect data every 100ms
       setIsRecording(true);
+      
+      // Auto-stop after 30 seconds max
+      listeningTimeoutRef.current = setTimeout(() => {
+        if (mediaRecorder.state === 'recording') {
+          stopListening();
+        }
+      }, 30000);
       
     } catch (error) {
       console.error('❌ Error starting recording:', error);
-      alert('Could not access microphone. Please check permissions and try again.');
+      setConversationState('idle');
+      alert('Could not access microphone. Please check permissions.');
     }
   };
 
-  const stopRecording = () => {
-    console.log('🛑 Stopping recording...');
+  const handleSilenceDetected = () => {
+    if (!silenceTimerRef.current && isRecording) {
+      // Start silence timer (2 seconds of silence triggers stop)
+      silenceTimerRef.current = setTimeout(() => {
+        if (isRecording && audioChunksRef.current.length > 0) {
+          console.log('🔇 Silence detected, stopping recording...');
+          setSilenceDetected(true);
+          stopListening();
+        }
+      }, 2000);
+    }
+  };
+
+  const resetSilenceTimer = () => {
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+      setSilenceDetected(false);
+    }
+  };
+
+  // Stop listening
+  const stopListening = () => {
+    console.log('🛑 Stopping listening...');
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
     }
+    if (listeningTimeoutRef.current) {
+      clearTimeout(listeningTimeoutRef.current);
+    }
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+    }
   };
 
-  const processVoiceInput = async (audioBlob: Blob) => {
+  // Process user speech to text
+  const processUserSpeech = async (audioBlob: Blob) => {
     try {
-      setIsLoading(true);
-      console.log('🔄 Processing voice input...');
+      console.log('🔄 Converting speech to text...');
       
-      // Convert audio to base64
       const reader = new FileReader();
       reader.onloadend = async () => {
         try {
           const audioData = reader.result as string;
-          console.log('📤 Sending to speech API...');
           
           const response = await fetch('/api/speech/to-text', {
             method: 'POST',
@@ -119,64 +310,71 @@ export default function SessionPage({ params }: { params: { id: string } }) {
               audioData,
               config: {
                 languageCode: 'en-US',
-                sampleRateHertz: 44100
+                sampleRateHertz: 44100,
+                enableAutomaticPunctuation: true,
+                model: 'latest_long'
               }
             })
           });
 
           const data = await response.json();
-          console.log('📥 Speech API response:', data);
           
-          if (data.success && data.data.transcript) {
-            console.log('✅ Transcript received:', data.data.transcript);
-            setCurrentMessage(data.data.transcript);
-            // Auto-send the transcribed message
-            setTimeout(() => sendMessage(data.data.transcript), 500);
+          if (data.success && data.data.transcript && data.data.transcript.trim()) {
+            console.log('✅ User said:', data.data.transcript);
+            setCurrentTranscript(data.data.transcript);
+            
+            const userMessage: ConversationMessage = {
+              speaker: 'user',
+              message: data.data.transcript,
+              timestamp: Date.now(),
+              confidence: data.data.confidence
+            };
+            
+            const newConversation = [...conversation, userMessage];
+            setConversation(newConversation);
+            
+            // Get AI response
+            await getAIResponse(data.data.transcript, newConversation);
           } else {
-            console.error('❌ Speech recognition failed:', data.error);
-            alert('Speech recognition failed. Please try typing your message.');
+            console.log('⚠️ No clear speech detected, listening again...');
+            // If no speech detected, resume listening after a short pause
+            setTimeout(() => {
+              if (voiceModeEnabled) {
+                startListening();
+              }
+            }, 1000);
           }
         } catch (error) {
           console.error('❌ Error processing speech:', error);
-          alert('Error processing speech. Please try again.');
+          setTimeout(() => {
+            if (voiceModeEnabled) {
+              startListening();
+            }
+          }, 2000);
         }
       };
       
       reader.readAsDataURL(audioBlob);
     } catch (error) {
       console.error('❌ Voice processing error:', error);
-    } finally {
-      setIsLoading(false);
+      setConversationState('idle');
     }
   };
 
-  const sendMessage = async (messageText?: string) => {
-    const textToSend = messageText || currentMessage.trim();
-    if (!textToSend || isLoading || !scenario) return;
-
-    console.log('📤 Sending message:', textToSend);
-
-    const userMessage: ConversationMessage = {
-      speaker: 'user',
-      message: textToSend,
-      timestamp: Date.now()
-    };
-
-    const newConversation = [...conversation, userMessage];
-    setConversation(newConversation);
-    setCurrentMessage('');
-    setIsLoading(true);
-
+  // Get AI response
+  const getAIResponse = async (userMessage: string, conversationHistory: ConversationMessage[]) => {
     try {
-      // Get AI response
+      console.log('🤖 Getting AI response...');
+      setConversationState('ai_thinking');
+
       const response = await fetch('/api/ai-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           scenario,
-          userMessage: userMessage.message,
-          conversationHistory: newConversation,
-          messageCount: newConversation.filter(msg => msg.speaker === 'user').length - 1
+          userMessage,
+          conversationHistory,
+          messageCount: conversationHistory.filter(msg => msg.speaker === 'user').length - 1
         })
       });
 
@@ -189,37 +387,10 @@ export default function SessionPage({ params }: { params: { id: string } }) {
           timestamp: Date.now()
         };
 
-        // Generate speech for AI response if enabled
-        if (speechEnabled) {
-          try {
-            console.log('🔊 Generating speech for AI response...');
-            const ttsResponse = await fetch('/api/speech/to-speech', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                text: data.data.response,
-                character: scenario.character_name,
-                emotion: data.data.emotion || 'professional',
-                gender: data.data.gender || 'neutral'
-              })
-            });
-
-            const ttsData = await ttsResponse.json();
-            if (ttsData.success) {
-              aiMessage.audioUrl = ttsData.data.audioUrl;
-              console.log('✅ Speech generated for AI response');
-            }
-          } catch (error) {
-            console.error('❌ TTS failed:', error);
-          }
-        }
-
         setConversation(prev => [...prev, aiMessage]);
-
-        // Auto-play AI response if audio is available
-        if (aiMessage.audioUrl && speechEnabled) {
-          playAudio(aiMessage.timestamp.toString());
-        }
+        
+        // Speak AI response
+        await speakAIResponse(data.data.response, data.data);
       } else {
         throw new Error(data.error || 'AI response failed');
       }
@@ -228,29 +399,89 @@ export default function SessionPage({ params }: { params: { id: string } }) {
       console.error('❌ Failed to get AI response:', error);
       const fallbackMessage: ConversationMessage = {
         speaker: 'ai',
-        message: "I apologize, but I'm having trouble responding right now. Could you please try again?",
+        message: "I apologize, could you please repeat that?",
         timestamp: Date.now()
       };
       setConversation(prev => [...prev, fallbackMessage]);
-    } finally {
-      setIsLoading(false);
+      await speakAIResponse(fallbackMessage.message, { emotion: 'professional', gender: 'neutral' });
     }
   };
 
-  const playAudio = (messageId: string) => {
-    if (currentlyPlaying) return;
+  // Speak AI response with enhanced timing
+  const speakAIResponse = async (text: string, aiData: any) => {
+    try {
+      console.log('🔊 AI speaking...');
+      setConversationState('ai_speaking');
 
-    console.log('🔊 Playing audio for message:', messageId);
-    setCurrentlyPlaying(messageId);
-    
-    // Simulate audio playback (since we're using mock audio)
-    setTimeout(() => {
-      setCurrentlyPlaying(null);
-      console.log('✅ Audio playback finished');
-    }, 3000);
+      // Generate speech (for now, simulate duration)
+      const ttsResponse = await fetch('/api/speech/to-speech', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text,
+          character: scenario?.character_name,
+          emotion: aiData.emotion || 'professional',
+          gender: aiData.gender || 'neutral'
+        })
+      });
+
+      const ttsData = await ttsResponse.json();
+      
+      if (ttsData.success) {
+        // Estimate speaking duration more accurately
+        const words = text.split(' ').length;
+        const estimatedDuration = Math.max(2000, words * 500); // ~120 words per minute
+        
+        console.log(`🔊 AI speaking for ~${estimatedDuration}ms...`);
+        
+        setTimeout(() => {
+          console.log('✅ AI finished speaking');
+          setConversationState('waiting_to_listen');
+          
+          // Wait 1.5 seconds after AI finishes, then start listening again
+          setTimeout(() => {
+            if (voiceModeEnabled) {
+              startListening();
+            }
+          }, 1500);
+        }, estimatedDuration);
+      } else {
+        // If TTS fails, continue conversation flow
+        setTimeout(() => {
+          setConversationState('waiting_to_listen');
+          setTimeout(() => {
+            if (voiceModeEnabled) {
+              startListening();
+            }
+          }, 1500);
+        }, 2000);
+      }
+    } catch (error) {
+      console.error('❌ TTS error:', error);
+      // Continue conversation even if TTS fails
+      setTimeout(() => {
+        setConversationState('waiting_to_listen');
+        setTimeout(() => {
+          if (voiceModeEnabled) {
+            startListening();
+          }
+        }, 1500);
+      }, 2000);
+    }
   };
 
+  // Stop voice conversation
+  const stopVoiceConversation = () => {
+    console.log('🛑 Stopping voice conversation');
+    setVoiceModeEnabled(false);
+    setConversationState('idle');
+    cleanup();
+  };
+
+  // End session
   const endSession = () => {
+    stopVoiceConversation();
+    
     const sessionDuration = Math.floor((Date.now() - sessionStartTime) / 1000 / 60);
     const exchanges = conversation.filter(msg => msg.speaker === 'user').length;
     
@@ -260,108 +491,119 @@ export default function SessionPage({ params }: { params: { id: string } }) {
       duration: sessionDuration,
       exchanges,
       userEmail,
-      speechEnabled,
-      features: ['gemini-2.5-flash-lite', 'google-speech-apis']
+      voiceModeUsed: voiceModeEnabled,
+      features: ['gemini-2.5-flash-lite', 'advanced-speech', 'silence-detection', 'natural-flow']
     };
     
     localStorage.setItem('lastSession', JSON.stringify(sessionData));
     router.push('/feedback');
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
+  const getStateMessage = () => {
+    switch (conversationState) {
+      case 'listening':
+        return `🎤 Listening... ${silenceDetected ? '(silence detected)' : '(speak now)'}`;
+      case 'processing_speech':
+        return '🔄 Processing your speech...';
+      case 'ai_thinking':
+        return `🤖 ${scenario?.character_name} is thinking...`;
+      case 'ai_speaking':
+        return `🔊 ${scenario?.character_name} is speaking...`;
+      case 'waiting_to_listen':
+        return '⏳ Preparing to listen...';
+      default:
+        return 'Ready for natural conversation';
+    }
+  };
+
+  const getStateColor = () => {
+    switch (conversationState) {
+      case 'listening':
+        return silenceDetected ? 'bg-yellow-500' : 'bg-red-500';
+      case 'processing_speech':
+        return 'bg-blue-500';
+      case 'ai_thinking':
+        return 'bg-purple-500';
+      case 'ai_speaking':
+        return 'bg-green-500';
+      case 'waiting_to_listen':
+        return 'bg-orange-500';
+      default:
+        return 'bg-gray-500';
     }
   };
 
   if (!scenario) {
     return (
-      <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ 
-            width: '48px', 
-            height: '48px', 
-            border: '4px solid #e5e7eb', 
-            borderTop: '4px solid #2563eb',
-            borderRadius: '50%',
-            margin: '0 auto 16px',
-            animation: 'spin 1s linear infinite'
-          }}></div>
-          <p style={{ color: '#6b7280' }}>Loading session...</p>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading session...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb', display: 'flex', flexDirection: 'column' }}>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       {/* Header */}
-      <header style={{ backgroundColor: 'white', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderBottom: '1px solid #e5e7eb' }}>
-        <div style={{ maxWidth: '64rem', margin: '0 auto', padding: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <header className="bg-white/80 backdrop-blur-sm border-b border-white/20">
+        <div className="max-w-4xl mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
             <div>
-              <h1 style={{ fontSize: '20px', fontWeight: 'bold', color: '#111827', margin: '0 0 4px 0' }}>
-                {scenario.title}
-              </h1>
-              <p style={{ fontSize: '14px', color: '#6b7280', margin: 0 }}>
-                Role-playing with {scenario.character_name} ({scenario.character_role})
+              <h1 className="text-xl font-bold text-gray-900">{scenario.title}</h1>
+              <p className="text-sm text-gray-600">
+                Natural conversation with {scenario.character_name} ({scenario.character_role})
               </p>
+              {scenario.description && (
+                <p className="text-xs text-gray-500 mt-1">{scenario.description}</p>
+              )}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-              <button
-                onClick={() => setSpeechEnabled(!speechEnabled)}
-                style={{
-                  padding: '6px 12px',
-                  borderRadius: '8px',
-                  fontSize: '14px',
-                  border: 'none',
-                  cursor: 'pointer',
-                  backgroundColor: speechEnabled ? '#dcfce7' : '#f3f4f6',
-                  color: speechEnabled ? '#166534' : '#374151'
-                }}
-              >
-                🎤 Speech {speechEnabled ? 'ON' : 'OFF'}
-              </button>
-              <button
-                onClick={endSession}
-                style={{
-                  backgroundColor: '#dc2626',
-                  color: 'white',
-                  padding: '8px 16px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  cursor: 'pointer'
-                }}
-              >
-                End Session
-              </button>
-            </div>
+            <button
+              onClick={endSession}
+              className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
+            >
+              End Session
+            </button>
           </div>
         </div>
       </header>
 
+      {/* Voice Status Bar */}
+      <div className={`${getStateColor()} text-white py-3 text-center font-medium transition-colors`}>
+        <div className="flex items-center justify-center space-x-2">
+          <span>{getStateMessage()}</span>
+          {conversationState === 'listening' && (
+            <div className="flex space-x-1">
+              <div 
+                className="w-1 h-4 bg-white rounded animate-pulse"
+                style={{ animationDelay: '0ms', opacity: Math.min(1, audioLevel / 50) }}
+              ></div>
+              <div 
+                className="w-1 h-4 bg-white rounded animate-pulse"
+                style={{ animationDelay: '100ms', opacity: Math.min(1, audioLevel / 40) }}
+              ></div>
+              <div 
+                className="w-1 h-4 bg-white rounded animate-pulse"
+                style={{ animationDelay: '200ms', opacity: Math.min(1, audioLevel / 30) }}
+              ></div>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Conversation Area */}
-      <main style={{ flex: 1, maxWidth: '64rem', margin: '0 auto', width: '100%', padding: '24px 16px' }}>
-        <div style={{ 
-          backgroundColor: 'white', 
-          borderRadius: '8px', 
-          boxShadow: '0 1px 3px rgba(0,0,0,0.1)', 
-          border: '1px solid #e5e7eb',
-          height: '400px',
-          marginBottom: '24px',
-          display: 'flex',
-          flexDirection: 'column'
-        }}>
-          <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
-            {conversation.length === 0 && (
-              <div style={{ textAlign: 'center', color: '#6b7280', padding: '32px 0' }}>
-                <p style={{ marginBottom: '8px' }}>👋 Start the conversation!</p>
-                <p style={{ fontSize: '14px' }}>
-                  You're now speaking with <strong>{scenario.character_name}</strong>
+      <main className="max-w-4xl mx-auto px-4 py-6">
+        <div className="bg-white/80 backdrop-blur-sm rounded-lg border border-white/20 min-h-96 mb-6 flex flex-col">
+          <div className="flex-1 overflow-y-auto p-6 space-y-4">
+            {conversation.length === 0 && !voiceModeEnabled && (
+              <div className="text-center text-gray-500 py-8">
+                <p className="text-lg mb-2">🎙️ Ready for natural voice conversation!</p>
+                <p className="text-sm mb-4">
+                  Start a natural conversation with <strong>{scenario.character_name}</strong>
                 </p>
-                <p style={{ fontSize: '12px', color: '#2563eb', marginTop: '8px' }}>
-                  ✨ Enhanced with Google Speech APIs (95%+ accuracy) & Professional voices
+                <p className="text-xs text-blue-600">
+                  ✨ Features: Silence detection • Natural timing • High accuracy speech
                 </p>
               </div>
             )}
@@ -369,171 +611,77 @@ export default function SessionPage({ params }: { params: { id: string } }) {
             {conversation.map((message, index) => (
               <div
                 key={index}
-                style={{
-                  display: 'flex',
-                  justifyContent: message.speaker === 'user' ? 'flex-end' : 'flex-start',
-                  marginBottom: '16px'
-                }}
+                className={`flex ${message.speaker === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 <div
-                  style={{
-                    maxWidth: '70%',
-                    padding: '12px 16px',
-                    borderRadius: '12px',
-                    backgroundColor: message.speaker === 'user' ? '#2563eb' : '#f3f4f6',
-                    color: message.speaker === 'user' ? 'white' : '#111827'
-                  }}
+                  className={`max-w-lg px-4 py-3 rounded-2xl ${
+                    message.speaker === 'user'
+                      ? 'bg-blue-600 text-white rounded-br-md'
+                      : 'bg-white text-gray-900 border border-gray-200 rounded-bl-md'
+                  }`}
                 >
-                  <p style={{ fontSize: '14px', margin: '0 0 4px 0' }}>{message.message}</p>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <p style={{
-                      fontSize: '12px',
-                      margin: 0,
-                      color: message.speaker === 'user' ? '#bfdbfe' : '#6b7280'
-                    }}>
+                  <p className="text-sm leading-relaxed">{message.message}</p>
+                  <div className="flex items-center justify-between mt-2">
+                    <p className={`text-xs ${
+                      message.speaker === 'user' ? 'text-blue-200' : 'text-gray-500'
+                    }`}>
                       {message.speaker === 'user' ? 'You' : scenario.character_name}
                     </p>
-                    {message.audioUrl && message.speaker === 'ai' && (
-                      <button
-                        onClick={() => playAudio(message.timestamp.toString())}
-                        disabled={currentlyPlaying === message.timestamp.toString()}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          cursor: 'pointer',
-                          fontSize: '12px',
-                          marginLeft: '8px',
-                          color: currentlyPlaying === message.timestamp.toString() ? '#2563eb' : '#6b7280'
-                        }}
-                      >
-                        {currentlyPlaying === message.timestamp.toString() ? '🔊' : '🔈'}
-                      </button>
+                    {message.confidence && (
+                      <span className={`text-xs ${
+                        message.speaker === 'user' ? 'text-blue-200' : 'text-gray-500'
+                      }`}>
+                        {Math.round(message.confidence * 100)}% confidence
+                      </span>
                     )}
                   </div>
                 </div>
               </div>
             ))}
             
-            {isLoading && (
-              <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '16px' }}>
-                <div style={{
-                  backgroundColor: '#f3f4f6',
-                  color: '#111827',
-                  maxWidth: '70%',
-                  padding: '12px 16px',
-                  borderRadius: '12px'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <div style={{ display: 'flex', gap: '4px' }}>
-                      <div style={{ 
-                        width: '8px', 
-                        height: '8px', 
-                        backgroundColor: '#6b7280', 
-                        borderRadius: '50%',
-                        animation: 'bounce 1.4s ease-in-out infinite both'
-                      }}></div>
-                      <div style={{ 
-                        width: '8px', 
-                        height: '8px', 
-                        backgroundColor: '#6b7280', 
-                        borderRadius: '50%',
-                        animation: 'bounce 1.4s ease-in-out 0.16s infinite both'
-                      }}></div>
-                      <div style={{ 
-                        width: '8px', 
-                        height: '8px', 
-                        backgroundColor: '#6b7280', 
-                        borderRadius: '50%',
-                        animation: 'bounce 1.4s ease-in-out 0.32s infinite both'
-                      }}></div>
-                    </div>
-                    <span style={{ fontSize: '12px', color: '#6b7280' }}>
-                      {scenario.character_name} is responding...
-                    </span>
-                  </div>
+            {currentTranscript && conversationState === 'processing_speech' && (
+              <div className="flex justify-end">
+                <div className="bg-blue-100 text-blue-800 max-w-lg px-4 py-3 rounded-2xl rounded-br-md border-2 border-dashed border-blue-300">
+                  <p className="text-sm">{currentTranscript}</p>
+                  <p className="text-xs text-blue-600 mt-1">Processing...</p>
                 </div>
               </div>
             )}
           </div>
         </div>
 
-        {/* Enhanced Input Area with Speech */}
-        <div style={{ 
-          backgroundColor: 'white', 
-          borderRadius: '8px', 
-          boxShadow: '0 1px 3px rgba(0,0,0,0.1)', 
-          border: '1px solid #e5e7eb',
-          padding: '16px'
-        }}>
-          <div style={{ display: 'flex', gap: '16px' }}>
-            <textarea
-              value={currentMessage}
-              onChange={(e) => setCurrentMessage(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder={`Type or speak your message to ${scenario.character_name}...`}
-              style={{
-                flex: 1,
-                border: '1px solid #d1d5db',
-                borderRadius: '8px',
-                padding: '12px',
-                fontSize: '14px',
-                resize: 'none',
-                outline: 'none'
-              }}
-              rows={3}
-              disabled={isLoading}
-            />
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {speechEnabled && (
-                <button
-                  onMouseDown={startRecording}
-                  onMouseUp={stopRecording}
-                  onMouseLeave={stopRecording}
-                  disabled={isLoading}
-                  style={{
-                    padding: '12px 16px',
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    fontWeight: '500',
-                    border: 'none',
-                    cursor: 'pointer',
-                    backgroundColor: isRecording ? '#dc2626' : '#e5e7eb',
-                    color: isRecording ? 'white' : '#374151',
-                    animation: isRecording ? 'pulse 2s infinite' : 'none'
-                  }}
-                  title="Hold to record"
-                >
-                  🎤 {isRecording ? 'Recording...' : 'Hold to Talk'}
-                </button>
-              )}
+        {/* Voice Controls */}
+        <div className="bg-white/80 backdrop-blur-sm rounded-lg border border-white/20 p-6 text-center">
+          {!voiceModeEnabled ? (
+            <div>
               <button
-                onClick={() => sendMessage()}
-                disabled={!currentMessage.trim() || isLoading}
-                style={{
-                  backgroundColor: (!currentMessage.trim() || isLoading) ? '#9ca3af' : '#2563eb',
-                  color: 'white',
-                  padding: '12px 24px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  cursor: (!currentMessage.trim() || isLoading) ? 'not-allowed' : 'pointer',
-                  fontSize: '14px',
-                  fontWeight: '500'
-                }}
+                onClick={startVoiceConversation}
+                className="bg-gradient-to-r from-green-500 to-green-600 text-white px-8 py-4 rounded-xl text-lg font-semibold hover:from-green-600 hover:to-green-700 transition-all shadow-lg"
               >
-                Send
+                🎙️ Start Natural Voice Conversation
               </button>
-            </div>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px' }}>
-            <p style={{ fontSize: '12px', color: '#6b7280', margin: 0 }}>
-              Press Enter to send • Shift+Enter for new line
-            </p>
-            {speechEnabled && (
-              <p style={{ fontSize: '12px', color: '#2563eb', margin: 0 }}>
-                🎧 Enhanced with Google Speech APIs
+              <p className="text-sm text-gray-600 mt-3">
+                Experience natural conversation flow with automatic silence detection
               </p>
-            )}
-          </div>
+            </div>
+          ) : (
+            <div>
+              <button
+                onClick={stopVoiceConversation}
+                className="bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition-colors"
+              >
+                🛑 Stop Voice Mode
+              </button>
+              <p className="text-sm text-gray-600 mt-2">
+                Voice conversation active • {conversationState === 'listening' ? 'Microphone ON' : 'Microphone OFF'}
+              </p>
+              <div className="flex justify-center items-center space-x-4 mt-3 text-xs text-gray-500">
+                <span>🎤 Auto silence detection</span>
+                <span>🤖 Natural timing</span>
+                <span>🔊 Voice responses</span>
+              </div>
+            </div>
+          )}
         </div>
       </main>
     </div>
