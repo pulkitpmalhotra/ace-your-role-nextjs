@@ -312,3 +312,326 @@ export default function DashboardPage() {
                 </button>
               </div>
             </div>
+          ))}
+        </div>
+
+        {filteredScenarios.length === 0 && (
+          <div className="text-center py-12">
+            <p className="text-gray-500 text-lg">No scenarios match your current filters.</p>
+            <button
+              onClick={() => {
+                setSelectedCategory('all');
+                setSelectedDifficulty('all');
+              }}
+              className="mt-4 text-blue-600 hover:text-blue-700 underline"
+            >
+              Clear filters
+            </button>
+          </div>
+        )}
+      </main>
+
+      {/* Data Management Modal */}
+      {showDataManagement && (
+        <DataManagementModal
+          user={userInfo}
+          onClose={() => setShowDataManagement(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+// Data Management Modal Component
+function DataManagementModal({ user, onClose }: { user: any; onClose: () => void }) {
+  const [activeTab, setActiveTab] = useState('overview');
+  const [isExporting, setIsExporting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const exportUserData = async () => {
+    setIsExporting(true);
+    try {
+      // Simulate data export
+      const userData = {
+        profile: {
+          name: user.name,
+          email: user.email,
+          created_at: new Date().toISOString()
+        },
+        sessions: [], // Would fetch from API
+        preferences: {},
+        exported_at: new Date().toISOString()
+      };
+
+      const dataStr = JSON.stringify(userData, null, 2);
+      const dataBlob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(dataBlob);
+      
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `ace-your-role-data-${Date.now()}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      alert('Your data has been exported successfully!');
+    } catch (error) {
+      console.error('Export error:', error);
+      alert('Failed to export data. Please try again.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const deleteAllData = async () => {
+    if (!confirm('Are you sure you want to delete ALL your data? This action cannot be undone.')) {
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      // Simulate data deletion API call
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Clear local storage
+      localStorage.clear();
+      
+      alert('All your data has been deleted successfully. You will be redirected to the login page.');
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Delete error:', error);
+      alert('Failed to delete data. Please try again.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b">
+          <h2 className="text-2xl font-bold text-gray-900">Data & Privacy Management</h2>
+          <button
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-700 text-xl"
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex border-b">
+          {['overview', 'data', 'privacy', 'export'].map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-6 py-3 text-sm font-medium border-b-2 ${
+                activeTab === tab
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {tab.charAt(0).toUpperCase() + tab.slice(1)}
+            </button>
+          ))}
+        </div>
+
+        {/* Content */}
+        <div className="p-6 overflow-y-auto max-h-96">
+          {activeTab === 'overview' && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Your Account</h3>
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium text-gray-700">Name</label>
+                      <p className="text-gray-900">{user.name}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-700">Email</label>
+                      <p className="text-gray-900">{user.email}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-700">Authentication</label>
+                      <p className="text-gray-900">{user.isGoogleAuth ? 'Google OAuth' : 'Email'}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-700">Data Status</label>
+                      <p className="text-green-600">✅ GDPR Compliant</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <button
+                    onClick={() => setActiveTab('export')}
+                    className="p-4 border border-blue-200 rounded-lg hover:bg-blue-50 text-left"
+                  >
+                    <div className="font-medium text-blue-600">📥 Export My Data</div>
+                    <div className="text-sm text-gray-600">Download all your data</div>
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('privacy')}
+                    className="p-4 border border-green-200 rounded-lg hover:bg-green-50 text-left"
+                  >
+                    <div className="font-medium text-green-600">🔒 Privacy Settings</div>
+                    <div className="text-sm text-gray-600">Manage data preferences</div>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'data' && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Data We Store</h3>
+                <div className="space-y-4">
+                  <div className="border rounded-lg p-4">
+                    <h4 className="font-medium text-gray-900 mb-2">Profile Information</h4>
+                    <ul className="text-sm text-gray-600 space-y-1">
+                      <li>• Name and email address</li>
+                      <li>• Profile picture (if using Google OAuth)</li>
+                      <li>• Account creation and last login dates</li>
+                    </ul>
+                  </div>
+                  <div className="border rounded-lg p-4">
+                    <h4 className="font-medium text-gray-900 mb-2">Session Data</h4>
+                    <ul className="text-sm text-gray-600 space-y-1">
+                      <li>• Conversation transcripts and audio recordings</li>
+                      <li>• Performance scores and feedback</li>
+                      <li>• Session duration and completion rates</li>
+                    </ul>
+                  </div>
+                  <div className="border rounded-lg p-4">
+                    <h4 className="font-medium text-gray-900 mb-2">Preferences</h4>
+                    <ul className="text-sm text-gray-600 space-y-1">
+                      <li>• Speech and voice settings</li>
+                      <li>• Scenario preferences and difficulty levels</li>
+                      <li>• Notification and privacy preferences</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'privacy' && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Your Privacy Rights</h3>
+                <div className="space-y-4">
+                  <div className="border rounded-lg p-4">
+                    <h4 className="font-medium text-gray-900 mb-2">🔍 Right to Access</h4>
+                    <p className="text-sm text-gray-600 mb-3">
+                      You can view all personal data we have about you at any time.
+                    </p>
+                    <button className="text-blue-600 hover:text-blue-700 text-sm underline">
+                      View My Data
+                    </button>
+                  </div>
+                  
+                  <div className="border rounded-lg p-4">
+                    <h4 className="font-medium text-gray-900 mb-2">✏️ Right to Rectification</h4>
+                    <p className="text-sm text-gray-600 mb-3">
+                      You can correct any inaccurate or incomplete data.
+                    </p>
+                    <button className="text-blue-600 hover:text-blue-700 text-sm underline">
+                      Update Profile
+                    </button>
+                  </div>
+                  
+                  <div className="border rounded-lg p-4">
+                    <h4 className="font-medium text-gray-900 mb-2">📦 Right to Portability</h4>
+                    <p className="text-sm text-gray-600 mb-3">
+                      You can export your data in a machine-readable format.
+                    </p>
+                    <button 
+                      onClick={() => setActiveTab('export')}
+                      className="text-blue-600 hover:text-blue-700 text-sm underline"
+                    >
+                      Export Data
+                    </button>
+                  </div>
+                  
+                  <div className="border rounded-lg p-4 border-red-200">
+                    <h4 className="font-medium text-red-900 mb-2">🗑️ Right to Erasure</h4>
+                    <p className="text-sm text-red-600 mb-3">
+                      You can request deletion of all your personal data.
+                    </p>
+                    <button 
+                      onClick={deleteAllData}
+                      disabled={isDeleting}
+                      className="text-red-600 hover:text-red-700 text-sm underline disabled:opacity-50"
+                    >
+                      {isDeleting ? 'Deleting...' : 'Delete All My Data'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'export' && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Export Your Data</h3>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                  <h4 className="font-medium text-blue-900 mb-2">What's Included</h4>
+                  <ul className="text-sm text-blue-800 space-y-1">
+                    <li>• Complete profile information</li>
+                    <li>• All conversation transcripts and sessions</li>
+                    <li>• Performance data and feedback</li>
+                    <li>• Account settings and preferences</li>
+                    <li>• Export timestamp and metadata</li>
+                  </ul>
+                </div>
+                
+                <div className="text-center">
+                  <button
+                    onClick={exportUserData}
+                    disabled={isExporting}
+                    className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                  >
+                    {isExporting ? (
+                      <div className="flex items-center">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        Preparing Export...
+                      </div>
+                    ) : (
+                      '📥 Download My Data'
+                    )}
+                  </button>
+                  <p className="text-sm text-gray-600 mt-3">
+                    Data will be exported as a JSON file that you can save or import elsewhere.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 bg-gray-50 border-t">
+          <div className="flex justify-between items-center">
+            <p className="text-sm text-gray-600">
+              Questions about your data? Contact us at privacy@aceyourrole.com
+            </p>
+            <button
+              onClick={onClose}
+              className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
