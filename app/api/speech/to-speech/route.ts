@@ -39,9 +39,38 @@ export async function POST(request: Request) {
   }
 }
 
+// Define emotion configuration interface
+interface EmotionConfig {
+  speed: number;
+  pitch: number;
+}
+
+interface EmotionMap {
+  professional: EmotionConfig;
+  curious: EmotionConfig;
+  engaged: EmotionConfig;
+  concerned?: EmotionConfig;
+  enthusiastic?: EmotionConfig;
+  frustrated?: EmotionConfig;
+  angry?: EmotionConfig;
+  calming?: EmotionConfig;
+  questioning?: EmotionConfig;
+  defensive?: EmotionConfig;
+  resistant?: EmotionConfig;
+  collaborative?: EmotionConfig;
+}
+
+interface VoiceProfile {
+  name: string;
+  speed: number;
+  pitch: number;
+  personality: string;
+  emotionMap: EmotionMap;
+}
+
 function selectCharacterVoice(character: string, gender: string, emotion: string) {
   // Advanced character voice mapping based on role and personality
-  const characterVoices = {
+  const characterVoices: Record<string, VoiceProfile> = {
     // Healthcare characters
     'Dr. Michael Chen': {
       name: 'en-US-Neural2-J',
@@ -51,7 +80,8 @@ function selectCharacterVoice(character: string, gender: string, emotion: string
       emotionMap: {
         professional: { speed: 0.9, pitch: -2 },
         curious: { speed: 1.0, pitch: -1 },
-        concerned: { speed: 0.8, pitch: -3 }
+        concerned: { speed: 0.8, pitch: -3 },
+        engaged: { speed: 0.95, pitch: -1 }
       }
     },
     
@@ -76,9 +106,12 @@ function selectCharacterVoice(character: string, gender: string, emotion: string
       pitch: 2,
       personality: 'frustrated, impatient, direct',
       emotionMap: {
+        professional: { speed: 1.0, pitch: 2 },
         frustrated: { speed: 1.2, pitch: 3 },
         angry: { speed: 1.3, pitch: 4 },
-        calming: { speed: 0.9, pitch: 1 }
+        calming: { speed: 0.9, pitch: 1 },
+        curious: { speed: 1.1, pitch: 2 },
+        engaged: { speed: 1.0, pitch: 2 }
       }
     },
 
@@ -91,7 +124,9 @@ function selectCharacterVoice(character: string, gender: string, emotion: string
       emotionMap: {
         professional: { speed: 0.85, pitch: -1 },
         concerned: { speed: 0.8, pitch: -2 },
-        questioning: { speed: 0.9, pitch: 0 }
+        questioning: { speed: 0.9, pitch: 0 },
+        curious: { speed: 0.9, pitch: 0 },
+        engaged: { speed: 0.88, pitch: -1 }
       }
     },
 
@@ -102,9 +137,12 @@ function selectCharacterVoice(character: string, gender: string, emotion: string
       pitch: 0,
       personality: 'defensive, experienced, resistant',
       emotionMap: {
+        professional: { speed: 0.9, pitch: 0 },
         defensive: { speed: 1.1, pitch: 1 },
         resistant: { speed: 0.8, pitch: -1 },
-        collaborative: { speed: 0.95, pitch: 0 }
+        collaborative: { speed: 0.95, pitch: 0 },
+        curious: { speed: 0.95, pitch: 0 },
+        engaged: { speed: 0.92, pitch: 0 }
       }
     }
   };
@@ -113,7 +151,7 @@ function selectCharacterVoice(character: string, gender: string, emotion: string
   let voiceProfile = characterVoices[character as keyof typeof characterVoices];
   
   if (!voiceProfile) {
-    // Fallback to gender-based voice selection
+    // Fallback to gender-based voice selection with complete emotion map
     voiceProfile = {
       name: gender === 'female' ? 'en-US-Neural2-F' : 'en-US-Neural2-D',
       speed: 1.0,
@@ -122,13 +160,23 @@ function selectCharacterVoice(character: string, gender: string, emotion: string
       emotionMap: {
         professional: { speed: 1.0, pitch: 0 },
         curious: { speed: 1.1, pitch: 1 },
-        engaged: { speed: 0.95, pitch: 0 }
+        engaged: { speed: 0.95, pitch: 0 },
+        concerned: { speed: 0.9, pitch: -1 },
+        enthusiastic: { speed: 1.2, pitch: 2 },
+        frustrated: { speed: 1.1, pitch: 1 },
+        angry: { speed: 1.2, pitch: 2 },
+        calming: { speed: 0.9, pitch: -1 },
+        questioning: { speed: 1.0, pitch: 1 },
+        defensive: { speed: 1.0, pitch: 0 },
+        resistant: { speed: 0.9, pitch: -1 },
+        collaborative: { speed: 1.0, pitch: 0 }
       }
     };
   }
 
   // Apply emotion-specific adjustments
-  const emotionConfig = voiceProfile.emotionMap[emotion] || voiceProfile.emotionMap.professional || {};
+  const emotionConfig = voiceProfile.emotionMap[emotion as keyof EmotionMap] || 
+                       voiceProfile.emotionMap.professional;
   
   return {
     name: voiceProfile.name,
