@@ -1,4 +1,4 @@
-// app/api/speech/to-speech/route.ts - Simple version without complex typing
+// app/api/speech/to-speech/route.ts - Enhanced character voices
 export async function POST(request: Request) {
   try {
     const { text, character, emotion, gender } = await request.json();
@@ -10,38 +10,151 @@ export async function POST(request: Request) {
       );
     }
 
-    // Simple voice selection
-    const voiceConfig = {
-      name: gender === 'female' ? 'en-US-Journey-F' : 'en-US-Journey-M',
-      speed: emotion === 'curious' ? 1.1 : emotion === 'engaged' ? 0.95 : 1.0,
-      pitch: emotion === 'curious' ? 2 : emotion === 'collaborative' ? -1 : 0
-    };
-    
-    // Generate mock audio URL
-    const mockAudioUrl = `data:audio/mp3;base64,mock-${text.length}-${voiceConfig.name}`;
+    console.log('🔊 Generating character voice for:', character, emotion, gender);
 
-    console.log('🔊 Text-to-Speech generated:', {
-      text: text.substring(0, 50) + '...',
-      voice: voiceConfig.name,
-      emotion
-    });
+    // Enhanced voice selection based on character traits
+    const voiceConfig = selectCharacterVoice(character, gender, emotion);
+    
+    // Simulate advanced TTS processing
+    const audioResult = await generateCharacterAudio(text, voiceConfig);
 
     return Response.json({
       success: true,
       data: {
-        audioUrl: mockAudioUrl,
+        audioUrl: audioResult.audioUrl,
         voice: voiceConfig,
         text,
-        duration: Math.ceil(text.split(' ').length / 2.5), // ~150 words per minute
-        model: 'google-cloud-tts'
+        duration: audioResult.duration,
+        model: 'google-cloud-tts-enhanced',
+        characterPersonality: voiceConfig.personality
       }
     });
 
   } catch (error) {
-    console.error('Text-to-Speech API error:', error);
+    console.error('❌ Text-to-Speech API error:', error);
     return Response.json(
       { success: false, error: 'Speech synthesis failed' },
       { status: 500 }
     );
   }
+}
+
+function selectCharacterVoice(character: string, gender: string, emotion: string) {
+  // Advanced character voice mapping based on role and personality
+  const characterVoices = {
+    // Healthcare characters
+    'Dr. Michael Chen': {
+      name: 'en-US-Neural2-J',
+      speed: 0.9,
+      pitch: -2,
+      personality: 'authoritative, caring, measured',
+      emotionMap: {
+        professional: { speed: 0.9, pitch: -2 },
+        curious: { speed: 1.0, pitch: -1 },
+        concerned: { speed: 0.8, pitch: -3 }
+      }
+    },
+    
+    // Sales characters  
+    'Sarah Johnson': {
+      name: 'en-US-Neural2-F',
+      speed: 1.1,
+      pitch: 1,
+      personality: 'confident, engaging, dynamic',
+      emotionMap: {
+        professional: { speed: 1.0, pitch: 1 },
+        curious: { speed: 1.2, pitch: 2 },
+        engaged: { speed: 1.1, pitch: 1 },
+        enthusiastic: { speed: 1.3, pitch: 3 }
+      }
+    },
+
+    // Support characters
+    'Jennifer Williams': {
+      name: 'en-US-Neural2-G',
+      speed: 1.0,
+      pitch: 2,
+      personality: 'frustrated, impatient, direct',
+      emotionMap: {
+        frustrated: { speed: 1.2, pitch: 3 },
+        angry: { speed: 1.3, pitch: 4 },
+        calming: { speed: 0.9, pitch: 1 }
+      }
+    },
+
+    // Legal characters
+    'Robert Martinez': {
+      name: 'en-US-Neural2-D',
+      speed: 0.85,
+      pitch: -1,
+      personality: 'cautious, detail-oriented, formal',
+      emotionMap: {
+        professional: { speed: 0.85, pitch: -1 },
+        concerned: { speed: 0.8, pitch: -2 },
+        questioning: { speed: 0.9, pitch: 0 }
+      }
+    },
+
+    // Leadership characters
+    'Lisa Thompson': {
+      name: 'en-US-Neural2-E',
+      speed: 0.9,
+      pitch: 0,
+      personality: 'defensive, experienced, resistant',
+      emotionMap: {
+        defensive: { speed: 1.1, pitch: 1 },
+        resistant: { speed: 0.8, pitch: -1 },
+        collaborative: { speed: 0.95, pitch: 0 }
+      }
+    }
+  };
+
+  // Get character-specific voice or fall back to gender-based selection
+  let voiceProfile = characterVoices[character as keyof typeof characterVoices];
+  
+  if (!voiceProfile) {
+    // Fallback to gender-based voice selection
+    voiceProfile = {
+      name: gender === 'female' ? 'en-US-Neural2-F' : 'en-US-Neural2-D',
+      speed: 1.0,
+      pitch: 0,
+      personality: 'professional, neutral',
+      emotionMap: {
+        professional: { speed: 1.0, pitch: 0 },
+        curious: { speed: 1.1, pitch: 1 },
+        engaged: { speed: 0.95, pitch: 0 }
+      }
+    };
+  }
+
+  // Apply emotion-specific adjustments
+  const emotionConfig = voiceProfile.emotionMap[emotion] || voiceProfile.emotionMap.professional || {};
+  
+  return {
+    name: voiceProfile.name,
+    speed: emotionConfig.speed || voiceProfile.speed,
+    pitch: emotionConfig.pitch || voiceProfile.pitch,
+    personality: voiceProfile.personality,
+    emotion: emotion
+  };
+}
+
+async function generateCharacterAudio(text: string, voiceConfig: any) {
+  // Simulate processing time based on text length
+  const processingTime = Math.min(2000, text.length * 50);
+  await new Promise(resolve => setTimeout(resolve, processingTime));
+
+  // Calculate realistic duration based on speaking rate
+  const words = text.split(' ').length;
+  const baseWordsPerMinute = 150;
+  const adjustedWPM = baseWordsPerMinute * voiceConfig.speed;
+  const durationSeconds = (words / adjustedWPM) * 60;
+  
+  // Generate mock audio URL (in production, this would be actual audio)
+  const audioUrl = `data:audio/mp3;base64,character-voice-${encodeURIComponent(voiceConfig.name)}-${Date.now()}`;
+  
+  return {
+    audioUrl,
+    duration: Math.max(1, Math.round(durationSeconds))
+  };
 }
