@@ -1,4 +1,4 @@
-// app/api/progress/route.ts - User Progress Tracking (Fixed TypeScript)
+// app/api/progress/route.ts - User Progress Tracking (Enhanced Error Handling)
 import { createClient } from '@supabase/supabase-js';
 
 // Get user progress
@@ -8,9 +8,31 @@ export async function GET(request: Request) {
     const user_email = searchParams.get('user_email');
     const category = searchParams.get('category');
     
+    console.log('📊 Progress API called with:', { user_email, category });
+    
+    // Enhanced validation
     if (!user_email) {
+      console.error('❌ No user_email provided to progress API');
       return Response.json(
-        { success: false, error: 'User email is required' },
+        { 
+          success: false, 
+          error: 'User email is required',
+          received: { user_email, category },
+          help: 'Make sure user_email parameter is provided in the URL'
+        },
+        { status: 400 }
+      );
+    }
+
+    // Validate email format
+    if (!user_email.includes('@')) {
+      console.error('❌ Invalid email format:', user_email);
+      return Response.json(
+        { 
+          success: false, 
+          error: 'Invalid email format',
+          received: user_email
+        },
         { status: 400 }
       );
     }
@@ -21,6 +43,7 @@ export async function GET(request: Request) {
     const supabaseKey = process.env.SUPABASE_ANON_KEY;
     
     if (!supabaseUrl || !supabaseKey) {
+      console.error('❌ Missing Supabase environment variables');
       return Response.json(
         { success: false, error: 'Database configuration missing' },
         { status: 500 }
@@ -44,7 +67,7 @@ export async function GET(request: Request) {
     if (error) {
       console.error('❌ Error fetching progress:', error);
       return Response.json(
-        { success: false, error: 'Failed to fetch progress' },
+        { success: false, error: 'Failed to fetch progress', details: error.message },
         { status: 500 }
       );
     }
@@ -56,8 +79,9 @@ export async function GET(request: Request) {
       .eq('email', user_email)
       .single();
 
-    if (userError) {
+    if (userError && userError.code !== 'PGRST116') {
       console.error('❌ Error fetching user stats:', userError);
+      // Don't fail the whole request, just log it
     }
 
     // Get recent sessions for activity
@@ -74,6 +98,7 @@ export async function GET(request: Request) {
 
     if (sessionsError) {
       console.error('❌ Error fetching recent sessions:', sessionsError);
+      // Don't fail the whole request, just log it
     }
 
     // Calculate summary stats
@@ -105,8 +130,10 @@ export async function GET(request: Request) {
 
   } catch (error) {
     console.error('💥 Progress GET API error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    
     return Response.json(
-      { success: false, error: 'Internal server error' },
+      { success: false, error: 'Internal server error', details: errorMessage },
       { status: 500 }
     );
   }
@@ -252,8 +279,10 @@ export async function POST(request: Request) {
 
   } catch (error) {
     console.error('💥 Progress POST API error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    
     return Response.json(
-      { success: false, error: 'Internal server error' },
+      { success: false, error: 'Internal server error', details: errorMessage },
       { status: 500 }
     );
   }
