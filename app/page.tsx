@@ -69,7 +69,7 @@ export default function LoginPage() {
             Ace Your Role
           </h1>
           <p className="text-lg text-gray-600">
-            AI-Powered Roleplay Training
+            Practice Professional Conversations with AI
           </p>
         </div>
 
@@ -106,51 +106,83 @@ export default function LoginPage() {
             ) : (
               <>
                 <span className="mr-2">🚀</span>
-                Start Training
+                Start Free Practice
                 <span className="ml-2">→</span>
               </>
             )}
           </button>
         </form>
 
-        {/* Features Grid */}
-        <div className="mt-8 grid grid-cols-2 gap-4">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
-            <div className="text-2xl mb-1">🤖</div>
-            <div className="text-xs font-semibold text-blue-900">Gemini 2.5</div>
-            <div className="text-xs text-blue-600">43% Savings</div>
-          </div>
-          <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
-            <div className="text-2xl mb-1">🎤</div>
-            <div className="text-xs font-semibold text-green-900">Voice AI</div>
-            <div className="text-xs text-green-600">95% Accuracy</div>
-          </div>
-          <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 text-center">
-            <div className="text-2xl mb-1">📊</div>
-            <div className="text-xs font-semibold text-purple-900">Smart Feedback</div>
-            <div className="text-xs text-purple-600">AI Analysis</div>
-          </div>
-          <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 text-center">
-            <div className="text-2xl mb-1">🎯</div>
-            <div className="text-xs font-semibold text-orange-900">Scenarios</div>
-            <div className="text-xs text-orange-600">Multi-Industry</div>
+        {/* User Benefits */}
+        <div className="mt-8 p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
+          <h3 className="text-lg font-bold text-blue-900 mb-4 text-center">
+            ✨ What You'll Get
+          </h3>
+          <div className="space-y-4">
+            <div className="flex items-start space-x-3">
+              <div className="flex-shrink-0 w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                <span className="text-white text-sm">🎤</span>
+              </div>
+              <div>
+                <h4 className="font-semibold text-blue-900">Natural Voice Practice</h4>
+                <p className="text-blue-700 text-sm">Have real conversations with AI characters that respond like actual people</p>
+              </div>
+            </div>
+            
+            <div className="flex items-start space-x-3">
+              <div className="flex-shrink-0 w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+                <span className="text-white text-sm">📊</span>
+              </div>
+              <div>
+                <h4 className="font-semibold text-blue-900">Instant Performance Feedback</h4>
+                <p className="text-blue-700 text-sm">Get detailed analysis of your communication skills after each session</p>
+              </div>
+            </div>
+            
+            <div className="flex items-start space-x-3">
+              <div className="flex-shrink-0 w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center">
+                <span className="text-white text-sm">🎭</span>
+              </div>
+              <div>
+                <h4 className="font-semibold text-blue-900">Multiple Industries</h4>
+                <p className="text-blue-700 text-sm">Practice sales, healthcare, support, leadership, and legal scenarios</p>
+              </div>
+            </div>
+            
+            <div className="flex items-start space-x-3">
+              <div className="flex-shrink-0 w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center">
+                <span className="text-white text-sm">📈</span>
+              </div>
+              <div>
+                <h4 className="font-semibold text-blue-900">Track Your Progress</h4>
+                <p className="text-blue-700 text-sm">See your improvement over time with detailed analytics and coaching tips</p>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Trust indicators */}
-        <div className="mt-6 flex justify-center items-center space-x-6 text-xs text-gray-500">
-          <span className="flex items-center">
-            <span className="text-green-500 mr-1">🔒</span>
-            Encrypted
-          </span>
-          <span className="flex items-center">
-            <span className="text-blue-500 mr-1">🛡️</span>
-            GDPR Safe
-          </span>
-          <span className="flex items-center">
-            <span className="text-purple-500 mr-1">⚡</span>
-            Instant
-          </span>
+        {/* Trust & Privacy */}
+        <div className="mt-6">
+          <div className="flex justify-center items-center space-x-6 text-xs text-gray-500 mb-4">
+            <span className="flex items-center">
+              <span className="text-green-500 mr-1">✓</span>
+              Free to Start
+            </span>
+            <span className="flex items-center">
+              <span className="text-blue-500 mr-1">✓</span>
+              No Credit Card
+            </span>
+            <span className="flex items-center">
+              <span className="text-purple-500 mr-1">✓</span>
+              Instant Access
+            </span>
+          </div>
+          
+          <p className="text-center text-xs text-gray-500 leading-relaxed">
+            🔒 Your practice sessions are automatically deleted after 90 days for your privacy.
+            <br />
+            We never share your data with third parties.
+          </p>
         </div>
       </div>
     </div>
