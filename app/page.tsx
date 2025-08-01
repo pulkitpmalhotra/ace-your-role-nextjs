@@ -50,7 +50,8 @@ export default function LoginPage() {
       
     } catch (error) {
       console.error('❌ Login error:', error);
-      alert(`Login failed: ${error.message || 'Please try again.'}`);
+      const errorMessage = error instanceof Error ? error.message : 'Please try again.';
+      alert(`Login failed: ${errorMessage}`);
     } finally {
       setIsLoading(false);
     }
