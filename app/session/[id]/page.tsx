@@ -1,3 +1,29 @@
+// FORCE DYNAMIC RENDERING (prevents caching)
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+// TEMPORARY TEST - Remove after confirming it works
+const CACHE_BUST_TEST = `Updated at: ${new Date().toISOString()}`;
+
+export default function SessionPage({ params }: { params: { id: string } }) {
+  // Add this test div at the very beginning of your return statement
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      
+      {/* TEMPORARY TEST - Remove after confirming */}
+      <div className="bg-red-500 text-white p-4 text-center font-bold">
+        🚨 CACHE BUST TEST: {CACHE_BUST_TEST}
+        <br />
+        Session ID: {params.id}
+        <br />
+        If you see this, the file is updating! ✅
+      </div>
+      
+      {/* Rest of your component code... */}
+      {/* ... */}
+    </div>
+  );
+}
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
