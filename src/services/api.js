@@ -1,7 +1,7 @@
 class APIService {
   constructor() {
     // Replace with your actual Next.js Vercel URL
-    this.baseUrl = 'https://your-nextjs-app.vercel.app';
+    this.baseUrl = 'https://ace-your-role-nextjs.vercel.app';
     this.debug = true;
   }
 
