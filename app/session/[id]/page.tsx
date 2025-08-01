@@ -41,6 +41,7 @@ export default function SessionPage({ params }: { params: { id: string } }) {
   useEffect(() => {
     const email = localStorage.getItem('userEmail');
     if (!email) {
+      console.log('❌ No user email found, redirecting to login');
       router.push('/');
       return;
     }
@@ -50,6 +51,7 @@ export default function SessionPage({ params }: { params: { id: string } }) {
     if (storedScenario) {
       setScenario(JSON.parse(storedScenario));
     } else {
+      console.log('❌ No scenario found, redirecting to dashboard');
       router.push('/dashboard');
     }
   }, [router]);
@@ -82,11 +84,65 @@ export default function SessionPage({ params }: { params: { id: string } }) {
         console.log('✅ Database session created:', data.data.id);
       } else {
         console.error('❌ Failed to create session:', data.error);
-        setError('Failed to start session. Please try again.');
+        
+        // If user not found, try to create the user first
+        if (data.error && data.error.includes('User not found')) {
+          console.log('🔧 User not found, creating user first...');
+          await createUserAndRetry();
+        } else {
+          setError('Failed to start session. Please try again.');
+        }
       }
     } catch (err) {
       console.error('❌ Error creating session:', err);
       setError('Connection error. Please try again.');
+    }
+  };
+
+  // Create user and retry session creation
+  const createUserAndRetry = async () => {
+    try {
+      console.log('👤 Creating user:', userEmail);
+      
+      const userResponse = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: userEmail,
+          name: userEmail.split('@')[0]
+        })
+      });
+
+      const userData = await userResponse.json();
+      
+      if (userData.success) {
+        console.log('✅ User created, retrying session creation...');
+        // Retry session creation
+        const retryResponse = await fetch('/api/sessions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            scenario_id: scenario?.id,
+            user_email: userEmail
+          })
+        });
+
+        const retryData = await retryResponse.json();
+        
+        if (retryData.success) {
+          setSessionId(retryData.data.id);
+          console.log('✅ Database session created after user creation:', retryData.data.id);
+        } else {
+          console.error('❌ Failed to create session after user creation:', retryData.error);
+          setError('Failed to start session. Please try again.');
+        }
+      } else {
+        console.error('❌ Failed to create user:', userData.error);
+        setError('Failed to create your account. Please refresh and try again.');
+      }
+    } catch (err) {
+      console.error('❌ Error creating user:', err);
+      setError('Connection error. Please refresh and try again.');
     }
   };
 
@@ -500,12 +556,20 @@ export default function SessionPage({ params }: { params: { id: string } }) {
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
             <p>{error}</p>
-            <button 
-              onClick={() => setError('')}
-              className="mt-2 bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600"
-            >
-              Try Again
-            </button>
+            <div className="mt-3 space-x-2">
+              <button 
+                onClick={() => setError('')}
+                className="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600"
+              >
+                Try Again
+              </button>
+              <button 
+                onClick={() => router.push('/dashboard')}
+                className="bg-gray-500 text-white px-3 py-1 rounded text-sm hover:bg-gray-600"
+              >
+                Back to Dashboard
+              </button>
+            </div>
           </div>
         )}
 
