@@ -75,12 +75,24 @@ export default function DashboardPage() {
     }
   };
 
-  const loadData = async (email: string) => {
+  const loadData = async (email?: string) => {
     try {
       setLoading(true);
       setError('');
       
-      console.log('📊 Loading dashboard data for:', email);
+      // Use provided email or fall back to state
+      const emailToUse = email || userEmail;
+      
+      // Validate email before making API calls
+      if (!emailToUse || !emailToUse.includes('@')) {
+        console.error('❌ Invalid email for API calls:', emailToUse);
+        setError('Invalid user session. Please log in again.');
+        setLoading(false);
+        setTimeout(() => router.push('/'), 2000);
+        return;
+      }
+      
+      console.log('📊 Loading dashboard data for:', emailToUse);
       
       // Load scenarios first (always available)
       console.log('📚 Loading scenarios...');
@@ -96,8 +108,11 @@ export default function DashboardPage() {
       }
       
       // Load user progress (may not exist for new users)
-      console.log('📈 Loading user progress...');
-      const progressResponse = await fetch(`/api/progress?user_email=${encodeURIComponent(email)}`);
+      console.log('📈 Loading user progress for:', emailToUse);
+      const progressUrl = `/api/progress?user_email=${encodeURIComponent(emailToUse)}`;
+      console.log('🔗 Progress API URL:', progressUrl);
+      
+      const progressResponse = await fetch(progressUrl);
       if (progressResponse.ok) {
         const progressData = await progressResponse.json();
         if (progressData.success) {
