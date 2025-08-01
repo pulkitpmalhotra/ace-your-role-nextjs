@@ -1,10 +1,13 @@
-// app/api/sessions/route.ts - Session Management
+// app/api/sessions/route.ts - FIXED VERSION with better error handling
+
 import { createClient } from '@supabase/supabase-js';
 
 // Create a new session
 export async function POST(request: Request) {
   try {
     const { scenario_id, user_email } = await request.json();
+    
+    console.log('🎯 Session creation request:', { scenario_id, user_email });
     
     if (!scenario_id || !user_email) {
       return Response.json(
@@ -13,12 +16,11 @@ export async function POST(request: Request) {
       );
     }
 
-    console.log('🎯 Creating new session:', { scenario_id, user_email });
-
     const supabaseUrl = process.env.SUPABASE_URL;
     const supabaseKey = process.env.SUPABASE_ANON_KEY;
     
     if (!supabaseUrl || !supabaseKey) {
+      console.error('❌ Missing Supabase configuration');
       return Response.json(
         { success: false, error: 'Database configuration missing' },
         { status: 500 }
@@ -27,45 +29,102 @@ export async function POST(request: Request) {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
     
-    // Get user ID
-    const { data: user } = await supabase
+    // First, ensure the user exists - CREATE if not exists
+    console.log('👤 Checking/creating user:', user_email);
+    
+    let user;
+    
+    // Try to get existing user
+    const { data: existingUser, error: fetchError } = await supabase
       .from('users')
-      .select('id')
+      .select('id, email')
       .eq('email', user_email)
       .single();
 
-    if (!user) {
+    if (fetchError && fetchError.code !== 'PGRST116') {
+      console.error('❌ Error fetching user:', fetchError);
       return Response.json(
-        { success: false, error: 'User not found' },
-        { status: 404 }
-      );
-    }
-
-    // Create new session
-    const { data: session, error } = await supabase
-      .from('sessions')
-      .insert({
-        user_id: user.id,
-        scenario_id,
-        user_email,
-        conversation: [],
-        session_status: 'active'
-      })
-      .select(`
-        *,
-        scenarios:scenarios(*)
-      `)
-      .single();
-
-    if (error) {
-      console.error('❌ Error creating session:', error);
-      return Response.json(
-        { success: false, error: 'Failed to create session' },
+        { success: false, error: `Database error: ${fetchError.message}` },
         { status: 500 }
       );
     }
 
-    console.log('✅ Session created:', session.id);
+    if (existingUser) {
+      console.log('✅ Found existing user:', existingUser.email);
+      user = existingUser;
+    } else {
+      console.log('🆕 Creating new user:', user_email);
+      
+      // Create new user
+      const { data: newUser, error: createError } = await supabase
+        .from('users')
+        .insert({
+          email: user_email.trim().toLowerCase(),
+          name: user_email.split('@')[0],
+          total_sessions: 0,
+          total_minutes: 0
+        })
+        .select('id, email')
+        .single();
+
+      if (createError) {
+        console.error('❌ Error creating user:', createError);
+        return Response.json(
+          { success: false, error: `Failed to create user: ${createError.message}` },
+          { status: 500 }
+        );
+      }
+      
+      console.log('✅ Created new user:', newUser.email);
+      user = newUser;
+    }
+
+    // Verify scenario exists
+    console.log('📋 Verifying scenario exists:', scenario_id);
+    const { data: scenario, error: scenarioError } = await supabase
+      .from('scenarios')
+      .select('id, title, character_name')
+      .eq('id', scenario_id)
+      .single();
+
+    if (scenarioError || !scenario) {
+      console.error('❌ Scenario not found:', scenario_id, scenarioError);
+      return Response.json(
+        { success: false, error: 'Scenario not found' },
+        { status: 404 }
+      );
+    }
+
+    console.log('✅ Found scenario:', scenario.title);
+
+    // Create new session
+    console.log('🎬 Creating session...');
+    const { data: session, error: sessionError } = await supabase
+      .from('sessions')
+      .insert({
+        user_id: user.id,
+        scenario_id: scenario_id,
+        user_email: user_email,
+        conversation: [],
+        session_status: 'active',
+        start_time: new Date().toISOString()
+      })
+      .select(`
+        *,
+        scenarios:scenarios(*),
+        users:users(name, email)
+      `)
+      .single();
+
+    if (sessionError) {
+      console.error('❌ Error creating session:', sessionError);
+      return Response.json(
+        { success: false, error: `Failed to create session: ${sessionError.message}` },
+        { status: 500 }
+      );
+    }
+
+    console.log('✅ Session created successfully:', session.id);
 
     return Response.json({
       success: true,
@@ -74,14 +133,16 @@ export async function POST(request: Request) {
 
   } catch (error) {
     console.error('💥 Sessions POST API error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    
     return Response.json(
-      { success: false, error: 'Internal server error' },
+      { success: false, error: `Internal server error: ${errorMessage}` },
       { status: 500 }
     );
   }
 }
 
-// Get user sessions
+// Get user sessions (existing code - no changes needed)
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -168,7 +229,7 @@ export async function GET(request: Request) {
   }
 }
 
-// Update session (conversation, end session, etc.)
+// Update session (existing code - no changes needed)
 export async function PUT(request: Request) {
   try {
     const { session_id, conversation, duration_minutes, overall_score, feedback, session_status } = await request.json();
@@ -264,7 +325,7 @@ export async function PUT(request: Request) {
   }
 }
 
-// Helper function to update user progress
+// Helper function to update user progress (existing code - no changes needed)
 async function updateUserProgress(supabase: any, session: any) {
   try {
     const { user_email, scenarios, duration_minutes, overall_score } = session;
@@ -326,7 +387,7 @@ async function updateUserProgress(supabase: any, session: any) {
     }
 
     // Also update user totals
-    await supabase
+    const { error: updateError } = await supabase
       .from('users')
       .update({
         total_sessions: supabase.raw('total_sessions + 1'),
@@ -334,7 +395,11 @@ async function updateUserProgress(supabase: any, session: any) {
       })
       .eq('email', user_email);
 
-    console.log('✅ User progress updated for:', user_email, category);
+    if (updateError) {
+      console.error('❌ Error updating user totals:', updateError);
+    } else {
+      console.log('✅ User progress updated for:', user_email, category);
+    }
 
   } catch (error) {
     console.error('❌ Error updating user progress:', error);
