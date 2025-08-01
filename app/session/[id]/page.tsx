@@ -62,6 +62,8 @@ export default function SessionPage({ params }: { params: { id: string } }) {
   const [error, setError] = useState('');
   const [isEndingSession, setIsEndingSession] = useState(false);
   const [userEmail, setUserEmail] = useState('');
+  const [showScenarioDetails, setShowScenarioDetails] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
   
   // Refs
   const recognitionRef = useRef<any>(null);
@@ -71,6 +73,17 @@ export default function SessionPage({ params }: { params: { id: string } }) {
   const availableVoicesRef = useRef<SpeechSynthesisVoice[]>([]);
   
   const router = useRouter();
+
+  // Detect mobile
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Initialize speech synthesis and load voices
   useEffect(() => {
@@ -134,7 +147,7 @@ export default function SessionPage({ params }: { params: { id: string } }) {
       
     } catch (err) {
       console.error('❌ Session initialization failed:', err);
-      setError('Failed to initialize session. Please try again.');
+      setError('Unable to start your practice session. Please check your internet connection and try again.');
     }
   };
 
@@ -212,7 +225,7 @@ export default function SessionPage({ params }: { params: { id: string } }) {
         ...prev,
         permissionDenied: true
       }));
-      setError('Microphone access is required for voice conversations. Please allow microphone access and refresh the page.');
+      setError('We need microphone access for voice conversations. Please allow microphone access in your browser settings and refresh the page.');
     }
   };
 
@@ -248,19 +261,12 @@ export default function SessionPage({ params }: { params: { id: string } }) {
 
   // Start speech recognition
   const startListening = useCallback(() => {
-    // Comprehensive checks before starting
-    if (!sessionState.isActive || !sessionState.sessionId) {
-      console.log('🔇 Not starting listening - session not active');
-      return;
-    }
-    
-    if (audioState.isSpeaking || audioState.isProcessing) {
-      console.log('🔇 Not starting listening - AI is speaking or processing');
+    if (!sessionState.isActive || !sessionState.sessionId || audioState.isSpeaking || audioState.isProcessing) {
       return;
     }
 
     if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
-      setError('Speech recognition not supported. Please use Chrome browser.');
+      setError('Voice recognition requires Chrome browser. Please switch to Chrome for the best experience.');
       return;
     }
 
@@ -269,7 +275,6 @@ export default function SessionPage({ params }: { params: { id: string } }) {
     const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
     const recognition = new SpeechRecognition();
     
-    // Configure recognition
     recognition.continuous = true;
     recognition.interimResults = true;
     recognition.lang = 'en-US';
@@ -297,9 +302,7 @@ export default function SessionPage({ params }: { params: { id: string } }) {
     };
 
     recognition.onresult = (event: any) => {
-      // Check state during processing
       if (!sessionState.isActive || audioState.isSpeaking || isProcessingFinal) {
-        console.log('🔇 Ignoring speech - invalid state');
         return;
       }
 
@@ -317,13 +320,11 @@ export default function SessionPage({ params }: { params: { id: string } }) {
         }
       }
 
-      // Update current transcript for display
       setAudioState(prev => ({
         ...prev,
         currentTranscript: interimTranscript
       }));
 
-      // Process final transcript
       if (finalTranscript.trim() && !isProcessingFinal && sessionState.isActive) {
         isProcessingFinal = true;
         clearTimeout(silenceTimerRef.current!);
@@ -331,7 +332,6 @@ export default function SessionPage({ params }: { params: { id: string } }) {
         return;
       }
 
-      // Auto-finalize after silence
       if (interimTranscript.trim().length > 2 && sessionState.isActive) {
         clearTimeout(silenceTimerRef.current!);
         silenceTimerRef.current = setTimeout(() => {
@@ -357,11 +357,10 @@ export default function SessionPage({ params }: { params: { id: string } }) {
           ...prev,
           permissionDenied: true
         }));
-        setError('Microphone access denied. Please allow microphone access and refresh the page.');
+        setError('Microphone access was denied. Please allow microphone access in your browser settings and refresh the page.');
       } else if (event.error !== 'no-speech' && event.error !== 'aborted') {
-        setError(`Speech recognition error: ${event.error}. Please try speaking again.`);
+        setError('Having trouble with voice recognition? Try speaking clearly or check your microphone.');
         
-        // Retry after error
         setTimeout(() => {
           if (sessionState.isActive && !audioState.isSpeaking && !audioState.isProcessing) {
             startListening();
@@ -377,11 +376,9 @@ export default function SessionPage({ params }: { params: { id: string } }) {
         isListening: false
       }));
       
-      // Auto-restart if session is still active
       if (sessionState.isActive && !audioState.isSpeaking && !isProcessingFinal && !isEndingSession) {
         setTimeout(() => {
           if (sessionState.isActive && !audioState.isSpeaking && !audioState.isProcessing && !isEndingSession) {
-            console.log('🔄 Auto-restarting listening...');
             startListening();
           }
         }, 1000);
@@ -392,7 +389,7 @@ export default function SessionPage({ params }: { params: { id: string } }) {
       recognition.start();
     } catch (error) {
       console.error('❌ Failed to start speech recognition:', error);
-      setError('Failed to start speech recognition. Please try again.');
+      setError('Unable to start voice recognition. Please try again.');
     }
   }, [sessionState.isActive, sessionState.sessionId, audioState.isSpeaking, audioState.isProcessing, isEndingSession]);
 
@@ -404,7 +401,6 @@ export default function SessionPage({ params }: { params: { id: string } }) {
     
     console.log('💬 Processing user speech:', userMessage);
     
-    // Stop listening and update states
     stopListening();
     
     setAudioState(prev => ({
@@ -418,7 +414,6 @@ export default function SessionPage({ params }: { params: { id: string } }) {
       status: 'processing'
     }));
     
-    // Add user message to conversation
     const userMsg: ConversationMessage = {
       speaker: 'user',
       message: userMessage,
@@ -431,7 +426,6 @@ export default function SessionPage({ params }: { params: { id: string } }) {
     await saveConversationToDatabase(updatedConversation);
 
     try {
-      // Get AI response
       const aiResponse = await getAIResponse(scenario, userMessage, updatedConversation);
       
       const aiMsg: ConversationMessage = {
@@ -447,33 +441,28 @@ export default function SessionPage({ params }: { params: { id: string } }) {
       
       if (!sessionState.isActive) return;
       
-      // AI speaks
       await speakWithCharacterVoice(aiResponse.response, scenario, aiResponse.emotion);
       
-      // Clear processing state
       setAudioState(prev => ({
         ...prev,
         isProcessing: false
       }));
       
-      // Resume listening after AI finishes
       setTimeout(() => {
         if (sessionState.isActive && !audioState.isSpeaking && !isEndingSession) {
-          console.log('🔄 Resuming listening after AI response...');
           startListening();
         }
       }, 1500);
       
     } catch (err) {
       console.error('❌ Error processing speech:', err);
-      setError('Failed to process your message. Please try speaking again.');
+      setError('Having trouble processing your message. Please try speaking again.');
       
       setAudioState(prev => ({
         ...prev,
         isProcessing: false
       }));
       
-      // Resume listening even after error
       if (sessionState.isActive && !isEndingSession) {
         setTimeout(() => {
           startListening();
@@ -518,7 +507,7 @@ export default function SessionPage({ params }: { params: { id: string } }) {
         return;
       }
 
-      console.log('🔊 AI starting to speak - microphone OFF');
+      console.log('🔊 AI starting to speak');
       
       setAudioState(prev => ({
         ...prev,
@@ -530,12 +519,10 @@ export default function SessionPage({ params }: { params: { id: string } }) {
         status: 'ai-speaking'
       }));
       
-      // Stop any ongoing speech
       speechSynthesisRef.current.cancel();
       
       const utterance = new SpeechSynthesisUtterance(text);
       
-      // Select voice and apply parameters
       const voice = selectCharacterVoice(scenario.character_name);
       if (voice) {
         utterance.voice = voice;
@@ -546,12 +533,8 @@ export default function SessionPage({ params }: { params: { id: string } }) {
       utterance.pitch = params.pitch;
       utterance.volume = params.volume;
 
-      utterance.onstart = () => {
-        console.log('🔊 AI speech started');
-      };
-
       utterance.onend = () => {
-        console.log('🔊 AI speech completed - microphone can restart');
+        console.log('🔊 AI speech completed');
         setAudioState(prev => ({
           ...prev,
           isSpeaking: false
@@ -592,7 +575,6 @@ export default function SessionPage({ params }: { params: { id: string } }) {
     const femaleNames = ['sarah', 'jennifer', 'lisa', 'maria', 'emily', 'susan', 'karen', 'nancy'];
     const isFemale = femaleNames.includes(firstName);
     
-    // Find gender-appropriate voice
     const genderVoices = englishVoices.filter(voice => {
       const name = voice.name.toLowerCase();
       if (isFemale) {
@@ -664,29 +646,6 @@ export default function SessionPage({ params }: { params: { id: string } }) {
     }));
   };
 
-  // Stop speaking
-  const stopSpeaking = () => {
-    if (speechSynthesisRef.current) {
-      console.log('🛑 Stopping speech synthesis');
-      speechSynthesisRef.current.cancel();
-      setAudioState(prev => ({
-        ...prev,
-        isSpeaking: false
-      }));
-    }
-  };
-
-  // Force stop all audio
-  const forceStopAll = () => {
-    console.log('🛑 Force stopping all audio systems');
-    stopListening();
-    stopSpeaking();
-    setAudioState(prev => ({
-      ...prev,
-      isProcessing: false
-    }));
-  };
-
   // Complete cleanup
   const cleanup = () => {
     console.log('🧹 Complete session cleanup');
@@ -697,10 +656,18 @@ export default function SessionPage({ params }: { params: { id: string } }) {
       status: 'ended'
     }));
     
-    // Stop all audio
-    forceStopAll();
+    stopListening();
     
-    // Clear all timers
+    if (speechSynthesisRef.current) {
+      speechSynthesisRef.current.cancel();
+    }
+    
+    setAudioState(prev => ({
+      ...prev,
+      isSpeaking: false,
+      isProcessing: false
+    }));
+    
     if (silenceTimerRef.current) {
       clearTimeout(silenceTimerRef.current);
       silenceTimerRef.current = null;
@@ -711,7 +678,6 @@ export default function SessionPage({ params }: { params: { id: string } }) {
       cleanupTimerRef.current = null;
     }
     
-    // Force abort recognition
     if (recognitionRef.current) {
       try {
         recognitionRef.current.abort();
@@ -731,7 +697,6 @@ export default function SessionPage({ params }: { params: { id: string } }) {
     console.log('🛑 Ending session...');
     setIsEndingSession(true);
     
-    // Immediate cleanup
     cleanup();
     
     if (sessionState.sessionId && conversation.length > 0) {
@@ -757,7 +722,6 @@ export default function SessionPage({ params }: { params: { id: string } }) {
       }
     }
     
-    // Store session data and redirect
     const sessionData = {
       scenario,
       conversation,
@@ -771,23 +735,162 @@ export default function SessionPage({ params }: { params: { id: string } }) {
     router.push('/feedback');
   };
 
+  // Get scenario objectives and tips
+  const getScenarioObjectives = (scenario: Scenario) => {
+    const objectives: Record<string, { goal: string; objectives: string[]; tips: string[] }> = {
+      'sales': {
+        goal: 'Master consultative selling by understanding customer needs and presenting value-driven solutions.',
+        objectives: [
+          'Build rapport and establish credibility',
+          'Discover customer pain points and needs',
+          'Present relevant solutions with clear benefits',
+          'Handle objections professionally',
+          'Guide toward next steps'
+        ],
+        tips: [
+          'Ask open-ended questions to understand their business',
+          'Listen actively and acknowledge their concerns',
+          'Connect features to specific benefits for their situation',
+          'Be prepared to discuss ROI and implementation'
+        ]
+      },
+      'healthcare': {
+        goal: 'Develop empathetic patient communication skills while gathering accurate medical information.',
+        objectives: [
+          'Show empathy and build patient trust',
+          'Gather comprehensive health information',
+          'Explain medical concepts clearly',
+          'Address patient concerns and fears',
+          'Provide clear next steps for care'
+        ],
+        tips: [
+          'Use empathetic language and active listening',
+          'Ask follow-up questions about symptoms',
+          'Explain medical terms in simple language',
+          'Reassure while being honest about next steps'
+        ]
+      },
+      'support': {
+        goal: 'Provide excellent customer service by resolving issues efficiently and maintaining customer satisfaction.',
+        objectives: [
+          'Quickly understand the customer issue',
+          'Show empathy for their frustration',
+          'Provide clear troubleshooting steps',
+          'Ensure issue resolution',
+          'Follow up to confirm satisfaction'
+        ],
+        tips: [
+          'Acknowledge their frustration first',
+          'Ask specific questions to diagnose the problem',
+          'Explain each solution step clearly',
+          'Confirm understanding before moving on'
+        ]
+      },
+      'leadership': {
+        goal: 'Practice effective leadership communication including feedback, coaching, and team management.',
+        objectives: [
+          'Provide constructive feedback',
+          'Listen to employee concerns',
+          'Set clear expectations',
+          'Motivate and support team members',
+          'Develop action plans together'
+        ],
+        tips: [
+          'Start with positive observations',
+          'Be specific about areas for improvement',
+          'Ask for their perspective and input',
+          'Create collaborative development plans'
+        ]
+      },
+      'legal': {
+        goal: 'Develop professional legal consultation skills while building client trust and gathering case information.',
+        objectives: [
+          'Establish professional credibility',
+          'Gather detailed case information',
+          'Explain legal options clearly',
+          'Discuss risks and outcomes',
+          'Outline next steps and timeline'
+        ],
+        tips: [
+          'Ask detailed questions about their situation',
+          'Explain legal concepts in simple terms',
+          'Be honest about potential outcomes',
+          'Discuss fees and process transparently'
+        ]
+      }
+    };
+
+    return objectives[scenario.category] || objectives['sales'];
+  };
+
   // Get status display info
   const getStatusInfo = () => {
+    const exchanges = Math.floor(conversation.length / 2);
+    const duration = Math.floor((Date.now() - sessionState.startTime) / 60000);
+    
     switch (sessionState.status) {
       case 'initializing':
-        return { icon: '⏳', title: 'Initializing...', message: 'Setting up your conversation session', color: 'text-yellow-600' };
+        return { 
+          icon: '⏳', 
+          title: 'Setting up your practice session...', 
+          message: 'Preparing AI conversation partner', 
+          color: 'bg-yellow-500',
+          progress: true
+        };
       case 'ready':
-        return { icon: '🎤', title: 'Ready to Start', message: `Click "Start Talking" to begin your conversation with ${scenario?.character_name}`, color: 'text-blue-600' };
+        return { 
+          icon: '🎤', 
+          title: 'Ready to start!', 
+          message: `Click "Start Conversation" to begin practicing with ${scenario?.character_name}`, 
+          color: 'bg-blue-500',
+          showStats: false
+        };
       case 'listening':
-        return { icon: '🎤', title: 'Your turn to speak', message: 'Speak clearly into your microphone', color: 'text-green-600' };
+        return { 
+          icon: '🎤', 
+          title: 'Your turn - Speak now', 
+          message: isMobile ? 'Tap and speak clearly' : 'Speak clearly into your microphone', 
+          color: 'bg-green-500',
+          pulse: true,
+          showStats: true,
+          exchanges,
+          duration
+        };
       case 'processing':
-        return { icon: '🧠', title: 'Processing...', message: 'AI is thinking about how to respond', color: 'text-orange-600' };
+        return { 
+          icon: '🧠', 
+          title: 'Processing your message...', 
+          message: 'AI is thinking about the best response', 
+          color: 'bg-orange-500',
+          progress: true,
+          showStats: true,
+          exchanges,
+          duration
+        };
       case 'ai-speaking':
-        return { icon: '🔊', title: `${scenario?.character_name} is speaking...`, message: 'Listen carefully and prepare your response', color: 'text-purple-600' };
+        return { 
+          icon: '🔊', 
+          title: `${scenario?.character_name} is responding...`, 
+          message: 'Listen carefully and prepare your next response', 
+          color: 'bg-purple-500',
+          showStats: true,
+          exchanges,
+          duration
+        };
       case 'ended':
-        return { icon: '✅', title: 'Session ended', message: 'Thank you for practicing!', color: 'text-gray-600' };
+        return { 
+          icon: '✅', 
+          title: 'Session completed', 
+          message: 'Analyzing your performance...', 
+          color: 'bg-gray-500'
+        };
       default:
-        return { icon: '⏳', title: 'Loading...', message: 'Please wait', color: 'text-gray-600' };
+        return { 
+          icon: '⏳', 
+          title: 'Loading...', 
+          message: 'Please wait', 
+          color: 'bg-gray-500'
+        };
     }
   };
 
@@ -795,21 +898,65 @@ export default function SessionPage({ params }: { params: { id: string } }) {
   if (!scenario) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading session...</p>
+        <div className="text-center bg-white rounded-2xl p-8 shadow-xl">
+          <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Loading Your Practice Session</h2>
+          <p className="text-gray-600">Setting up your AI conversation partner...</p>
         </div>
       </div>
     );
   }
 
   const statusInfo = getStatusInfo();
+  const scenarioInfo = getScenarioObjectives(scenario);
+
+  // Error Screen
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-red-50 to-pink-100 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
+          <div className="text-6xl mb-6">😓</div>
+          <h2 className="text-2xl font-bold text-red-600 mb-4">Oops! Something went wrong</h2>
+          <p className="text-gray-700 mb-6 leading-relaxed">{error}</p>
+          
+          <div className="space-y-3">
+            <button
+              onClick={() => {
+                setError('');
+                setSessionState(prev => ({ ...prev, status: 'ready' }));
+                if (sessionState.sessionId) {
+                  startConversation();
+                }
+              }}
+              className="w-full bg-blue-500 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-600 transition-colors"
+            >
+              Try Again
+            </button>
+            <button
+              onClick={() => router.push('/dashboard')}
+              className="w-full bg-gray-500 text-white px-6 py-3 rounded-lg font-medium hover:bg-gray-600 transition-colors"
+            >
+              Back to Dashboard
+            </button>
+          </div>
+          
+          {audioState.permissionDenied && (
+            <div className="mt-6 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+              <p className="text-sm text-yellow-800">
+                <strong>Need help?</strong> Make sure to allow microphone access when prompted, or check your browser settings to enable microphone for this site.
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       {/* Header */}
       <header className="bg-white/90 backdrop-blur-sm border-b border-white/20 sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto px-4 py-4">
+        <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center text-white text-xl font-bold shadow-lg">
@@ -818,217 +965,328 @@ export default function SessionPage({ params }: { params: { id: string } }) {
               <div>
                 <h1 className="text-xl font-bold text-gray-900">{scenario.title}</h1>
                 <p className="text-sm text-gray-600">
-                  Conversation with {scenario.character_name} • {scenario.difficulty} level
+                  {scenario.character_name} • {scenario.difficulty} level • {scenario.category}
                 </p>
-                {sessionState.sessionId && sessionState.isActive && (
-                  <div className="flex items-center space-x-2 mt-1">
-                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                    <span className="text-xs text-green-600">Session active</span>
-                  </div>
-                )}
               </div>
             </div>
             
-            <div className="flex items-center space-x-3">
-              {sessionState.isActive && (
-                <button
-                  onClick={forceStopAll}
-                  className="px-4 py-2 bg-yellow-500 text-white rounded-lg font-medium hover:bg-yellow-600 transition-colors text-sm"
-                >
-                  Stop Audio
-                </button>
-              )}
-              <button
-                onClick={endSession}
-                disabled={isEndingSession}
-                className={`px-6 py-2 rounded-lg font-medium transition-colors ${
-                  isEndingSession 
-                    ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
-                    : 'bg-red-500 text-white hover:bg-red-600'
-                }`}
-              >
-                {isEndingSession ? 'Ending...' : 'End Session'}
-              </button>
-            </div>
+            <button
+              onClick={endSession}
+              disabled={isEndingSession}
+              className={`px-6 py-2 rounded-lg font-medium transition-colors ${
+                isEndingSession 
+                  ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
+                  : 'bg-red-500 text-white hover:bg-red-600'
+              }`}
+            >
+              {isEndingSession ? 'Ending...' : 'End Session'}
+            </button>
           </div>
         </div>
       </header>
 
       {/* Status Bar */}
-      <div className={`${statusInfo.color === 'text-green-600' ? 'bg-green-500' : 
-                        statusInfo.color === 'text-orange-600' ? 'bg-orange-500' :
-                        statusInfo.color === 'text-purple-600' ? 'bg-purple-500' :
-                        statusInfo.color === 'text-blue-600' ? 'bg-blue-500' :
-                        statusInfo.color === 'text-yellow-600' ? 'bg-yellow-500' : 'bg-gray-500'
-                      } text-white px-6 py-3 text-center font-medium`}>
-        <div className="flex items-center justify-center space-x-2">
-          <span className="text-lg">{statusInfo.icon}</span>
-          <span>{statusInfo.title}</span>
+      <div className={`${statusInfo.color} text-white px-6 py-4`}>
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <span className={`text-2xl ${statusInfo.pulse ? 'animate-pulse' : ''}`}>
+                {statusInfo.icon}
+              </span>
+              <div>
+                <div className="font-semibold text-lg">{statusInfo.title}</div>
+                <div className="text-sm opacity-90">{statusInfo.message}</div>
+              </div>
+              {statusInfo.progress && (
+                <div className="ml-4">
+                  <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                </div>
+              )}
+            </div>
+            
+            {statusInfo.showStats && (
+              <div className="flex items-center space-x-6 text-sm">
+                <div className="text-center">
+                  <div className="font-bold">{statusInfo.exchanges}</div>
+                  <div className="opacity-75">Exchanges</div>
+                </div>
+                <div className="text-center">
+                  <div className="font-bold">{statusInfo.duration}m</div>
+                  <div className="opacity-75">Duration</div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      <main className="max-w-6xl mx-auto px-4 py-6">
-        
-        {/* Status Card */}
-        <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-8 mb-6 text-center shadow-lg border border-white/20">
-          <div className={`text-6xl mb-4 ${audioState.isListening ? 'animate-pulse' : ''}`}>
-            {statusInfo.icon}
-          </div>
-          <h2 className={`text-2xl font-bold mb-2 ${statusInfo.color}`}>
-            {statusInfo.title}
-          </h2>
-          <p className="text-gray-600 mb-6 text-lg">
-            {statusInfo.message}
-          </p>
+      <main className="max-w-7xl mx-auto px-4 py-6">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           
-          {/* Current transcript display */}
-          {audioState.currentTranscript && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-              <p className="text-blue-800 italic">
-                "{audioState.currentTranscript}"
-              </p>
-              <p className="text-blue-600 text-sm mt-1">Speaking...</p>
-            </div>
-          )}
-          
-          {/* Controls */}
-          {sessionState.status === 'ready' && !isEndingSession && (
-            <div>
-              {audioState.permissionDenied && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-                  <p className="text-red-800 font-medium">Microphone access required</p>
-                  <p className="text-red-600 text-sm">Please allow microphone access and refresh the page</p>
-                </div>
-              )}
+          {/* Scenario Details Panel */}
+          <div className="lg:col-span-1">
+            <div className="bg-white rounded-2xl shadow-lg border border-white/20 sticky top-24">
               
-              {sessionState.sessionId && !audioState.permissionDenied ? (
+              {/* Header */}
+              <div className="p-4 border-b border-gray-200">
                 <button
-                  onClick={startConversation}
-                  className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-8 py-4 rounded-xl text-lg font-semibold hover:from-green-600 hover:to-emerald-700 transition-all shadow-lg transform hover:scale-105"
+                  onClick={() => setShowScenarioDetails(!showScenarioDetails)}
+                  className="flex items-center justify-between w-full text-left"
                 >
-                  🎤 Start Conversation
+                  <h3 className="font-semibold text-gray-900 flex items-center">
+                    <span className="text-xl mr-2">🎯</span>
+                    Practice Guide
+                  </h3>
+                  <span className="text-gray-400">
+                    {showScenarioDetails ? '−' : '+'}
+                  </span>
                 </button>
-              ) : (
-                <div className="text-yellow-600">
-                  <div className="w-6 h-6 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-                  <p>Setting up your session...</p>
-                </div>
-              )}
-            </div>
-          )}
-          
-          {isEndingSession && (
-            <div className="text-blue-600">
-              <div className="w-8 h-8 border-3 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-              <p className="text-lg">Ending session and preparing feedback...</p>
-            </div>
-          )}
-        </div>
-
-        {/* Error Display */}
-        {error && (
-          <div className="bg-red-50 border border-red-300 rounded-xl p-6 mb-6">
-            <div className="flex items-start space-x-3">
-              <div className="text-2xl">⚠️</div>
-              <div className="flex-1">
-                <h3 className="font-semibold text-red-800 mb-2">Audio Error</h3>
-                <p className="text-red-700 mb-4">{error}</p>
-                <div className="flex space-x-3">
-                  <button
-                    onClick={() => setError('')}
-                    className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
-                  >
-                    Try Again
-                  </button>
-                  <button
-                    onClick={() => router.push('/dashboard')}
-                    className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors"
-                  >
-                    Back to Dashboard
-                  </button>
-                </div>
               </div>
-            </div>
-          </div>
-        )}
 
-        {/* Conversation Display */}
-        {conversation.length > 0 && (
-          <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/20">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-semibold text-gray-900">
-                Conversation ({conversation.length} messages)
-              </h3>
-              {conversation.length >= 8 && (
-                <div className="flex items-center space-x-2 text-green-600">
-                  <span className="text-xl">🎯</span>
-                  <span className="font-medium">Great conversation depth!</span>
-                </div>
-              )}
-            </div>
-            
-            <div className="space-y-4 max-h-96 overflow-y-auto">
-              {conversation.map((message, index) => (
-                <div
-                  key={index}
-                  className={`flex items-start space-x-3 ${
-                    message.speaker === 'user' ? 'flex-row-reverse space-x-reverse' : ''
-                  }`}
-                >
-                  {/* Avatar */}
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${
-                    message.speaker === 'user' 
-                      ? 'bg-gradient-to-br from-blue-500 to-indigo-600' 
-                      : 'bg-gradient-to-br from-purple-500 to-pink-600'
-                  }`}>
-                    {message.speaker === 'user' ? '👤' : '🎭'}
-                  </div>
+              {/* Content */}
+              {showScenarioDetails && (
+                <div className="p-4 space-y-4">
                   
-                  {/* Message Bubble */}
-                  <div className={`flex-1 max-w-md p-4 rounded-2xl ${
-                    message.speaker === 'user'
-                      ? 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white'
-                      : 'bg-gray-100 text-gray-900'
-                  }`}>
-                    <div className={`text-xs mb-1 font-medium ${
-                      message.speaker === 'user' ? 'text-blue-100' : 'text-gray-500'
-                    }`}>
-                      {message.speaker === 'user' ? 'You' : scenario.character_name}
-                      {message.emotion && message.speaker === 'ai' && (
-                        <span className="ml-2 text-purple-600">({message.emotion})</span>
+                  {/* Goal */}
+                  <div>
+                    <h4 className="font-medium text-gray-900 mb-2 flex items-center">
+                      <span className="text-sm mr-2">🚀</span>
+                      Your Goal
+                    </h4>
+                    <p className="text-sm text-gray-600 leading-relaxed">
+                      {scenarioInfo.goal}
+                    </p>
+                  </div>
+
+                  {/* Objectives */}
+                  <div>
+                    <h4 className="font-medium text-gray-900 mb-2 flex items-center">
+                      <span className="text-sm mr-2">📋</span>
+                      Practice Objectives
+                    </h4>
+                    <ul className="space-y-1">
+                      {scenarioInfo.objectives.map((objective, index) => (
+                        <li key={index} className="text-sm text-gray-600 flex items-start">
+                          <span className="text-blue-500 mr-2 mt-0.5 text-xs">•</span>
+                          {objective}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {/* Tips */}
+                  <div>
+                    <h4 className="font-medium text-gray-900 mb-2 flex items-center">
+                      <span className="text-sm mr-2">💡</span>
+                      Success Tips
+                    </h4>
+                    <ul className="space-y-1">
+                      {scenarioInfo.tips.map((tip, index) => (
+                        <li key={index} className="text-sm text-gray-600 flex items-start">
+                          <span className="text-green-500 mr-2 mt-0.5 text-xs">→</span>
+                          {tip}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {/* Character Info */}
+                  <div className="pt-4 border-t border-gray-100">
+                    <h4 className="font-medium text-gray-900 mb-2 flex items-center">
+                      <span className="text-sm mr-2">👤</span>
+                      Character Profile
+                    </h4>
+                    <div className="text-sm text-gray-600 space-y-1">
+                      <div><strong>Name:</strong> {scenario.character_name}</div>
+                      <div><strong>Role:</strong> {scenario.character_role}</div>
+                      {scenario.character_personality && (
+                        <div><strong>Personality:</strong> {scenario.character_personality}</div>
                       )}
                     </div>
-                    <div className="text-sm leading-relaxed">
-                      {message.message}
+                  </div>
+
+                  {/* Progress Indicator */}
+                  {conversation.length > 0 && (
+                    <div className="pt-4 border-t border-gray-100">
+                      <h4 className="font-medium text-gray-900 mb-2 flex items-center">
+                        <span className="text-sm mr-2">📊</span>
+                        Session Progress
+                      </h4>
+                      <div className="text-sm text-gray-600">
+                        <div className="flex justify-between mb-1">
+                          <span>Exchanges</span>
+                          <span>{Math.floor(conversation.length / 2)}/8 (target)</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div 
+                            className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                            style={{ width: `${Math.min(100, (Math.floor(conversation.length / 2) / 8) * 100)}%` }}
+                          ></div>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {conversation.length < 6 ? 'Keep going! More practice = better feedback' : 
+                           conversation.length < 12 ? 'Great depth! You\'re building strong skills' :
+                           'Excellent session length! Ready to wrap up when you are'}
+                        </p>
+                      </div>
                     </div>
-                  </div>
+                  )}
+
                 </div>
-              ))}
+              )}
             </div>
-            
-            {/* Conversation Stats */}
-            <div className="mt-6 pt-4 border-t border-gray-200">
-              <div className="flex justify-center space-x-8 text-sm text-gray-600">
-                <div className="text-center">
-                  <div className="font-semibold text-gray-900">{conversation.length}</div>
-                  <div>Messages</div>
-                </div>
-                <div className="text-center">
-                  <div className="font-semibold text-gray-900">
-                    {Math.floor((Date.now() - sessionState.startTime) / 60000)}m
+          </div>
+
+          {/* Main Conversation Area */}
+          <div className="lg:col-span-3">
+            <div className="bg-white rounded-2xl shadow-lg border border-white/20 min-h-[600px]">
+              
+              {/* Conversation Messages */}
+              <div className="p-6">
+                
+                {conversation.length === 0 ? (
+                  <div className="text-center py-16">
+                    <div className="text-6xl mb-6">🎭</div>
+                    <h3 className="text-2xl font-bold text-gray-900 mb-4">
+                      Ready to Start Practicing?
+                    </h3>
+                    <p className="text-gray-600 text-lg mb-6 max-w-md mx-auto">
+                      You're about to have a conversation with <strong>{scenario.character_name}</strong>, 
+                      a {scenario.character_role}. They'll respond naturally to help you practice your skills.
+                    </p>
+                    
+                    {sessionState.status === 'ready' && !isEndingSession && (
+                      <div>
+                        {audioState.permissionDenied ? (
+                          <div className="bg-red-50 border border-red-200 rounded-lg p-6 mb-6 max-w-md mx-auto">
+                            <h4 className="text-red-800 font-medium mb-2">Microphone Access Needed</h4>
+                            <p className="text-red-700 text-sm mb-4">
+                              Please allow microphone access in your browser and refresh the page to continue.
+                            </p>
+                            <button
+                              onClick={() => window.location.reload()}
+                              className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-700"
+                            >
+                              Refresh Page
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={startConversation}
+                            className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-8 py-4 rounded-xl text-lg font-semibold hover:from-green-600 hover:to-emerald-700 transition-all shadow-lg transform hover:scale-105"
+                          >
+                            <span className="mr-2">🎤</span>
+                            Start Conversation
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    
+                    {sessionState.status === 'initializing' && (
+                      <div className="text-yellow-600">
+                        <div className="w-8 h-8 border-3 border-yellow-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                        <p className="text-lg">Setting up your session...</p>
+                      </div>
+                    )}
                   </div>
-                  <div>Duration</div>
-                </div>
-                <div className="text-center">
-                  <div className="font-semibold text-gray-900">
-                    {Math.floor(conversation.length / 2)}
+                ) : (
+                  <div className="space-y-6 max-h-96 overflow-y-auto">
+                    {conversation.map((message, index) => (
+                      <div
+                        key={index}
+                        className={`flex items-start space-x-3 ${
+                          message.speaker === 'user' ? 'flex-row-reverse space-x-reverse' : ''
+                        }`}
+                      >
+                        {/* Avatar */}
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0 ${
+                          message.speaker === 'user' 
+                            ? 'bg-gradient-to-br from-blue-500 to-indigo-600' 
+                            : 'bg-gradient-to-br from-purple-500 to-pink-600'
+                        }`}>
+                          {message.speaker === 'user' ? '👤' : '🎭'}
+                        </div>
+                        
+                        {/* Message Bubble */}
+                        <div className={`flex-1 max-w-md p-4 rounded-2xl ${
+                          message.speaker === 'user'
+                            ? 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white'
+                            : 'bg-gray-100 text-gray-900'
+                        }`}>
+                          <div className={`text-xs mb-2 font-medium ${
+                            message.speaker === 'user' ? 'text-blue-100' : 'text-gray-500'
+                          }`}>
+                            {message.speaker === 'user' ? 'You' : scenario.character_name}
+                            {message.emotion && message.speaker === 'ai' && (
+                              <span className="ml-2 text-purple-600">({message.emotion})</span>
+                            )}
+                          </div>
+                          <div className="leading-relaxed">
+                            {message.message}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    
+                    {/* Current transcript display */}
+                    {audioState.currentTranscript && sessionState.status === 'listening' && (
+                      <div className="flex items-start space-x-3 flex-row-reverse space-x-reverse">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold flex-shrink-0">
+                          👤
+                        </div>
+                        <div className="flex-1 max-w-md p-4 rounded-2xl bg-yellow-50 border-2 border-dashed border-yellow-300 text-yellow-800">
+                          <div className="text-xs mb-2 font-medium text-yellow-600">
+                            You (speaking...)
+                          </div>
+                          <div className="leading-relaxed">
+                            {audioState.currentTranscript}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* AI Thinking Indicator */}
+                    {sessionState.status === 'processing' && (
+                      <div className="flex items-center space-x-3 justify-center py-4">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center text-white font-bold">
+                          🎭
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce"></div>
+                          <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                          <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                          <span className="text-purple-600 text-sm ml-2">
+                            {scenario.character_name} is thinking...
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div>Exchanges</div>
-                </div>
+                )}
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Mobile-specific help */}
+        {isMobile && sessionState.status === 'listening' && (
+          <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <p className="text-blue-800 text-sm">
+              <strong>Mobile Tip:</strong> Speak clearly and hold your device close to your mouth for best results. 
+              The microphone icon will pulse while listening.
+            </p>
+          </div>
         )}
+
+        {/* Session encouragement */}
+        {conversation.length >= 8 && sessionState.status !== 'ended' && (
+          <div className="mt-6 bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+            <p className="text-green-800 font-medium">
+              🎉 Excellent conversation depth! You can continue practicing or end the session for detailed feedback.
+            </p>
+          </div>
+        )}
+
       </main>
     </div>
   );
