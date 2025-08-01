@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 
+// Types
 interface Scenario {
   id: string;
   title: string;
@@ -22,116 +23,148 @@ interface ConversationMessage {
   emotion?: string;
 }
 
-interface VoiceState {
+interface SessionState {
+  status: 'initializing' | 'ready' | 'listening' | 'processing' | 'ai-speaking' | 'ended';
+  isActive: boolean;
+  sessionId: string | null;
+  startTime: number;
+}
+
+interface AudioState {
   isListening: boolean;
   isSpeaking: boolean;
   isProcessing: boolean;
   currentTranscript: string;
-  recognition: any;
-  synthesis: SpeechSynthesis | null;
+  hasPermission: boolean;
+  permissionDenied: boolean;
 }
 
-export default function EnhancedSessionPage({ params }: { params: { id: string } }) {
+export default function SessionPage({ params }: { params: { id: string } }) {
+  // Core state
   const [scenario, setScenario] = useState<Scenario | null>(null);
   const [conversation, setConversation] = useState<ConversationMessage[]>([]);
-  const [userEmail, setUserEmail] = useState('');
-  const [sessionId, setSessionId] = useState('');
-  const [sessionStartTime] = useState(Date.now());
-  
-  // Enhanced voice states
-  const [voiceState, setVoiceState] = useState<VoiceState>({
+  const [sessionState, setSessionState] = useState<SessionState>({
+    status: 'initializing',
+    isActive: false,
+    sessionId: null,
+    startTime: Date.now()
+  });
+  const [audioState, setAudioState] = useState<AudioState>({
     isListening: false,
     isSpeaking: false,
     isProcessing: false,
     currentTranscript: '',
-    recognition: null,
-    synthesis: typeof window !== 'undefined' ? window.speechSynthesis : null
+    hasPermission: false,
+    permissionDenied: false
   });
   
-  const [sessionActive, setSessionActive] = useState(false);
+  // UI state
   const [error, setError] = useState('');
   const [isEndingSession, setIsEndingSession] = useState(false);
-  const [audioPermission, setAudioPermission] = useState<'granted' | 'denied' | 'pending'>('pending');
-  const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [userEmail, setUserEmail] = useState('');
+  
+  // Refs
+  const recognitionRef = useRef<any>(null);
+  const speechSynthesisRef = useRef<SpeechSynthesis | null>(null);
+  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const cleanupTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const availableVoicesRef = useRef<SpeechSynthesisVoice[]>([]);
   
   const router = useRouter();
-  const recognitionRef = useRef<any>(null);
-  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Initialize component
+  // Initialize speech synthesis and load voices
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      speechSynthesisRef.current = window.speechSynthesis;
+      
+      const loadVoices = () => {
+        const voices = speechSynthesisRef.current?.getVoices() || [];
+        availableVoicesRef.current = voices;
+        console.log('🔊 Loaded voices:', voices.length);
+      };
+      
+      loadVoices();
+      if (speechSynthesisRef.current?.onvoiceschanged !== undefined) {
+        speechSynthesisRef.current.onvoiceschanged = loadVoices;
+      }
+    }
+  }, []);
+
+  // Initialize session
   useEffect(() => {
     initializeSession();
-    checkBrowserSupport();
-    loadVoices();
-    
     return () => {
       cleanup();
     };
   }, []);
 
-  // Load user and scenario data
+  // Initialize session data
   const initializeSession = async () => {
-    const email = localStorage.getItem('userEmail');
-    if (!email) {
-      console.log('❌ No user email found, redirecting to login');
-      router.push('/');
-      return;
-    }
-    setUserEmail(email);
+    try {
+      const email = localStorage.getItem('userEmail');
+      if (!email) {
+        console.error('❌ No user email found');
+        router.push('/');
+        return;
+      }
+      setUserEmail(email);
 
-    const storedScenario = localStorage.getItem('currentScenario');
-    if (storedScenario) {
+      const storedScenario = localStorage.getItem('currentScenario');
+      if (!storedScenario) {
+        console.error('❌ No scenario found');
+        router.push('/dashboard');
+        return;
+      }
+
       const scenarioData = JSON.parse(storedScenario);
       setScenario(scenarioData);
-      console.log('🎭 Scenario loaded:', scenarioData.title);
-    } else {
-      console.log('❌ No scenario found, redirecting to dashboard');
-      router.push('/dashboard');
+      
+      // Create session
+      const sessionId = await createDatabaseSession(scenarioData.id, email);
+      
+      setSessionState(prev => ({
+        ...prev,
+        sessionId,
+        status: 'ready',
+        isActive: true,
+        startTime: Date.now()
+      }));
+      
+      console.log('✅ Session initialized:', sessionId);
+      
+    } catch (err) {
+      console.error('❌ Session initialization failed:', err);
+      setError('Failed to initialize session. Please try again.');
     }
   };
 
-  // Check browser support for speech APIs
-  const checkBrowserSupport = () => {
-    const hasRecognition = 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
-    const hasSynthesis = 'speechSynthesis' in window;
-    
-    console.log('🔊 Browser support check:', {
-      recognition: hasRecognition,
-      synthesis: hasSynthesis,
-      userAgent: navigator.userAgent.includes('Chrome') ? 'Chrome' : 'Other'
-    });
+  // Create database session
+  const createDatabaseSession = async (scenarioId: string, email: string): Promise<string> => {
+    try {
+      const response = await fetch('/api/sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          scenario_id: scenarioId,
+          user_email: email
+        })
+      });
 
-    if (!hasRecognition) {
-      setError('Speech recognition not supported. Please use Chrome browser for the best experience.');
+      const data = await response.json();
+      if (data.success) {
+        return data.data.id;
+      } else {
+        throw new Error(data.error || 'Failed to create session');
+      }
+    } catch (err) {
+      console.error('❌ Database session creation failed:', err);
+      throw err;
     }
   };
 
-  // Load available voices
-  const loadVoices = () => {
-    if (!voiceState.synthesis) return;
-    
-    const updateVoices = () => {
-      const voices = voiceState.synthesis!.getVoices();
-      setAvailableVoices(voices);
-      console.log('🔊 Voices loaded:', voices.length);
-    };
-
-    updateVoices();
-    if (voiceState.synthesis.onvoiceschanged !== undefined) {
-      voiceState.synthesis.onvoiceschanged = updateVoices;
-    }
-  };
-
-  // Create database session when ready
-  useEffect(() => {
-    if (scenario && userEmail && !sessionId) {
-      createDatabaseSession();
-    }
-  }, [scenario, userEmail]);
-
-  // Request microphone permission and create session
+  // Start conversation with microphone permission
   const startConversation = async () => {
-    if (!scenario || !sessionId) {
+    if (!scenario || !sessionState.sessionId) {
       setError('Session not ready. Please wait or refresh the page.');
       return;
     }
@@ -139,14 +172,17 @@ export default function EnhancedSessionPage({ params }: { params: { id: string }
     try {
       console.log('🎤 Requesting microphone permission...');
       await navigator.mediaDevices.getUserMedia({ audio: true });
-      setAudioPermission('granted');
       
-      setSessionActive(true);
+      setAudioState(prev => ({
+        ...prev,
+        hasPermission: true,
+        permissionDenied: false
+      }));
+      
       setError('');
       
       // AI greets first
       const greeting = getCharacterGreeting(scenario);
-      
       const aiMessage: ConversationMessage = {
         speaker: 'ai',
         message: greeting,
@@ -165,43 +201,44 @@ export default function EnhancedSessionPage({ params }: { params: { id: string }
       
       // Start listening after AI finishes speaking
       setTimeout(() => {
-        startAdvancedListening();
+        if (sessionState.isActive) {
+          startListening();
+        }
       }, 1000);
       
     } catch (err) {
       console.error('❌ Microphone permission denied:', err);
-      setAudioPermission('denied');
+      setAudioState(prev => ({
+        ...prev,
+        permissionDenied: true
+      }));
       setError('Microphone access is required for voice conversations. Please allow microphone access and refresh the page.');
     }
   };
 
-  // Generate character-appropriate greeting
+  // Generate character greeting
   const getCharacterGreeting = (scenario: Scenario): string => {
     const greetings: Record<string, string[]> = {
       'sales': [
-        `Hi, I'm ${scenario.character_name}. I understand you wanted to discuss our ${scenario.category} needs?`,
+        `Hi, I'm ${scenario.character_name}. I understand you wanted to discuss our business needs?`,
         `Hello! ${scenario.character_name} here. I have about 15 minutes to chat about what you're offering.`,
         `Good morning! I'm ${scenario.character_name}. I've been looking at solutions like yours - what makes yours different?`
       ],
       'healthcare': [
         `Hello, I'm ${scenario.character_name}. Thank you for seeing me today. I've been having some concerns...`,
-        `Hi Doctor, I'm ${scenario.character_name}. I scheduled this appointment because I wanted to discuss my health.`,
-        `Good afternoon! I'm ${scenario.character_name}. I have some questions about my treatment options.`
+        `Hi Doctor, I'm ${scenario.character_name}. I scheduled this appointment because I wanted to discuss my health.`
       ],
       'support': [
         `Hi, this is ${scenario.character_name}. I'm calling because I'm having issues with your service.`,
-        `Hello, ${scenario.character_name} here. I need help with my account - I've been trying to resolve this for days.`,
-        `Hi there! I'm ${scenario.character_name}. I'm frustrated because your product isn't working as promised.`
+        `Hello, ${scenario.character_name} here. I need help with my account - I've been trying to resolve this for days.`
       ],
       'leadership': [
         `Good morning! I'm ${scenario.character_name}. I wanted to discuss my recent projects and get your feedback.`,
-        `Hi, ${scenario.character_name} here. I understand you wanted to have a conversation about my performance?`,
-        `Hello! I'm ${scenario.character_name}. I've been with the company for a while and wanted to discuss my role.`
+        `Hi, ${scenario.character_name} here. I understand you wanted to have a conversation about my performance?`
       ],
       'legal': [
         `Hello, I'm ${scenario.character_name}. Thank you for meeting with me. I need some legal advice about my situation.`,
-        `Good afternoon! ${scenario.character_name} here. I'm facing some legal challenges and need professional guidance.`,
-        `Hi, I'm ${scenario.character_name}. I scheduled this consultation because I have some complex legal questions.`
+        `Good afternoon! ${scenario.character_name} here. I'm facing some legal challenges and need professional guidance.`
       ]
     };
     
@@ -209,47 +246,60 @@ export default function EnhancedSessionPage({ params }: { params: { id: string }
     return categoryGreetings[Math.floor(Math.random() * categoryGreetings.length)];
   };
 
-  // Advanced speech recognition with better configuration
-  const startAdvancedListening = () => {
+  // Start speech recognition
+  const startListening = useCallback(() => {
+    // Comprehensive checks before starting
+    if (!sessionState.isActive || !sessionState.sessionId) {
+      console.log('🔇 Not starting listening - session not active');
+      return;
+    }
+    
+    if (audioState.isSpeaking || audioState.isProcessing) {
+      console.log('🔇 Not starting listening - AI is speaking or processing');
+      return;
+    }
+
     if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
       setError('Speech recognition not supported. Please use Chrome browser.');
       return;
     }
 
-    if (voiceState.isSpeaking || voiceState.isProcessing) {
-      console.log('🔇 Skipping listening - AI is speaking or processing');
-      return;
-    }
+    console.log('🎤 Starting speech recognition...');
 
     const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
     const recognition = new SpeechRecognition();
     
-    // Enhanced configuration
+    // Configure recognition
     recognition.continuous = true;
     recognition.interimResults = true;
     recognition.lang = 'en-US';
-    recognition.maxAlternatives = 3;
+    recognition.maxAlternatives = 1;
     
     recognitionRef.current = recognition;
     
-    setVoiceState(prev => ({
+    setAudioState(prev => ({
       ...prev,
       isListening: true,
-      currentTranscript: '',
-      recognition
+      currentTranscript: ''
+    }));
+
+    setSessionState(prev => ({
+      ...prev,
+      status: 'listening'
     }));
 
     let finalTranscript = '';
     let isProcessingFinal = false;
 
     recognition.onstart = () => {
-      console.log('🎤 Advanced listening started');
+      console.log('🎤 Speech recognition started');
       setError('');
     };
 
     recognition.onresult = (event: any) => {
-      if (voiceState.isSpeaking || isProcessingFinal) {
-        console.log('🔇 Ignoring speech - AI is speaking or processing');
+      // Check state during processing
+      if (!sessionState.isActive || audioState.isSpeaking || isProcessingFinal) {
+        console.log('🔇 Ignoring speech - invalid state');
         return;
       }
 
@@ -258,34 +308,36 @@ export default function EnhancedSessionPage({ params }: { params: { id: string }
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i];
         const transcript = result[0].transcript;
-        const confidence = result[0].confidence;
         
         if (result.isFinal) {
           finalTranscript += transcript;
-          console.log('✅ Final transcript:', transcript, 'Confidence:', confidence);
+          console.log('✅ Final transcript:', transcript);
         } else {
           interimTranscript += transcript;
         }
       }
 
-      // Update current transcript for real-time display
-      setVoiceState(prev => ({
+      // Update current transcript for display
+      setAudioState(prev => ({
         ...prev,
         currentTranscript: interimTranscript
       }));
 
-      // Process final results
-      if (finalTranscript.trim() && !isProcessingFinal) {
+      // Process final transcript
+      if (finalTranscript.trim() && !isProcessingFinal && sessionState.isActive) {
         isProcessingFinal = true;
         clearTimeout(silenceTimerRef.current!);
         processUserSpeech(finalTranscript.trim());
-      } else if (interimTranscript.trim().length > 2) {
-        // Auto-finalize after silence
+        return;
+      }
+
+      // Auto-finalize after silence
+      if (interimTranscript.trim().length > 2 && sessionState.isActive) {
         clearTimeout(silenceTimerRef.current!);
         silenceTimerRef.current = setTimeout(() => {
-          if (interimTranscript.trim() && !isProcessingFinal && !voiceState.isSpeaking) {
+          if (interimTranscript.trim() && !isProcessingFinal && sessionState.isActive && !audioState.isSpeaking) {
             isProcessingFinal = true;
-            console.log('⏰ Auto-finalizing speech after silence');
+            console.log('⏰ Auto-finalizing after silence');
             processUserSpeech(interimTranscript.trim());
           }
         }, 2500);
@@ -295,31 +347,42 @@ export default function EnhancedSessionPage({ params }: { params: { id: string }
     recognition.onerror = (event: any) => {
       console.error('🚨 Speech recognition error:', event.error);
       
-      setVoiceState(prev => ({
+      setAudioState(prev => ({
         ...prev,
         isListening: false
       }));
       
       if (event.error === 'not-allowed') {
-        setAudioPermission('denied');
+        setAudioState(prev => ({
+          ...prev,
+          permissionDenied: true
+        }));
         setError('Microphone access denied. Please allow microphone access and refresh the page.');
       } else if (event.error !== 'no-speech' && event.error !== 'aborted') {
         setError(`Speech recognition error: ${event.error}. Please try speaking again.`);
+        
+        // Retry after error
+        setTimeout(() => {
+          if (sessionState.isActive && !audioState.isSpeaking && !audioState.isProcessing) {
+            startListening();
+          }
+        }, 2000);
       }
     };
 
     recognition.onend = () => {
       console.log('🏁 Speech recognition ended');
-      setVoiceState(prev => ({
+      setAudioState(prev => ({
         ...prev,
         isListening: false
       }));
       
-      // Restart listening if session is still active and AI isn't speaking
-      if (sessionActive && !voiceState.isSpeaking && !isProcessingFinal) {
+      // Auto-restart if session is still active
+      if (sessionState.isActive && !audioState.isSpeaking && !isProcessingFinal && !isEndingSession) {
         setTimeout(() => {
-          if (sessionActive && !voiceState.isSpeaking) {
-            startAdvancedListening();
+          if (sessionState.isActive && !audioState.isSpeaking && !audioState.isProcessing && !isEndingSession) {
+            console.log('🔄 Auto-restarting listening...');
+            startListening();
           }
         }, 1000);
       }
@@ -328,23 +391,31 @@ export default function EnhancedSessionPage({ params }: { params: { id: string }
     try {
       recognition.start();
     } catch (error) {
-      console.error('Failed to start speech recognition:', error);
+      console.error('❌ Failed to start speech recognition:', error);
       setError('Failed to start speech recognition. Please try again.');
     }
-  };
+  }, [sessionState.isActive, sessionState.sessionId, audioState.isSpeaking, audioState.isProcessing, isEndingSession]);
 
-  // Process user speech with enhanced AI integration
+  // Process user speech
   const processUserSpeech = async (userMessage: string) => {
-    if (!userMessage || !scenario || !sessionId) return;
+    if (!userMessage || !scenario || !sessionState.sessionId || !sessionState.isActive) {
+      return;
+    }
     
     console.log('💬 Processing user speech:', userMessage);
     
     // Stop listening and update states
     stopListening();
-    setVoiceState(prev => ({
+    
+    setAudioState(prev => ({
       ...prev,
       isProcessing: true,
       currentTranscript: ''
+    }));
+    
+    setSessionState(prev => ({
+      ...prev,
+      status: 'processing'
     }));
     
     // Add user message to conversation
@@ -352,7 +423,7 @@ export default function EnhancedSessionPage({ params }: { params: { id: string }
       speaker: 'user',
       message: userMessage,
       timestamp: Date.now(),
-      confidence: 0.95 // We could get this from speech recognition
+      confidence: 0.95
     };
     
     const updatedConversation = [...conversation, userMsg];
@@ -360,8 +431,8 @@ export default function EnhancedSessionPage({ params }: { params: { id: string }
     await saveConversationToDatabase(updatedConversation);
 
     try {
-      // Get enhanced AI response
-      const aiResponse = await getEnhancedAIResponse(scenario, userMessage, updatedConversation);
+      // Get AI response
+      const aiResponse = await getAIResponse(scenario, userMessage, updatedConversation);
       
       const aiMsg: ConversationMessage = {
         speaker: 'ai',
@@ -374,36 +445,45 @@ export default function EnhancedSessionPage({ params }: { params: { id: string }
       setConversation(finalConversation);
       await saveConversationToDatabase(finalConversation);
       
-      // AI speaks with character voice
+      if (!sessionState.isActive) return;
+      
+      // AI speaks
       await speakWithCharacterVoice(aiResponse.response, scenario, aiResponse.emotion);
+      
+      // Clear processing state
+      setAudioState(prev => ({
+        ...prev,
+        isProcessing: false
+      }));
       
       // Resume listening after AI finishes
       setTimeout(() => {
-        if (sessionActive) {
-          startAdvancedListening();
+        if (sessionState.isActive && !audioState.isSpeaking && !isEndingSession) {
+          console.log('🔄 Resuming listening after AI response...');
+          startListening();
         }
-      }, 1000);
+      }, 1500);
       
     } catch (err) {
       console.error('❌ Error processing speech:', err);
       setError('Failed to process your message. Please try speaking again.');
       
-      // Resume listening even after error
-      setTimeout(() => {
-        if (sessionActive) {
-          startAdvancedListening();
-        }
-      }, 2000);
-    } finally {
-      setVoiceState(prev => ({
+      setAudioState(prev => ({
         ...prev,
         isProcessing: false
       }));
+      
+      // Resume listening even after error
+      if (sessionState.isActive && !isEndingSession) {
+        setTimeout(() => {
+          startListening();
+        }, 3000);
+      }
     }
   };
 
-  // Enhanced AI response with better prompting
-  const getEnhancedAIResponse = async (scenario: Scenario, userMessage: string, conversationHistory: ConversationMessage[]) => {
+  // Get AI response
+  const getAIResponse = async (scenario: Scenario, userMessage: string, conversationHistory: ConversationMessage[]) => {
     const response = await fetch('/api/ai-chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -412,7 +492,7 @@ export default function EnhancedSessionPage({ params }: { params: { id: string }
         userMessage,
         conversationHistory,
         messageCount: Math.floor(conversationHistory.length / 2),
-        enhancedMode: true // Flag for better prompting
+        enhancedMode: true
       })
     });
 
@@ -429,107 +509,105 @@ export default function EnhancedSessionPage({ params }: { params: { id: string }
     };
   };
 
-  // Character-specific text-to-speech
+  // Text-to-speech
   const speakWithCharacterVoice = async (text: string, scenario: Scenario, emotion: string = 'professional'): Promise<void> => {
     return new Promise((resolve) => {
-      if (!voiceState.synthesis) {
+      if (!speechSynthesisRef.current) {
         console.warn('Speech synthesis not available');
         resolve();
         return;
       }
 
-      setVoiceState(prev => ({
+      console.log('🔊 AI starting to speak - microphone OFF');
+      
+      setAudioState(prev => ({
         ...prev,
         isSpeaking: true
       }));
       
+      setSessionState(prev => ({
+        ...prev,
+        status: 'ai-speaking'
+      }));
+      
       // Stop any ongoing speech
-      voiceState.synthesis.cancel();
+      speechSynthesisRef.current.cancel();
       
       const utterance = new SpeechSynthesisUtterance(text);
       
-      // Select character-appropriate voice
-      const selectedVoice = selectCharacterVoice(scenario.character_name, availableVoices);
-      if (selectedVoice) {
-        utterance.voice = selectedVoice;
+      // Select voice and apply parameters
+      const voice = selectCharacterVoice(scenario.character_name);
+      if (voice) {
+        utterance.voice = voice;
       }
       
-      // Apply emotional parameters
-      const voiceParams = getEmotionalVoiceParams(emotion);
-      utterance.rate = voiceParams.rate;
-      utterance.pitch = voiceParams.pitch;
-      utterance.volume = voiceParams.volume;
-      
-      console.log('🔊 Speaking with character voice:', {
-        character: scenario.character_name,
-        emotion,
-        voice: selectedVoice?.name || 'default',
-        params: voiceParams
-      });
+      const params = getEmotionalVoiceParams(emotion);
+      utterance.rate = params.rate;
+      utterance.pitch = params.pitch;
+      utterance.volume = params.volume;
 
       utterance.onstart = () => {
-        console.log('🔊 Character speech started');
+        console.log('🔊 AI speech started');
       };
 
       utterance.onend = () => {
-        console.log('🔊 Character speech completed');
-        setVoiceState(prev => ({
+        console.log('🔊 AI speech completed - microphone can restart');
+        setAudioState(prev => ({
           ...prev,
           isSpeaking: false
+        }));
+        setSessionState(prev => ({
+          ...prev,
+          status: 'ready'
         }));
         resolve();
       };
       
       utterance.onerror = (event) => {
         console.error('🚨 Speech synthesis error:', event);
-        setVoiceState(prev => ({
+        setAudioState(prev => ({
           ...prev,
           isSpeaking: false
+        }));
+        setSessionState(prev => ({
+          ...prev,
+          status: 'ready'
         }));
         resolve();
       };
 
-      voiceState.synthesis.speak(utterance);
+      speechSynthesisRef.current.speak(utterance);
     });
   };
 
-  // Smart voice selection based on character
-  const selectCharacterVoice = (characterName: string, voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null => {
+  // Select character voice
+  const selectCharacterVoice = (characterName: string): SpeechSynthesisVoice | null => {
+    const voices = availableVoicesRef.current;
     if (voices.length === 0) return null;
     
-    const firstName = characterName.toLowerCase().split(' ')[0];
     const englishVoices = voices.filter(voice => voice.lang.startsWith('en-'));
+    if (englishVoices.length === 0) return null;
     
-    // Gender detection
+    const firstName = characterName.toLowerCase().split(' ')[0];
     const femaleNames = ['sarah', 'jennifer', 'lisa', 'maria', 'emily', 'susan', 'karen', 'nancy'];
     const isFemale = femaleNames.includes(firstName);
     
-    // Find appropriate voice
-    let selectedVoice = null;
+    // Find gender-appropriate voice
+    const genderVoices = englishVoices.filter(voice => {
+      const name = voice.name.toLowerCase();
+      if (isFemale) {
+        return name.includes('female') || name.includes('woman') || 
+               ['karen', 'susan', 'samantha', 'victoria', 'zira'].some(n => name.includes(n));
+      } else {
+        return name.includes('male') || name.includes('man') ||
+               ['david', 'mark', 'james', 'george'].some(n => name.includes(n));
+      }
+    });
     
-    if (isFemale) {
-      selectedVoice = englishVoices.find(voice => 
-        voice.name.toLowerCase().includes('female') || 
-        voice.name.toLowerCase().includes('woman') ||
-        ['karen', 'susan', 'samantha', 'victoria', 'zira'].some(name => 
-          voice.name.toLowerCase().includes(name)
-        )
-      );
-    } else {
-      selectedVoice = englishVoices.find(voice => 
-        voice.name.toLowerCase().includes('male') || 
-        voice.name.toLowerCase().includes('man') ||
-        ['david', 'mark', 'james', 'george'].some(name => 
-          voice.name.toLowerCase().includes(name)
-        )
-      );
-    }
-    
-    // Fallback to best available English voice
-    return selectedVoice || englishVoices.find(voice => voice.default) || englishVoices[0] || null;
+    return genderVoices[0] || englishVoices[0] || null;
   };
 
-  // Emotional voice parameters
+  // Get emotional voice parameters
   const getEmotionalVoiceParams = (emotion: string) => {
     const params: Record<string, { rate: number; pitch: number; volume: number }> = {
       'professional': { rate: 0.9, pitch: 1.0, volume: 0.9 },
@@ -544,66 +622,16 @@ export default function EnhancedSessionPage({ params }: { params: { id: string }
     return params[emotion] || params['professional'];
   };
 
-  // Database operations
-  const createDatabaseSession = async () => {
-    try {
-      console.log('💾 Creating database session...');
-      
-      const response = await fetch('/api/sessions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          scenario_id: scenario?.id,
-          user_email: userEmail
-        })
-      });
-
-      const data = await response.json();
-      
-      if (data.success) {
-        setSessionId(data.data.id);
-        console.log('✅ Database session created:', data.data.id);
-      } else if (data.error?.includes('User not found')) {
-        await createUserAndRetrySession();
-      } else {
-        setError('Failed to start session. Please try again.');
-      }
-    } catch (err) {
-      console.error('❌ Error creating session:', err);
-      setError('Connection error. Please try again.');
-    }
-  };
-
-  const createUserAndRetrySession = async () => {
-    try {
-      const userResponse = await fetch('/api/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: userEmail,
-          name: userEmail.split('@')[0]
-        })
-      });
-
-      if (userResponse.ok) {
-        await createDatabaseSession();
-      } else {
-        setError('Failed to create account. Please refresh and try again.');
-      }
-    } catch (err) {
-      setError('Connection error. Please refresh and try again.');
-    }
-  };
-
+  // Save conversation to database
   const saveConversationToDatabase = async (updatedConversation: ConversationMessage[]) => {
-    if (!sessionId) return;
+    if (!sessionState.sessionId) return;
     
     try {
       await fetch('/api/sessions', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          session_id: sessionId,
+          session_id: sessionState.sessionId,
           conversation: updatedConversation
         })
       });
@@ -612,10 +640,15 @@ export default function EnhancedSessionPage({ params }: { params: { id: string }
     }
   };
 
-  // Control functions
+  // Stop listening
   const stopListening = () => {
     if (recognitionRef.current) {
-      recognitionRef.current.stop();
+      console.log('🛑 Stopping speech recognition');
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {
+        console.log('Recognition already stopped');
+      }
       recognitionRef.current = null;
     }
     
@@ -624,49 +657,85 @@ export default function EnhancedSessionPage({ params }: { params: { id: string }
       silenceTimerRef.current = null;
     }
     
-    setVoiceState(prev => ({
+    setAudioState(prev => ({
       ...prev,
       isListening: false,
       currentTranscript: ''
     }));
   };
 
+  // Stop speaking
   const stopSpeaking = () => {
-    if (voiceState.synthesis) {
-      voiceState.synthesis.cancel();
-      setVoiceState(prev => ({
+    if (speechSynthesisRef.current) {
+      console.log('🛑 Stopping speech synthesis');
+      speechSynthesisRef.current.cancel();
+      setAudioState(prev => ({
         ...prev,
         isSpeaking: false
       }));
     }
   };
 
+  // Force stop all audio
   const forceStopAll = () => {
+    console.log('🛑 Force stopping all audio systems');
     stopListening();
     stopSpeaking();
-    setVoiceState(prev => ({
+    setAudioState(prev => ({
       ...prev,
       isProcessing: false
     }));
   };
 
+  // Complete cleanup
   const cleanup = () => {
+    console.log('🧹 Complete session cleanup');
+    
+    setSessionState(prev => ({
+      ...prev,
+      isActive: false,
+      status: 'ended'
+    }));
+    
+    // Stop all audio
     forceStopAll();
+    
+    // Clear all timers
     if (silenceTimerRef.current) {
       clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
     }
+    
+    if (cleanupTimerRef.current) {
+      clearTimeout(cleanupTimerRef.current);
+      cleanupTimerRef.current = null;
+    }
+    
+    // Force abort recognition
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.abort();
+      } catch (e) {
+        console.log('Recognition already aborted');
+      }
+      recognitionRef.current = null;
+    }
+    
+    console.log('✅ Session cleanup completed');
   };
 
   // End session
   const endSession = async () => {
     if (isEndingSession) return;
     
+    console.log('🛑 Ending session...');
     setIsEndingSession(true);
-    setSessionActive(false);
+    
+    // Immediate cleanup
     cleanup();
     
-    if (sessionId && conversation.length > 0) {
-      const duration = Math.floor((Date.now() - sessionStartTime) / 60000);
+    if (sessionState.sessionId && conversation.length > 0) {
+      const duration = Math.floor((Date.now() - sessionState.startTime) / 60000);
       const exchanges = Math.floor(conversation.length / 2);
       
       try {
@@ -677,7 +746,7 @@ export default function EnhancedSessionPage({ params }: { params: { id: string }
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            session_id: sessionId,
+            session_id: sessionState.sessionId,
             session_status: 'completed',
             duration_minutes: duration,
             overall_score: score
@@ -688,66 +757,41 @@ export default function EnhancedSessionPage({ params }: { params: { id: string }
       }
     }
     
-    // Store session data and redirect to feedback
+    // Store session data and redirect
     const sessionData = {
       scenario,
       conversation,
-      duration: Math.floor((Date.now() - sessionStartTime) / 60000),
+      duration: Math.floor((Date.now() - sessionState.startTime) / 60000),
       exchanges: Math.floor(conversation.length / 2),
       userEmail,
-      sessionId
+      sessionId: sessionState.sessionId
     };
     
     localStorage.setItem('lastSession', JSON.stringify(sessionData));
     router.push('/feedback');
   };
 
-  // Render functions
+  // Get status display info
   const getStatusInfo = () => {
-    if (!sessionActive) {
-      return {
-        icon: '🎤',
-        title: 'Ready to Start',
-        message: `Click "Start Talking" to begin your conversation with ${scenario?.character_name}`,
-        color: 'text-blue-600'
-      };
+    switch (sessionState.status) {
+      case 'initializing':
+        return { icon: '⏳', title: 'Initializing...', message: 'Setting up your conversation session', color: 'text-yellow-600' };
+      case 'ready':
+        return { icon: '🎤', title: 'Ready to Start', message: `Click "Start Talking" to begin your conversation with ${scenario?.character_name}`, color: 'text-blue-600' };
+      case 'listening':
+        return { icon: '🎤', title: 'Your turn to speak', message: 'Speak clearly into your microphone', color: 'text-green-600' };
+      case 'processing':
+        return { icon: '🧠', title: 'Processing...', message: 'AI is thinking about how to respond', color: 'text-orange-600' };
+      case 'ai-speaking':
+        return { icon: '🔊', title: `${scenario?.character_name} is speaking...`, message: 'Listen carefully and prepare your response', color: 'text-purple-600' };
+      case 'ended':
+        return { icon: '✅', title: 'Session ended', message: 'Thank you for practicing!', color: 'text-gray-600' };
+      default:
+        return { icon: '⏳', title: 'Loading...', message: 'Please wait', color: 'text-gray-600' };
     }
-    
-    if (voiceState.isSpeaking) {
-      return {
-        icon: '🔊',
-        title: `${scenario?.character_name} is speaking...`,
-        message: 'Listen carefully and prepare your response',
-        color: 'text-purple-600'
-      };
-    }
-    
-    if (voiceState.isProcessing) {
-      return {
-        icon: '🧠',
-        title: 'Processing your message...',
-        message: 'AI is thinking about how to respond',
-        color: 'text-orange-600'
-      };
-    }
-    
-    if (voiceState.isListening) {
-      return {
-        icon: '🎤',
-        title: 'Your turn to speak',
-        message: 'Speak clearly into your microphone',
-        color: 'text-green-600'
-      };
-    }
-    
-    return {
-      icon: '⏳',
-      title: 'Preparing...',
-      message: 'Getting ready for next interaction',
-      color: 'text-gray-600'
-    };
   };
 
+  // Loading state
   if (!scenario) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
@@ -776,9 +820,9 @@ export default function EnhancedSessionPage({ params }: { params: { id: string }
                 <p className="text-sm text-gray-600">
                   Conversation with {scenario.character_name} • {scenario.difficulty} level
                 </p>
-                {sessionId && (
+                {sessionState.sessionId && sessionState.isActive && (
                   <div className="flex items-center space-x-2 mt-1">
-                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                     <span className="text-xs text-green-600">Session active</span>
                   </div>
                 )}
@@ -786,7 +830,7 @@ export default function EnhancedSessionPage({ params }: { params: { id: string }
             </div>
             
             <div className="flex items-center space-x-3">
-              {sessionActive && (
+              {sessionState.isActive && (
                 <button
                   onClick={forceStopAll}
                   className="px-4 py-2 bg-yellow-500 text-white rounded-lg font-medium hover:bg-yellow-600 transition-colors text-sm"
@@ -810,11 +854,24 @@ export default function EnhancedSessionPage({ params }: { params: { id: string }
         </div>
       </header>
 
+      {/* Status Bar */}
+      <div className={`${statusInfo.color === 'text-green-600' ? 'bg-green-500' : 
+                        statusInfo.color === 'text-orange-600' ? 'bg-orange-500' :
+                        statusInfo.color === 'text-purple-600' ? 'bg-purple-500' :
+                        statusInfo.color === 'text-blue-600' ? 'bg-blue-500' :
+                        statusInfo.color === 'text-yellow-600' ? 'bg-yellow-500' : 'bg-gray-500'
+                      } text-white px-6 py-3 text-center font-medium`}>
+        <div className="flex items-center justify-center space-x-2">
+          <span className="text-lg">{statusInfo.icon}</span>
+          <span>{statusInfo.title}</span>
+        </div>
+      </div>
+
       <main className="max-w-6xl mx-auto px-4 py-6">
         
         {/* Status Card */}
         <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-8 mb-6 text-center shadow-lg border border-white/20">
-          <div className={`text-6xl mb-4 ${voiceState.isListening ? 'animate-pulse' : ''}`}>
+          <div className={`text-6xl mb-4 ${audioState.isListening ? 'animate-pulse' : ''}`}>
             {statusInfo.icon}
           </div>
           <h2 className={`text-2xl font-bold mb-2 ${statusInfo.color}`}>
@@ -825,26 +882,26 @@ export default function EnhancedSessionPage({ params }: { params: { id: string }
           </p>
           
           {/* Current transcript display */}
-          {voiceState.currentTranscript && (
+          {audioState.currentTranscript && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
               <p className="text-blue-800 italic">
-                "{voiceState.currentTranscript}"
+                "{audioState.currentTranscript}"
               </p>
               <p className="text-blue-600 text-sm mt-1">Speaking...</p>
             </div>
           )}
           
-          {/* Permission and controls */}
-          {!sessionActive && !isEndingSession && (
+          {/* Controls */}
+          {sessionState.status === 'ready' && !isEndingSession && (
             <div>
-              {audioPermission === 'denied' && (
+              {audioState.permissionDenied && (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
                   <p className="text-red-800 font-medium">Microphone access required</p>
                   <p className="text-red-600 text-sm">Please allow microphone access and refresh the page</p>
                 </div>
               )}
               
-              {sessionId && audioPermission !== 'denied' ? (
+              {sessionState.sessionId && !audioState.permissionDenied ? (
                 <button
                   onClick={startConversation}
                   className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-8 py-4 rounded-xl text-lg font-semibold hover:from-green-600 hover:to-emerald-700 transition-all shadow-lg transform hover:scale-105"
@@ -958,7 +1015,7 @@ export default function EnhancedSessionPage({ params }: { params: { id: string }
                 </div>
                 <div className="text-center">
                   <div className="font-semibold text-gray-900">
-                    {Math.floor((Date.now() - sessionStartTime) / 60000)}m
+                    {Math.floor((Date.now() - sessionState.startTime) / 60000)}m
                   </div>
                   <div>Duration</div>
                 </div>
