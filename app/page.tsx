@@ -19,11 +19,38 @@ export default function LoginPage() {
     setIsLoading(true);
     
     try {
-      localStorage.setItem('userEmail', email);
+      console.log('🔐 Creating/verifying user:', email);
+      
+      // Create or verify user in database first
+      const response = await fetch('/api/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: email.trim(),
+          name: email.split('@')[0] // Use email username as default name
+        })
+      });
+
+      const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to create user account');
+      }
+
+      console.log('✅ User created/verified:', result.data.user.email);
+      
+      // Store user info in localStorage
+      localStorage.setItem('userEmail', email.trim());
+      localStorage.setItem('userName', result.data.user.name || email.split('@')[0]);
+      
+      // Redirect to dashboard
       router.push('/dashboard');
+      
     } catch (error) {
-      console.error('Login error:', error);
-      alert('Login failed. Please try again.');
+      console.error('❌ Login error:', error);
+      alert(`Login failed: ${error.message || 'Please try again.'}`);
     } finally {
       setIsLoading(false);
     }
@@ -73,7 +100,7 @@ export default function LoginPage() {
             {isLoading ? (
               <>
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                Signing in...
+                Setting up your account...
               </>
             ) : (
               <>
