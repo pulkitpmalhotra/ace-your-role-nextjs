@@ -258,7 +258,7 @@ function determineAdvancedEmotionProgression(messageCount: number, conversationH
   }
 
   // Default progression based on conversation stage and category
-  const categoryProgression = {
+  const categoryProgression: Record<string, string[]> = {
     'sales': ['professional', 'curious', 'interested', 'concerned', 'engaged', 'interested'],
     'healthcare': ['professional', 'concerned', 'curious', 'engaged', 'interested'],
     'support': ['frustrated', 'concerned', 'engaged', 'satisfied'],
@@ -266,7 +266,7 @@ function determineAdvancedEmotionProgression(messageCount: number, conversationH
     'legal': ['professional', 'concerned', 'curious', 'engaged']
   };
 
-  const progression = categoryProgression[scenario.category] || categoryProgression['sales'];
+  const progression = categoryProgression[scenario.category as string] || categoryProgression['sales'];
   const stageIndex = Math.min(messageCount - 1, progression.length - 1);
   
   return progression[stageIndex] || 'professional';
