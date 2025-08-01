@@ -1,7 +1,7 @@
-// app/api/ai-chat/route.ts - Fixed Character Roleplay
+// app/api/ai-chat/route.ts - Enhanced Character Roleplay with Advanced Prompting
 export async function POST(request: Request) {
   try {
-    const { scenario, userMessage, conversationHistory, messageCount } = await request.json();
+    const { scenario, userMessage, conversationHistory, messageCount, enhancedMode } = await request.json();
     
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
     
@@ -17,16 +17,18 @@ export async function POST(request: Request) {
       );
     }
 
-    console.log('🎭 AI acting as character:', scenario.character_name);
+    console.log('🎭 Enhanced AI acting as character:', scenario.character_name);
     console.log('👤 User is practicing as:', getTrainerRole(scenario.category));
 
-    const emotion = determineEmotionProgression(messageCount || 0, conversationHistory);
-    const gender = getCharacterGender(scenario.character_name);
+    const emotion = determineAdvancedEmotionProgression(messageCount || 0, conversationHistory, userMessage, scenario);
+    const conversationStage = getConversationStage(messageCount || 0, scenario.category);
     
-    // Fixed prompt - AI is the CHARACTER, user is the trainer
-    const prompt = buildCharacterPrompt(scenario, userMessage, conversationHistory, emotion, messageCount || 0);
+    // Enhanced prompting for better character responses
+    const prompt = enhancedMode ? 
+      buildAdvancedCharacterPrompt(scenario, userMessage, conversationHistory, emotion, messageCount || 0, conversationStage) :
+      buildCharacterPrompt(scenario, userMessage, conversationHistory, emotion, messageCount || 0);
 
-    console.log('🤖 Calling Gemini 2.5 Flash-Lite API...');
+    console.log('🤖 Calling Gemini 2.5 Flash-Lite with enhanced prompting...');
     
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`,
@@ -36,10 +38,10 @@ export async function POST(request: Request) {
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
-            temperature: 0.8,
+            temperature: enhancedMode ? 0.85 : 0.8,
             topK: 40,
             topP: 0.9,
-            maxOutputTokens: 150,
+            maxOutputTokens: enhancedMode ? 200 : 150,
             candidateCount: 1,
           },
           safetySettings: [
@@ -85,7 +87,7 @@ export async function POST(request: Request) {
       return fallbackResponse(scenario);
     }
 
-    console.log('✅ Character response as', scenario.character_name + ':', cleanedResponse);
+    console.log('✅ Enhanced character response as', scenario.character_name + ':', cleanedResponse);
 
     return Response.json({
       success: true,
@@ -93,21 +95,89 @@ export async function POST(request: Request) {
         response: cleanedResponse,
         character: scenario.character_name,
         emotion,
-        gender,
-        model: 'gemini-2.5-flash-lite',
+        conversationStage,
+        model: 'gemini-2.5-flash-lite-enhanced',
         cost_savings: '43%',
-        conversationTurn: (messageCount || 0) + 1
+        conversationTurn: (messageCount || 0) + 1,
+        enhanced: enhancedMode || false
       }
     });
 
   } catch (error) {
-    console.error('💥 AI Chat API error:', error);
+    console.error('💥 Enhanced AI Chat API error:', error);
     return fallbackResponse(null);
   }
 }
 
+// Advanced character prompt building
+function buildAdvancedCharacterPrompt(scenario: any, userMessage: string, conversationHistory: any[], emotion: string, messageCount: number, conversationStage: string) {
+  // Build contextual conversation history
+  let contextualHistory = '';
+  if (conversationHistory && conversationHistory.length > 0) {
+    const recentHistory = conversationHistory.slice(-6); // More context for better responses
+    contextualHistory = recentHistory.map((msg: any) => 
+      `${msg.speaker === 'user' ? getTrainerRole(scenario.category).toUpperCase() : scenario.character_name.toUpperCase()}: ${msg.message}`
+    ).join('\n');
+  }
+
+  const trainerRole = getTrainerRole(scenario.category);
+  const characterMotivation = getCharacterMotivation(scenario.category);
+  const industryContext = getIndustryContext(scenario.category);
+  
+  return `You are ${scenario.character_name}, a ${scenario.character_role} in a ${scenario.category} scenario.
+
+CRITICAL INSTRUCTIONS:
+- You are NOT a trainer or coach. You ARE the character being practiced with.
+- Respond naturally as someone in your position would respond to a ${trainerRole}.
+- Show realistic human emotions, concerns, and reactions.
+- Your goal is to be a challenging but realistic practice partner.
+
+CHARACTER PROFILE:
+- Name: ${scenario.character_name}
+- Role: ${scenario.character_role}
+- Personality: ${scenario.character_personality || getDefaultPersonality(scenario.category)}
+- Current Emotional State: ${emotion}
+- Conversation Stage: ${conversationStage}
+
+SCENARIO CONTEXT:
+${scenario.description || `You are in a ${scenario.category} conversation with a ${trainerRole}`}
+
+INDUSTRY CONTEXT:
+${industryContext}
+
+YOUR MOTIVATION AS ${scenario.character_name}:
+${characterMotivation}
+
+CONVERSATION STAGE: ${conversationStage}
+MESSAGE COUNT: ${messageCount}
+
+${contextualHistory ? `RECENT CONVERSATION:\n${contextualHistory}\n` : ''}
+
+THE ${trainerRole.toUpperCase()} JUST SAID: "${userMessage}"
+
+RESPONSE GUIDELINES FOR ${scenario.character_name}:
+1. Respond as ${scenario.character_name} would - show your ${emotion} personality
+2. Have realistic ${scenario.category} concerns, needs, and objections
+3. React authentically to what the ${trainerRole} said
+4. Ask relevant questions that someone in your position would ask
+5. Show interest, skepticism, or enthusiasm as appropriate to your character
+6. Keep responses conversational (20-50 words)
+7. Use natural language that fits your professional role
+8. Challenge the ${trainerRole} appropriately - don't make it too easy
+9. Show progression through the conversation stages naturally
+
+ADVANCED CHARACTER BEHAVIORS:
+- Reference previous parts of the conversation when relevant
+- Show emotional reactions that build on the conversation flow
+- Ask follow-up questions that test the ${trainerRole}'s knowledge
+- Express concerns that someone in your position would actually have
+- Show interest in specific details that matter to your role
+
+Your authentic response as ${scenario.character_name} (${emotion}):`;
+}
+
+// Fallback to standard prompt for non-enhanced mode
 function buildCharacterPrompt(scenario: any, userMessage: string, conversationHistory: any[], emotion: string, messageCount: number) {
-  // Build conversation context
   let contextualHistory = '';
   if (conversationHistory && conversationHistory.length > 0) {
     const recentHistory = conversationHistory.slice(-4);
@@ -116,11 +186,9 @@ function buildCharacterPrompt(scenario: any, userMessage: string, conversationHi
     ).join('\n');
   }
 
-  // Get the user's training role
   const trainerRole = getTrainerRole(scenario.category);
-  const stage = getConversationStage(messageCount, conversationHistory, scenario.category);
+  const stage = getConversationStage(messageCount, scenario.category);
   
-  // CRITICAL: AI plays the CHARACTER, user plays the trainer
   return `You are ${scenario.character_name}, a ${scenario.character_role} in a ${scenario.category} scenario.
 
 IMPORTANT: You are NOT a trainer or coach. You ARE the character that someone is practicing with.
@@ -158,6 +226,92 @@ INSTRUCTIONS FOR YOU AS ${scenario.character_name}:
 Your authentic response as ${scenario.character_name}:`;
 }
 
+// Advanced emotion progression based on conversation content
+function determineAdvancedEmotionProgression(messageCount: number, conversationHistory: any[] = [], userMessage: string, scenario: any) {
+  if (messageCount === 0) return 'professional';
+  
+  const recentUserMessages = conversationHistory
+    .filter(msg => msg.speaker === 'user')
+    .slice(-3)
+    .map(msg => msg.message.toLowerCase())
+    .join(' ');
+
+  const currentUserMessage = userMessage.toLowerCase();
+  const allUserText = (recentUserMessages + ' ' + currentUserMessage).toLowerCase();
+
+  // Analyze conversation sentiment and content for emotion
+  const emotionTriggers = {
+    'interested': ['benefit', 'help', 'solution', 'improve', 'value', 'results', 'achieve', 'success'],
+    'curious': ['how', 'what', 'why', 'tell me', 'explain', 'understand', 'learn'],
+    'concerned': ['cost', 'price', 'expensive', 'budget', 'worried', 'risk', 'problem'],
+    'skeptical': ['really', 'sure', 'doubt', 'different', 'better', 'prove', 'evidence'],
+    'enthusiastic': ['excited', 'great', 'perfect', 'exactly', 'love', 'amazing', 'fantastic'],
+    'frustrated': ['again', 'still', 'keep', 'always', 'never', 'tired', 'enough'],
+    'engaged': ['interesting', 'good point', 'makes sense', 'i see', 'right', 'yes']
+  };
+
+  // Check for specific emotion triggers
+  for (const [emotion, triggers] of Object.entries(emotionTriggers)) {
+    if (triggers.some(trigger => allUserText.includes(trigger))) {
+      return emotion;
+    }
+  }
+
+  // Default progression based on conversation stage and category
+  const categoryProgression = {
+    'sales': ['professional', 'curious', 'interested', 'concerned', 'engaged', 'interested'],
+    'healthcare': ['professional', 'concerned', 'curious', 'engaged', 'interested'],
+    'support': ['frustrated', 'concerned', 'engaged', 'satisfied'],
+    'leadership': ['professional', 'skeptical', 'engaged', 'collaborative'],
+    'legal': ['professional', 'concerned', 'curious', 'engaged']
+  };
+
+  const progression = categoryProgression[scenario.category] || categoryProgression['sales'];
+  const stageIndex = Math.min(messageCount - 1, progression.length - 1);
+  
+  return progression[stageIndex] || 'professional';
+}
+
+// Get character motivation based on category
+function getCharacterMotivation(category: string): string {
+  const motivations: Record<string, string> = {
+    'sales': 'You need to evaluate if this solution will actually help your business. You want to understand the ROI, implementation process, and how it compares to alternatives. You are cautious about making the wrong decision.',
+    'healthcare': 'You want to understand your health situation clearly and make informed decisions about your care. You may be anxious about symptoms or treatment options and need reassurance and clear explanations.',
+    'support': 'You have a problem that needs solving and you want quick, effective help. You may be frustrated if the issue has been ongoing and need to see that the support person understands and can actually fix your problem.',
+    'leadership': 'You are an experienced professional who values your autonomy. You want to understand the reasoning behind feedback and ensure that any changes align with your professional goals and the team\'s success.',
+    'legal': 'You need clear, practical legal advice that helps you understand your options and risks. You are concerned about costs, outcomes, and making the right decisions for your situation.'
+  };
+  
+  return motivations[category] || motivations['sales'];
+}
+
+// Get industry context for better responses
+function getIndustryContext(category: string): string {
+  const contexts: Record<string, string> = {
+    'sales': 'This is a B2B sales environment where the character is evaluating solutions for their business. They need to justify purchases to stakeholders and are focused on ROI, implementation, and competitive advantages.',
+    'healthcare': 'This is a medical consultation where the character is seeking healthcare advice. They may be anxious about their health and need clear, empathetic communication about their condition and treatment options.',
+    'support': 'This is a customer service interaction where the character has a problem that needs resolution. They want efficient service and may be frustrated if the issue has been ongoing or affecting their work/life.',
+    'leadership': 'This is a workplace management conversation where the character is receiving feedback or guidance. They are a professional who wants to understand the business rationale behind any suggestions or changes.',
+    'legal': 'This is a legal consultation where the character needs professional legal advice. They want to understand their rights, options, and the potential outcomes of different courses of action.'
+  };
+  
+  return contexts[category] || contexts['sales'];
+}
+
+// Get default personality based on category
+function getDefaultPersonality(category: string): string {
+  const personalities: Record<string, string> = {
+    'sales': 'Analytical, budget-conscious, needs to justify decisions to stakeholders, values concrete benefits and ROI',
+    'healthcare': 'Concerned about health, wants clear explanations, may be anxious, values empathetic communication',
+    'support': 'Wants quick resolution, may be frustrated with ongoing issues, values efficient service',
+    'leadership': 'Experienced professional, values autonomy, wants to understand reasoning behind suggestions',
+    'legal': 'Cautious, concerned about risks and costs, needs clear explanations of complex topics'
+  };
+  
+  return personalities[category] || personalities['sales'];
+}
+
+// Helper functions from original
 function getTrainerRole(category: string): string {
   const roleMap: Record<string, string> = {
     'sales': 'salesperson',
@@ -180,38 +334,7 @@ function getTrainerObjective(category: string): string {
   return objectiveMap[category] || 'help you professionally';
 }
 
-function determineEmotionProgression(messageCount: number, conversationHistory: any[] = []) {
-  // Analyze conversation tone for character emotion
-  if (messageCount === 0) return 'professional';
-  
-  const recentUserMessages = conversationHistory
-    .filter(msg => msg.speaker === 'user')
-    .slice(-2)
-    .map(msg => msg.message.toLowerCase())
-    .join(' ');
-
-  // Character emotional responses based on what trainer is doing
-  if (recentUserMessages.includes('price') || recentUserMessages.includes('cost') || recentUserMessages.includes('budget')) {
-    return messageCount < 3 ? 'concerned' : 'cautious';
-  }
-  
-  if (recentUserMessages.includes('benefit') || recentUserMessages.includes('help') || recentUserMessages.includes('solution')) {
-    return 'interested';
-  }
-  
-  if (recentUserMessages.includes('problem') || recentUserMessages.includes('challenge') || recentUserMessages.includes('issue')) {
-    return 'engaged';
-  }
-
-  // Natural character progression
-  if (messageCount < 2) return 'professional';
-  if (messageCount < 4) return 'curious';
-  if (messageCount < 7) return 'interested';
-  if (messageCount < 10) return 'engaged';
-  return 'collaborative';
-}
-
-function getConversationStage(messageCount: number, conversationHistory: any[] = [], category: string) {
+function getConversationStage(messageCount: number, category: string) {
   if (messageCount === 0) return 'Initial Contact';
   if (messageCount < 3) return 'Rapport Building';
   if (messageCount < 6) return getMiddleStage(category);
@@ -240,7 +363,11 @@ function cleanAIResponse(response: string): string {
     .trim();
 
   // Remove character name if AI included it
-  const namePrefixes = ['Sarah Johnson:', 'Dr. Michael Chen:', 'Jennifer Williams:', 'Robert Martinez:', 'Lisa Thompson:'];
+  const namePrefixes = [
+    'Sarah Johnson:', 'Dr. Michael Chen:', 'Jennifer Williams:', 'Robert Martinez:', 'Lisa Thompson:',
+    'Maria Garcia:', 'James Wilson:', 'Emily Davis:', 'David Kim:', 'Susan Roberts:', 'Thomas Anderson:'
+  ];
+  
   for (const prefix of namePrefixes) {
     if (cleaned.startsWith(prefix)) {
       cleaned = cleaned.substring(prefix.length).trim();
@@ -251,42 +378,41 @@ function cleanAIResponse(response: string): string {
 }
 
 function fallbackResponse(scenario: any) {
-  // Character-appropriate fallback responses
   const characterResponses: Record<string, string[]> = {
     'sales': [
-      "I'm always looking for solutions that can help our business grow.",
-      "What makes your approach different from what we're currently using?",
-      "I need to understand how this fits our budget and timeline.",
-      "Can you tell me more about the implementation process?",
-      "What kind of ROI should we expect to see?"
+      "That's an interesting point. Can you tell me more about how this would specifically benefit our company?",
+      "I need to understand the ROI better. What kind of results have other companies seen?",
+      "How does your solution compare to what we're currently using?",
+      "What would the implementation timeline look like for a company our size?",
+      "I'm curious about the total cost of ownership. Can you break that down for me?"
     ],
     'healthcare': [
-      "I'm concerned about these symptoms I've been experiencing.",
-      "What do you think could be causing this issue?",
-      "I want to make sure we explore all the options available.",
-      "How long do you think the treatment will take?",
-      "Are there any side effects I should be aware of?"
+      "I'm concerned about these symptoms I've been experiencing. What do you think could be causing this?",
+      "Can you explain the treatment options available to me?",
+      "What are the potential risks or side effects I should know about?",
+      "How long would recovery typically take with this approach?",
+      "I want to make sure I understand all my options before deciding."
     ],
     'support': [
-      "I'm having trouble with my account and need this resolved quickly.",
-      "This isn't working the way it's supposed to work.",
-      "I've been a customer for years and expect better service.",
-      "Can you help me understand what went wrong here?",
-      "What are you going to do to fix this problem?"
+      "This issue is really affecting my productivity. When can we expect a resolution?",
+      "I've been dealing with this problem for days. What exactly are you going to do to fix it?",
+      "Your system isn't working the way it's supposed to. How do we get this resolved?",
+      "I've tried the basic troubleshooting steps already. What's the next level solution?",
+      "This is the second time I've had to contact support about this issue."
     ],
     'legal': [
-      "I need to understand my legal options in this situation.",
-      "What are the potential risks if we proceed this way?",
-      "How long do these types of cases typically take?",
-      "I'm concerned about the costs involved in this process.",
-      "What documents do you need from me to move forward?"
+      "What are my legal options in this situation?",
+      "I need to understand the potential risks before we proceed.",
+      "Can you explain what this means in practical terms?",
+      "What would be the likely outcome if we take this approach?",
+      "I'm concerned about the costs involved. Can you give me an estimate?"
     ],
     'leadership': [
-      "I've been doing this job for a while and know what works.",
-      "I'm not sure I agree with this new direction we're taking.",
-      "My team has been resistant to changes like this before.",
-      "What evidence do you have that this approach will work?",
-      "I need to see how this benefits my department specifically."
+      "I've been handling this responsibility for a while. What specifically needs to change?",
+      "Can you give me some context about why this approach is being recommended?",
+      "I want to understand how this aligns with our team's goals.",
+      "What evidence do we have that this method will be more effective?",
+      "How does this change affect my team and their current projects?"
     ]
   };
   
@@ -294,7 +420,7 @@ function fallbackResponse(scenario: any) {
   const responses = characterResponses[category] || characterResponses['sales'];
   const randomResponse = responses[Math.floor(Math.random() * responses.length)];
   
-  console.log('🔄 Using character fallback response:', randomResponse);
+  console.log('🔄 Using enhanced fallback response:', randomResponse);
   
   return Response.json({
     success: true,
@@ -302,20 +428,8 @@ function fallbackResponse(scenario: any) {
       response: randomResponse,
       character: scenario?.character_name || 'Character',
       emotion: 'professional',
-      gender: scenario ? getCharacterGender(scenario.character_name) : 'neutral',
-      model: 'fallback-character',
-      note: 'Character fallback response'
+      model: 'fallback-enhanced',
+      note: 'Enhanced fallback response'
     }
   });
-}
-
-function getCharacterGender(characterName: string): 'male' | 'female' | 'neutral' {
-  const femaleNames = [
-    'sarah', 'lisa', 'jennifer', 'mary', 'susan', 'karen', 'nancy', 'emily',
-    'jessica', 'rachel', 'amanda', 'michelle', 'angela', 'melissa', 'stephanie',
-    'carol', 'rebecca', 'sharon', 'cynthia', 'anna', 'brenda', 'amy', 'kathleen'
-  ];
-  
-  const firstName = characterName.toLowerCase().split(' ')[0];
-  return femaleNames.includes(firstName) ? 'female' : 'male';
 }
