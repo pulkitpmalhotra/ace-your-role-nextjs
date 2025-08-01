@@ -307,7 +307,7 @@ export default function DashboardPage() {
             <h2 className="text-2xl font-bold mb-2">Welcome to Ace Your Role!</h2>
             <p className="text-blue-100 mb-4">Start your first conversation below to begin tracking your progress</p>
             <div className="bg-white/20 rounded-lg p-4 inline-block">
-              <p className="text-sm">Ready to practice? Choose a scenario and start talking!</p>
+              <p className="text-sm">Ready to practice? Choose a scenario and start practicing!</p>
             </div>
           </div>
         )}
@@ -391,7 +391,7 @@ export default function DashboardPage() {
                     onClick={() => startChat(scenario)}
                     className="w-full bg-blue-500 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-600 transition-colors"
                   >
-                    Start Conversation
+                    Start Scenario
                   </button>
                 </div>
               ))}
