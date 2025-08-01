@@ -906,7 +906,7 @@ export default function SessionPage({ params }: { params: { id: string } }) {
                   onClick={startConversation}
                   className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-8 py-4 rounded-xl text-lg font-semibold hover:from-green-600 hover:to-emerald-700 transition-all shadow-lg transform hover:scale-105"
                 >
-                  🎤 Start Voice Conversation
+                  🎤 Start Conversation
                 </button>
               ) : (
                 <div className="text-yellow-600">
