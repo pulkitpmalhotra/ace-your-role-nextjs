@@ -41,56 +41,99 @@ export default function DashboardPage() {
   const [userEmail, setUserEmail] = useState('');
   const [userName, setUserName] = useState('');
   const [selectedView, setSelectedView] = useState<'scenarios' | 'progress'>('scenarios');
+  const [error, setError] = useState('');
   const router = useRouter();
 
   useEffect(() => {
-    // Check if user is logged in
-    const email = localStorage.getItem('userEmail');
-    const name = localStorage.getItem('userName');
-    if (!email) {
-      router.push('/');
-      return;
-    }
-    setUserEmail(email);
-    setUserName(name || email.split('@')[0]);
-    
-    // Load data
-    loadData();
+    initializeDashboard();
   }, [router]);
 
-  const loadData = async () => {
+  const initializeDashboard = async () => {
+    try {
+      // Check if user is logged in
+      const email = localStorage.getItem('userEmail');
+      const name = localStorage.getItem('userName');
+      
+      if (!email) {
+        console.log('❌ No user email found, redirecting to login');
+        router.push('/');
+        return;
+      }
+
+      console.log('✅ User found:', email);
+      setUserEmail(email);
+      setUserName(name || email.split('@')[0]);
+      
+      // Load dashboard data
+      await loadData(email);
+      
+    } catch (err) {
+      console.error('❌ Dashboard initialization error:', err);
+      setError('Failed to load dashboard. Please try refreshing the page.');
+      setLoading(false);
+    }
+  };
+
+  const loadData = async (email: string) => {
     try {
       setLoading(true);
+      setError('');
       
-      // Load scenarios and user progress in parallel
-      const [scenariosResponse, progressResponse] = await Promise.all([
-        fetch('/api/scenarios'),
-        fetch(`/api/progress?user_email=${encodeURIComponent(userEmail)}`)
-      ]);
+      console.log('📊 Loading dashboard data for:', email);
       
-      // Handle scenarios
-      const scenariosData = await scenariosResponse.json();
-      if (scenariosData.success) {
-        setScenarios(scenariosData.data || []);
+      // Load scenarios first (always available)
+      console.log('📚 Loading scenarios...');
+      const scenariosResponse = await fetch('/api/scenarios');
+      if (scenariosResponse.ok) {
+        const scenariosData = await scenariosResponse.json();
+        if (scenariosData.success) {
+          setScenarios(scenariosData.data || []);
+          console.log('✅ Loaded', scenariosData.data?.length || 0, 'scenarios');
+        }
+      } else {
+        console.warn('⚠️ Failed to load scenarios:', scenariosResponse.status);
       }
       
-      // Handle progress
+      // Load user progress (may not exist for new users)
+      console.log('📈 Loading user progress...');
+      const progressResponse = await fetch(`/api/progress?user_email=${encodeURIComponent(email)}`);
       if (progressResponse.ok) {
         const progressData = await progressResponse.json();
         if (progressData.success) {
           setUserProgress(progressData.data.progress || []);
           setProgressSummary(progressData.data.summary);
+          console.log('✅ Loaded progress for', progressData.data.progress?.length || 0, 'categories');
+        } else {
+          console.log('ℹ️ No progress data yet:', progressData.error);
+          // This is normal for new users
+          setUserProgress([]);
+          setProgressSummary(null);
         }
+      } else if (progressResponse.status === 400) {
+        console.log('ℹ️ User progress not found - new user');
+        setUserProgress([]);
+        setProgressSummary(null);
+      } else {
+        console.warn('⚠️ Failed to load progress:', progressResponse.status);
+        setUserProgress([]);
+        setProgressSummary(null);
       }
       
     } catch (error) {
-      console.error('Error loading dashboard data:', error);
+      console.error('❌ Error loading dashboard data:', error);
+      setError('Failed to load some data. The app should still work for starting new sessions.');
     } finally {
       setLoading(false);
     }
   };
 
   const startChat = (scenario: Scenario) => {
+    if (!userEmail) {
+      alert('Please refresh the page and log in again.');
+      return;
+    }
+    
+    console.log('🎯 Starting session with scenario:', scenario.title);
     localStorage.setItem('currentScenario', JSON.stringify(scenario));
     router.push(`/session/${scenario.id}`);
   };
@@ -138,12 +181,41 @@ export default function DashboardPage() {
     return new Date(dateString).toLocaleDateString();
   };
 
+  // Show error screen
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center p-8 bg-white rounded-2xl shadow-xl max-w-md">
+          <div className="text-6xl mb-4">⚠️</div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Dashboard Error</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <div className="space-y-3">
+            <button
+              onClick={() => window.location.reload()}
+              className="w-full bg-blue-500 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-600 transition-colors"
+            >
+              Refresh Page
+            </button>
+            <button
+              onClick={logout}
+              className="w-full bg-gray-500 text-white px-6 py-3 rounded-lg font-medium hover:bg-gray-600 transition-colors"
+            >
+              Sign Out & Try Again
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show loading screen
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
         <div className="text-center">
           <div className="w-12 h-12 mx-auto mb-4 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
           <p className="text-gray-600 text-lg">Loading your dashboard...</p>
+          <p className="text-gray-500 text-sm mt-2">Setting up your account...</p>
         </div>
       </div>
     );
@@ -173,7 +245,7 @@ export default function DashboardPage() {
               </div>
               <button
                 onClick={logout}
-                className="text-gray-600 hover:text-gray-800 text-sm"
+                className="text-gray-600 hover:text-gray-800 text-sm font-medium px-3 py-1 rounded hover:bg-gray-100 transition-colors"
               >
                 Sign Out
               </button>
@@ -185,7 +257,7 @@ export default function DashboardPage() {
       <main className="max-w-6xl mx-auto px-4 py-6">
         
         {/* Enhanced Quick Stats with Analytics */}
-        {progressSummary && (
+        {progressSummary ? (
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
             <div className="bg-white/80 backdrop-blur-sm rounded-lg p-4 text-center">
               <div className="text-2xl font-bold text-blue-600">{progressSummary.total_sessions}</div>
@@ -209,6 +281,16 @@ export default function DashboardPage() {
             <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg p-4 text-center text-white cursor-pointer hover:from-indigo-600 hover:to-purple-700 transition-all" onClick={viewAnalytics}>
               <div className="text-2xl font-bold">📊</div>
               <div className="text-sm">Analytics</div>
+            </div>
+          </div>
+        ) : (
+          /* New User Welcome */
+          <div className="bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl p-8 mb-8 text-white text-center">
+            <div className="text-4xl mb-4">🎉</div>
+            <h2 className="text-2xl font-bold mb-2">Welcome to Ace Your Role!</h2>
+            <p className="text-blue-100 mb-4">Start your first conversation below to begin tracking your progress</p>
+            <div className="bg-white/20 rounded-lg p-4 inline-block">
+              <p className="text-sm">Ready to practice? Choose a scenario and start talking!</p>
             </div>
           </div>
         )}
@@ -302,7 +384,13 @@ export default function DashboardPage() {
               <div className="text-center py-16">
                 <div className="text-6xl mb-4">🤔</div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">No scenarios available</h3>
-                <p className="text-gray-600">Loading conversation scenarios...</p>
+                <p className="text-gray-600 mb-4">We're loading conversation scenarios...</p>
+                <button
+                  onClick={() => loadData(userEmail)}
+                  className="bg-blue-500 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-600 transition-colors"
+                >
+                  Retry Loading
+                </button>
               </div>
             )}
           </div>
