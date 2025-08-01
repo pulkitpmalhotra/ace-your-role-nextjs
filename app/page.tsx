@@ -116,7 +116,7 @@ export default function LoginPage() {
         {/* User Benefits */}
         <div className="mt-8 p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
           <h3 className="text-lg font-bold text-blue-900 mb-4 text-center">
-            ✨ What You'll Get
+            ✨ What You&apos;ll Get
           </h3>
           <div className="space-y-4">
             <div className="flex items-start space-x-3">
