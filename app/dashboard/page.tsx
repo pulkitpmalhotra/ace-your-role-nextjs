@@ -69,6 +69,7 @@ export default function DashboardPage() {
       
     } catch (err) {
       console.error('❌ Dashboard initialization error:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
       setError('Failed to load dashboard. Please try refreshing the page.');
       setLoading(false);
     }
@@ -121,6 +122,7 @@ export default function DashboardPage() {
       
     } catch (error) {
       console.error('❌ Error loading dashboard data:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       setError('Failed to load some data. The app should still work for starting new sessions.');
     } finally {
       setLoading(false);
