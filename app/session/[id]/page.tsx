@@ -12,7 +12,7 @@ interface Scenario {
   character_role: string;
   character_personality?: string;
   difficulty: string;
-  category: string;
+  role: string;
 }
 
 interface ConversationMessage {
@@ -304,8 +304,8 @@ export default function SessionPage({ params }: { params: { id: string } }) {
       ]
     };
     
-    const categoryGreetings = greetings[scenario.category] || greetings['sales'];
-    return categoryGreetings[Math.floor(Math.random() * categoryGreetings.length)];
+    const roleGreetings = greetings[scenario.role] || greetings['sales'];
+    return roleGreetings[Math.floor(Math.random() * roleGreetings.length)];
   };
 
   // Start speech recognition
@@ -925,7 +925,7 @@ export default function SessionPage({ params }: { params: { id: string } }) {
               <div>
                 <h1 className="text-xl font-bold text-gray-900">{scenario.title}</h1>
                 <p className="text-sm text-gray-600">
-                  {scenario.character_name} • {scenario.difficulty} level • {scenario.category}
+                  {scenario.character_name} • {scenario.difficulty} level • {scenario.role}
                 </p>
               </div>
             </div>
