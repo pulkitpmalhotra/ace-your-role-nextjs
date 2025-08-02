@@ -88,10 +88,13 @@ export default function AnalyticsDashboard() {
   const getRoleEmoji = (role: string) => {
     const emojiMap: Record<string, string> = {
       'sales': '💼',
-      'healthcare': '🏥',
-      'support': '🎧',
-      'legal': '⚖️',
-      'leadership': '👥'
+   'product-manager': '📱',
+  'project-manager': '📋', 
+  'engineer': '👩‍💻',
+  'technical-program-manager': '🔧',
+  'strategy-lead': '🎯',
+  'manager': '👥',
+      'leader': '👥'
     };
     return emojiMap[role] || '💬';
   };
