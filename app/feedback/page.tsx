@@ -9,7 +9,7 @@ interface SessionData {
     title: string;
     character_name: string;
     difficulty: string;
-    category: string;
+    role: string;
   };
   conversation: Array<{
     speaker: 'user' | 'ai';
@@ -24,7 +24,7 @@ interface SessionData {
 
 interface DetailedFeedback {
   overall_score: number;
-  category_scores: {
+  role_scores: {
     [key: string]: {
       score: number;
       feedback: string;
@@ -151,7 +151,7 @@ export default function FeedbackPage() {
     return 'bg-red-500';
   };
 
-  const formatCategoryName = (category: string) => {
+  const formatRoleName = (role: string) => {
     const names: Record<string, string> = {
       opening_rapport: 'Opening & Rapport',
       discovery_needs: 'Discovery & Needs', 
@@ -159,7 +159,7 @@ export default function FeedbackPage() {
       problem_solving: 'Problem Solving',
       professionalism: 'Professionalism'
     };
-    return names[category] || category.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+    return names[role] || role.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
 
   const backToDashboard = () => {
@@ -314,11 +314,11 @@ export default function FeedbackPage() {
             </h2>
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {Object.entries(detailedFeedback.category_scores).map(([category, scoreData]) => (
-                <div key={category} className="border border-gray-200 rounded-xl p-6">
+              {Object.entries(detailedFeedback.role_scores).map(([role, scoreData]) => (
+                <div key={role} className="border border-gray-200 rounded-xl p-6">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-semibold text-gray-900">
-                      {formatCategoryName(category)}
+                      {formatRoleName(role)}
                     </h3>
                     <div className={`px-3 py-1 rounded-full text-sm font-bold ${getScoreColor(scoreData.score)}`}>
                       {scoreData.score.toFixed(1)}/5.0
@@ -498,8 +498,8 @@ export default function FeedbackPage() {
               </span>
             </div>
             <div>
-              <h4 className="font-semibold text-gray-900 mb-2">Category</h4>
-              <p className="text-gray-700 capitalize">{sessionData.scenario.category}</p>
+              <h4 className="font-semibold text-gray-900 mb-2">Role</h4>
+              <p className="text-gray-700 capitalize">{sessionData.scenario.role}</p>
             </div>
           </div>
 
