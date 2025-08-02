@@ -317,8 +317,6 @@ export default function DashboardPage() {
         <div className="flex justify-between items-center mb-4">
           <div className="flex items-center space-x-2 text-sm text-gray-600">
             <span>🎯</span>
-            <span className="hidden sm:inline">Ordered by difficulty: Beginner → Intermediate → Advanced</span>
-            <span className="sm:hidden">By difficulty level</span>
           </div>
           
           <div className="flex items-center space-x-3">
