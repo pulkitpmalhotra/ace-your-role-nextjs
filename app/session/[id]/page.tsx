@@ -1,29 +1,3 @@
-// FORCE DYNAMIC RENDERING (prevents caching)
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
-
-// TEMPORARY TEST - Remove after confirming it works
-const CACHE_BUST_TEST = `Updated at: ${new Date().toISOString()}`;
-
-export default function SessionPage({ params }: { params: { id: string } }) {
-  // Add this test div at the very beginning of your return statement
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      
-      {/* TEMPORARY TEST - Remove after confirming */}
-      <div className="bg-red-500 text-white p-4 text-center font-bold">
-        🚨 CACHE BUST TEST: {CACHE_BUST_TEST}
-        <br />
-        Session ID: {params.id}
-        <br />
-        If you see this, the file is updating! ✅
-      </div>
-      
-      {/* Rest of your component code... */}
-      {/* ... */}
-    </div>
-  );
-}
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -1177,8 +1151,8 @@ export default function SessionPage({ params }: { params: { id: string } }) {
                       Ready to Start Practicing?
                     </h3>
                     <p className="text-gray-600 text-lg mb-6 max-w-md mx-auto">
-                      You're about to have a conversation with <strong>{scenario.character_name}</strong>, 
-                      a {scenario.character_role}. They'll respond naturally to help you practice your skills.
+                      You&apos;re about to have a conversation with <strong>{scenario.character_name}</strong>, 
+                      a {scenario.character_role}. They&apos;ll respond naturally to help you practice your skills.
                     </p>
                     
                     {sessionState.status === 'ready' && !isEndingSession && (
