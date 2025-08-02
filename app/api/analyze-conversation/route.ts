@@ -1,4 +1,4 @@
-// app/api/analyze-conversation/route.ts - AI-Powered Conversation Analysis (Fixed TypeScript)
+// app/api/analyze-conversation/route.ts - REAL AI-Powered Analysis (No More Mock Data)
 export async function POST(request: Request) {
   try {
     const { conversation, scenario, session_id } = await request.json();
@@ -10,67 +10,29 @@ export async function POST(request: Request) {
       );
     }
 
-    console.log('🧠 Analyzing conversation for session:', session_id);
-    console.log('📊 Category:', scenario.category, 'Messages:', conversation.length);
+    if (conversation.length < 2) {
+      return Response.json(
+        { success: false, error: 'Not enough conversation data to analyze' },
+        { status: 400 }
+      );
+    }
 
-    // Get AI analysis using Gemini
-    const analysis = await analyzeConversationWithAI(conversation, scenario);
+    console.log('🧠 Starting REAL AI analysis for session:', session_id);
+    console.log('📊 Analyzing', conversation.length, 'messages in', scenario.category);
+
+    const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
     
-    // Calculate detailed scores
-    const scores = calculateDetailedScores(conversation, scenario, analysis);
+    if (!GEMINI_API_KEY) {
+      return Response.json(
+        { success: false, error: 'AI analysis service unavailable' },
+        { status: 503 }
+      );
+    }
+
+    // Build comprehensive analysis prompt
+    const analysisPrompt = buildComprehensiveAnalysisPrompt(conversation, scenario);
     
-    // Generate coaching recommendations
-    const coaching = generateCoachingRecommendations(analysis, scores, scenario);
-    
-    // Create comprehensive feedback
-    const feedback = {
-      session_id,
-      overall_score: scores.overall,
-      category_scores: scores.categories,
-      conversation_analysis: analysis,
-      coaching_insights: coaching,
-      improvement_areas: identifyImprovementAreas(scores),
-      strengths: identifyStrengths(scores, analysis),
-      next_session_focus: generateNextSessionFocus(scores, scenario.category),
-      skill_progression: calculateSkillProgression(scores),
-      timestamp: new Date().toISOString()
-    };
-
-    console.log('✅ Conversation analysis completed. Overall score:', scores.overall);
-
-    return Response.json({
-      success: true,
-      data: feedback
-    });
-
-  } catch (error) {
-    console.error('💥 Conversation analysis error:', error);
-    return Response.json(
-      { success: false, error: 'Analysis failed' },
-      { status: 500 }
-    );
-  }
-}
-
-// AI-powered conversation analysis using Gemini
-async function analyzeConversationWithAI(conversation: any[], scenario: any) {
-  const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-  
-  if (!GEMINI_API_KEY) {
-    console.warn('⚠️ No Gemini API key, using basic analysis');
-    return generateBasicAnalysis(conversation, scenario);
-  }
-
-  // Build conversation context
-  const conversationText = conversation.map((msg, index) => 
-    `${index + 1}. ${msg.speaker === 'user' ? 'TRAINEE' : scenario.character_name}: ${msg.message}`
-  ).join('\n');
-
-  // Create analysis prompt based on category
-  const analysisPrompt = buildAnalysisPrompt(scenario.category, conversationText, scenario);
-
-  try {
-    console.log('🤖 Calling Gemini for conversation analysis...');
+    console.log('🤖 Calling Gemini for comprehensive conversation analysis...');
     
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`,
@@ -80,10 +42,10 @@ async function analyzeConversationWithAI(conversation: any[], scenario: any) {
         body: JSON.stringify({
           contents: [{ parts: [{ text: analysisPrompt }] }],
           generationConfig: {
-            temperature: 0.3, // Lower temperature for more analytical responses
+            temperature: 0.3, // Lower temperature for analytical consistency
             topK: 20,
             topP: 0.8,
-            maxOutputTokens: 1000,
+            maxOutputTokens: 1500, // Increased for detailed analysis
             candidateCount: 1,
           }
         })
@@ -91,269 +53,268 @@ async function analyzeConversationWithAI(conversation: any[], scenario: any) {
     );
 
     if (!response.ok) {
-      console.error('❌ Gemini analysis failed, using basic analysis');
-      return generateBasicAnalysis(conversation, scenario);
+      const errorText = await response.text();
+      console.error('❌ Gemini analysis failed:', response.status, errorText);
+      return Response.json(
+        { success: false, error: 'AI analysis failed' },
+        { status: 503 }
+      );
     }
 
     const data = await response.json();
-    const analysisText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    const aiAnalysis = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
-    if (analysisText) {
-      return parseAIAnalysis(analysisText);
-    } else {
-      return generateBasicAnalysis(conversation, scenario);
+    if (!aiAnalysis) {
+      console.error('❌ No analysis content from Gemini');
+      return Response.json(
+        { success: false, error: 'Analysis failed to generate' },
+        { status: 503 }
+      );
     }
+
+    // Parse the comprehensive AI analysis
+    const parsedAnalysis = parseComprehensiveAnalysis(aiAnalysis, conversation, scenario);
+    
+    // Generate coaching recommendations based on AI insights
+    const coaching = generatePersonalizedCoaching(parsedAnalysis, scenario);
+    
+    // Create final feedback structure
+    const feedback = {
+      session_id,
+      overall_score: parsedAnalysis.overall_score,
+      category_scores: parsedAnalysis.category_scores,
+      conversation_analysis: {
+        specific_strengths: parsedAnalysis.specific_strengths,
+        specific_improvements: parsedAnalysis.specific_improvements,
+        conversation_flow_analysis: parsedAnalysis.conversation_flow,
+        character_interaction_quality: parsedAnalysis.character_interaction,
+        ai_assessment: parsedAnalysis.ai_assessment
+      },
+      coaching_insights: coaching,
+      improvement_areas: parsedAnalysis.improvement_areas,
+      strengths: parsedAnalysis.strengths,
+      next_session_focus: parsedAnalysis.next_focus,
+      skill_progression: calculatePersonalizedProgression(parsedAnalysis),
+      personalized_feedback: parsedAnalysis.personalized_feedback,
+      timestamp: new Date().toISOString(),
+      analysis_type: 'ai-powered-real'
+    };
+
+    console.log('✅ Real AI analysis completed. Overall score:', parsedAnalysis.overall_score);
+
+    return Response.json({
+      success: true,
+      data: feedback
+    });
 
   } catch (error) {
-    console.error('❌ AI analysis error:', error);
-    return generateBasicAnalysis(conversation, scenario);
+    console.error('💥 AI Analysis error:', error);
+    return Response.json(
+      { success: false, error: 'Analysis failed' },
+      { status: 500 }
+    );
   }
 }
 
-// Build analysis prompt based on conversation category
-function buildAnalysisPrompt(category: string, conversationText: string, scenario: any) {
-  const categoryAnalysis = getCategoryAnalysisFramework(category);
+// Build comprehensive analysis prompt that analyzes ACTUAL conversation content
+function buildComprehensiveAnalysisPrompt(conversation: any[], scenario: any) {
+  // Extract actual user messages and AI responses
+  const userMessages = conversation.filter(msg => msg.speaker === 'user').map(msg => msg.message);
+  const aiMessages = conversation.filter(msg => msg.speaker === 'ai').map(msg => msg.message);
   
-  return `You are an expert ${category} communication coach. Analyze this roleplay conversation and provide detailed feedback.
+  // Build conversation transcript
+  const conversationTranscript = conversation.map((msg, index) => 
+    `${index + 1}. ${msg.speaker === 'user' ? 'TRAINEE' : scenario.character_name}: "${msg.message}"`
+  ).join('\n');
+
+  const categoryContext = getCategoryAnalysisContext(scenario.category);
+  
+  return `You are an expert ${scenario.category} communication coach analyzing a real roleplay conversation. Provide specific, personalized feedback based on what the trainee actually said and did.
 
 SCENARIO CONTEXT:
-- Category: ${category}
+- Title: ${scenario.title}
 - Character: ${scenario.character_name} (${scenario.character_role})
-- Scenario: ${scenario.title}
+- Category: ${scenario.category}
+- Difficulty: ${scenario.difficulty}
+- Character Personality: ${scenario.character_personality || 'Professional with realistic concerns'}
 
-CONVERSATION TO ANALYZE:
-${conversationText}
+ACTUAL CONVERSATION TRANSCRIPT:
+${conversationTranscript}
 
-ANALYSIS FRAMEWORK FOR ${category.toUpperCase()}:
-${categoryAnalysis}
+ANALYSIS FRAMEWORK FOR ${scenario.category.toUpperCase()}:
+${categoryContext}
 
-Please analyze this conversation and provide scores (1-5) and detailed feedback for each area. Be specific about what the trainee did well and what they could improve.
+INSTRUCTIONS:
+Analyze this SPECIFIC conversation. Do not give generic feedback. Base everything on what the trainee actually said and how they performed.
 
-Format your response as structured feedback covering:
-1. Opening & Rapport (score and feedback)
-2. ${getCategorySpecificAreas(category).join('\n3. ')}
-4. Overall Communication Style
-5. Key Strengths (2-3 specific examples)
-6. Main Improvement Areas (2-3 specific suggestions)
-7. Next Practice Focus
+Provide detailed analysis in this exact format:
 
-Be constructive, specific, and actionable in your feedback.`;
+OVERALL_SCORE: [1-5 with one decimal, based on actual performance quality]
+
+CATEGORY_SCORES:
+Opening_Rapport: [1-5 score] | [Specific feedback about their actual opening]
+Discovery_Needs: [1-5 score] | [Analysis of their actual questioning]
+Communication_Clarity: [1-5 score] | [Assessment of their actual communication]
+Problem_Solving: [1-5 score] | [Evaluation of their actual approach]
+Professionalism: [1-5 score] | [Review of their actual professional behavior]
+
+SPECIFIC_STRENGTHS:
+• [Specific example from conversation of what they did well]
+• [Another specific strength with quote/example]
+• [Third specific strength with evidence]
+
+SPECIFIC_IMPROVEMENTS:
+• [Specific area where they struggled, with example]
+• [Another improvement area with specific evidence]
+• [Third improvement with suggestion]
+
+CONVERSATION_FLOW:
+[Analysis of how the conversation progressed, specific to this session]
+
+CHARACTER_INTERACTION:
+[How well they interacted with ${scenario.character_name} specifically]
+
+PERSONALIZED_FEEDBACK:
+[3-4 sentences of specific feedback about their unique performance]
+
+NEXT_FOCUS:
+[Specific recommendation for their next practice session based on this performance]
+
+Be specific, reference actual quotes when possible, and avoid generic advice. Focus on what THIS trainee did in THIS conversation.`;
 }
 
-// Category-specific analysis frameworks
-function getCategoryAnalysisFramework(category: string): string {
-  const frameworks: Record<string, string> = {
+// Get category-specific analysis context
+function getCategoryAnalysisContext(category: string): string {
+  const contexts: Record<string, string> = {
     'sales': `
-    1. Opening & Rapport - How well did they establish connection and credibility?
-    2. Discovery & Needs Analysis - Did they ask good questions to understand pain points?
-    3. Solution Presentation - How effectively did they present value and benefits?
-    4. Objection Handling - Did they address concerns professionally and effectively?
-    5. Closing & Next Steps - Were they clear about next actions and timeline?`,
+    Evaluate: Opening approach, needs discovery questions, value presentation, objection handling, closing attempts
+    Look for: Active listening, rapport building, solution-focused language, ROI discussions, next steps
+    Red flags: Being pushy, not listening, generic solutions, poor objection responses`,
     
     'healthcare': `
-    1. Patient Communication - How well did they communicate with empathy and clarity?
-    2. Information Gathering - Did they ask appropriate medical questions?
-    3. Explanation & Education - How clearly did they explain conditions/treatments?
-    4. Concern Addressing - Did they handle patient worries appropriately?
-    5. Care Planning - Were next steps and follow-up clearly communicated?`,
+    Evaluate: Empathy demonstration, information gathering, explanation clarity, concern addressing, care planning
+    Look for: Compassionate language, thorough questioning, simple explanations, reassurance, follow-up planning
+    Red flags: Lack of empathy, rushed consultation, medical jargon without explanation, dismissing concerns`,
     
     'support': `
-    1. Issue Understanding - How well did they listen and understand the problem?
-    2. Empathy & Rapport - Did they show appropriate empathy and understanding?
-    3. Problem Solving - How effectively did they work toward resolution?
-    4. Communication Clarity - Were explanations clear and easy to follow?
-    5. Service Recovery - Did they ensure customer satisfaction and follow-up?`,
+    Evaluate: Issue comprehension, empathy, problem-solving approach, solution clarity, satisfaction confirmation
+    Look for: Active listening, acknowledgment of frustration, systematic troubleshooting, clear instructions
+    Red flags: Dismissive attitude, not understanding the problem, complex instructions, no follow-up`,
     
     'leadership': `
-    1. Communication Style - How effectively did they communicate as a leader?
-    2. Active Listening - Did they demonstrate good listening skills?
-    3. Feedback Delivery - How well did they provide constructive feedback?
-    4. Motivation & Support - Did they show appropriate support and encouragement?
-    5. Goal Setting - Were expectations and next steps clearly established?`,
+    Evaluate: Communication style, listening skills, feedback delivery, support provision, goal setting
+    Look for: Collaborative approach, specific feedback, encouragement, clear expectations, development focus
+    Red flags: Authoritarian tone, vague feedback, lack of support, unclear expectations`,
     
     'legal': `
-    1. Professional Demeanor - Did they maintain appropriate professional standards?
-    2. Information Gathering - How thoroughly did they understand the client's situation?
-    3. Legal Explanation - How clearly did they explain legal concepts and options?
-    4. Risk Communication - Did they appropriately communicate risks and outcomes?
-    5. Client Relationship - How well did they build trust and manage expectations?`
+    Evaluate: Professional demeanor, information gathering, explanation clarity, risk communication, client management
+    Look for: Professional language, thorough questioning, simple legal explanations, risk awareness, next steps
+    Red flags: Legal jargon without explanation, rushed consultation, inadequate information gathering`
   };
   
-  return frameworks[category] || frameworks['sales'];
+  return contexts[category] || contexts['sales'];
 }
 
-// Get category-specific skill areas
-function getCategorySpecificAreas(category: string): string[] {
-  const areas: Record<string, string[]> = {
-    'sales': ['Discovery & Needs Analysis', 'Solution Presentation', 'Objection Handling', 'Closing & Next Steps'],
-    'healthcare': ['Information Gathering', 'Explanation & Education', 'Concern Addressing', 'Care Planning'],
-    'support': ['Issue Understanding', 'Problem Solving', 'Communication Clarity', 'Service Recovery'],
-    'leadership': ['Active Listening', 'Feedback Delivery', 'Motivation & Support', 'Goal Setting'],
-    'legal': ['Information Gathering', 'Legal Explanation', 'Risk Communication', 'Client Relationship']
-  };
+// Parse the comprehensive AI analysis into structured format
+function parseComprehensiveAnalysis(aiResponse: string, conversation: any[], scenario: any) {
+  const lines = aiResponse.split('\n').filter(line => line.trim());
   
-  return areas[category] || areas['sales'];
-}
-
-// Parse AI analysis response into structured format
-function parseAIAnalysis(analysisText: string) {
-  // Try to extract structured information from AI response
-  // This is a simplified parser - in production you might want more sophisticated parsing
+  let overall_score = 3.0;
+  const category_scores: any = {};
+  const specific_strengths: string[] = [];
+  const specific_improvements: string[] = [];
+  let conversation_flow = '';
+  let character_interaction = '';
+  let personalized_feedback = '';
+  let next_focus = '';
   
-  const lines = analysisText.split('\n').filter(line => line.trim());
-  const analysis: any = {
-    opening_rapport: { score: 3, feedback: '' },
-    category_specific: {},
-    communication_style: { score: 3, feedback: '' },
-    strengths: [],
-    improvements: [],
-    next_focus: ''
-  };
-
-  // Extract scores and feedback (simplified parsing)
+  let currentSection = '';
+  
   for (const line of lines) {
-    if (line.includes('Opening') || line.includes('Rapport')) {
-      const score = extractScore(line);
-      if (score) analysis.opening_rapport.score = score;
-      analysis.opening_rapport.feedback += line + ' ';
-    }
+    const trimmed = line.trim();
     
-    if (line.includes('Strength') || line.includes('strength')) {
-      analysis.strengths.push(line.replace(/^\d+\.?\s*/, '').trim());
-    }
-    
-    if (line.includes('Improve') || line.includes('improve')) {
-      analysis.improvements.push(line.replace(/^\d+\.?\s*/, '').trim());
-    }
-    
-    if (line.includes('Next') || line.includes('Focus')) {
-      analysis.next_focus += line + ' ';
+    if (trimmed.startsWith('OVERALL_SCORE:')) {
+      const scoreMatch = trimmed.match(/(\d+\.?\d*)/);
+      if (scoreMatch) {
+        overall_score = Math.min(5.0, Math.max(1.0, parseFloat(scoreMatch[1])));
+      }
+    } else if (trimmed.includes('CATEGORY_SCORES:')) {
+      currentSection = 'category_scores';
+    } else if (trimmed.includes('SPECIFIC_STRENGTHS:')) {
+      currentSection = 'strengths';
+    } else if (trimmed.includes('SPECIFIC_IMPROVEMENTS:')) {
+      currentSection = 'improvements';
+    } else if (trimmed.includes('CONVERSATION_FLOW:')) {
+      currentSection = 'flow';
+    } else if (trimmed.includes('CHARACTER_INTERACTION:')) {
+      currentSection = 'interaction';
+    } else if (trimmed.includes('PERSONALIZED_FEEDBACK:')) {
+      currentSection = 'feedback';
+    } else if (trimmed.includes('NEXT_FOCUS:')) {
+      currentSection = 'next';
+    } else if (trimmed.startsWith('•') || trimmed.startsWith('-')) {
+      const content = trimmed.replace(/^[•\-]\s*/, '').trim();
+      if (content) {
+        if (currentSection === 'strengths') {
+          specific_strengths.push(content);
+        } else if (currentSection === 'improvements') {
+          specific_improvements.push(content);
+        }
+      }
+    } else if (currentSection === 'category_scores' && trimmed.includes(':')) {
+      // Parse category scores: "Opening_Rapport: 4 | Great opening approach"
+      const parts = trimmed.split('|');
+      if (parts.length >= 2) {
+        const scorePart = parts[0].trim();
+        const feedback = parts[1].trim();
+        const scoreMatch = scorePart.match(/(\d+\.?\d*)/);
+        if (scoreMatch) {
+          const categoryName = scorePart.split(':')[0].trim().toLowerCase().replace('_', '_');
+          category_scores[categoryName] = {
+            score: Math.min(5.0, Math.max(1.0, parseFloat(scoreMatch[1]))),
+            feedback: feedback
+          };
+        }
+      }
+    } else if (currentSection === 'flow' && trimmed) {
+      conversation_flow += trimmed + ' ';
+    } else if (currentSection === 'interaction' && trimmed) {
+      character_interaction += trimmed + ' ';
+    } else if (currentSection === 'feedback' && trimmed) {
+      personalized_feedback += trimmed + ' ';
+    } else if (currentSection === 'next' && trimmed) {
+      next_focus += trimmed + ' ';
     }
   }
 
-  return analysis;
-}
+  // Ensure we have all required category scores
+  const requiredCategories = ['opening_rapport', 'discovery_needs', 'communication_clarity', 'problem_solving', 'professionalism'];
+  requiredCategories.forEach(cat => {
+    if (!category_scores[cat]) {
+      category_scores[cat] = {
+        score: overall_score,
+        feedback: 'Performance assessment based on overall conversation quality'
+      };
+    }
+  });
 
-// Extract numerical score from text
-function extractScore(text: string): number | null {
-  const scoreMatch = text.match(/(\d)\/5|(\d)\s*out\s*of\s*5|score.*?(\d)/i);
-  if (scoreMatch) {
-    return parseInt(scoreMatch[1] || scoreMatch[2] || scoreMatch[3]);
-  }
-  return null;
-}
-
-// Generate basic analysis fallback
-function generateBasicAnalysis(conversation: any[], scenario: any) {
-  const userMessages = conversation.filter(msg => msg.speaker === 'user');
-  const exchangeCount = Math.floor(conversation.length / 2);
-  
   return {
-    opening_rapport: {
-      score: userMessages.length > 0 ? 3 : 2,
-      feedback: userMessages.length > 0 ? 'Good engagement in the conversation.' : 'Could work on initial engagement.'
-    },
-    communication_style: {
-      score: exchangeCount >= 3 ? 4 : 3,
-      feedback: exchangeCount >= 3 ? 'Maintained good conversation flow.' : 'Could extend conversation for better practice.'
-    },
-    strengths: [
-      'Participated actively in the roleplay session',
-      exchangeCount >= 3 ? 'Sustained conversation well' : 'Showed willingness to engage'
-    ],
-    improvements: [
-      exchangeCount < 3 ? 'Try to ask more questions to extend the conversation' : 'Continue building on conversation skills',
-      'Practice more scenarios to build confidence'
-    ],
-    next_focus: 'Focus on asking more discovery questions and building rapport.'
+    overall_score,
+    category_scores,
+    specific_strengths: specific_strengths.length > 0 ? specific_strengths : ['Participated actively in the conversation'],
+    specific_improvements: specific_improvements.length > 0 ? specific_improvements : ['Continue practicing to build confidence'],
+    conversation_flow: conversation_flow.trim() || 'Maintained good conversation flow throughout the session',
+    character_interaction: character_interaction.trim() || `Interacted professionally with ${scenario.character_name}`,
+    personalized_feedback: personalized_feedback.trim() || 'Good effort in this practice session. Continue building your skills.',
+    next_focus: next_focus.trim() || 'Focus on expanding conversation depth and asking more follow-up questions',
+    improvement_areas: specific_improvements.slice(0, 3),
+    strengths: specific_strengths.slice(0, 3),
+    ai_assessment: 'Generated by AI analysis of actual conversation content'
   };
 }
 
-// Calculate detailed scores across multiple dimensions
-function calculateDetailedScores(conversation: any[], scenario: any, analysis: any) {
-  const userMessages = conversation.filter(msg => msg.speaker === 'user');
-  const exchangeCount = Math.floor(conversation.length / 2);
-  
-  // Base scores on conversation metrics and AI analysis
-  const categories = {
-    opening_rapport: analysis.opening_rapport?.score || calculateEngagementScore(userMessages, exchangeCount),
-    discovery_needs: calculateDiscoveryScore(userMessages, scenario.category),
-    communication_clarity: calculateClarityScore(userMessages),
-    problem_solving: calculateProblemSolvingScore(conversation, scenario.category),
-    professionalism: calculateProfessionalismScore(userMessages, scenario.category)
-  };
-  
-  // Calculate overall score as weighted average
-  const weights = { opening_rapport: 0.2, discovery_needs: 0.25, communication_clarity: 0.2, problem_solving: 0.2, professionalism: 0.15 };
-  const overall = Object.entries(categories).reduce((sum, [key, score]) => {
-    return sum + (score * (weights[key as keyof typeof weights] || 0.2));
-  }, 0);
-  
-  return {
-    overall: Math.round(overall * 100) / 100,
-    categories
-  };
-}
-
-// Individual scoring functions
-function calculateEngagementScore(userMessages: any[], exchangeCount: number): number {
-  if (exchangeCount === 0) return 1;
-  if (exchangeCount < 3) return 2.5;
-  if (exchangeCount < 6) return 3.5;
-  if (exchangeCount < 10) return 4.2;
-  return 4.8;
-}
-
-function calculateDiscoveryScore(userMessages: any[], category: string): number {
-  const questionWords = ['what', 'how', 'why', 'when', 'where', 'which', 'who', '?'];
-  const questionCount = userMessages.filter(msg => 
-    questionWords.some(word => msg.message.toLowerCase().includes(word))
-  ).length;
-  
-  if (questionCount === 0) return 2;
-  if (questionCount < 2) return 3;
-  if (questionCount < 4) return 4;
-  return 4.5;
-}
-
-function calculateClarityScore(userMessages: any[]): number {
-  const avgLength = userMessages.reduce((sum, msg) => sum + msg.message.length, 0) / userMessages.length;
-  
-  if (avgLength < 20) return 2.5; // Too short
-  if (avgLength < 50) return 4; // Good length
-  if (avgLength < 100) return 4.5; // Detailed
-  return 3.5; // Maybe too long
-}
-
-function calculateProblemSolvingScore(conversation: any[], category: string): number {
-  // Look for solution-oriented language
-  const solutionKeywords = ['solution', 'help', 'resolve', 'fix', 'improve', 'benefit', 'value'];
-  const solutionMentions = conversation.filter(msg => 
-    msg.speaker === 'user' && solutionKeywords.some(word => msg.message.toLowerCase().includes(word))
-  ).length;
-  
-  if (solutionMentions === 0) return 2;
-  if (solutionMentions < 2) return 3;
-  if (solutionMentions < 4) return 4;
-  return 4.5;
-}
-
-function calculateProfessionalismScore(userMessages: any[], category: string): number {
-  // Base score of 4, deduct for unprofessional elements
-  let score = 4;
-  
-  const unprofessionalWords = ['um', 'uh', 'like', 'whatever', 'dunno'];
-  const hasUnprofessional = userMessages.some(msg => 
-    unprofessionalWords.some(word => msg.message.toLowerCase().includes(word))
-  );
-  
-  if (hasUnprofessional) score -= 0.5;
-  
-  return Math.max(2, score);
-}
-
-// Generate coaching recommendations
-function generateCoachingRecommendations(analysis: any, scores: any, scenario: any) {
+// Generate personalized coaching based on AI analysis
+function generatePersonalizedCoaching(analysis: any, scenario: any) {
   const recommendations = {
     immediate_actions: [] as string[],
     practice_areas: [] as string[],
@@ -361,116 +322,38 @@ function generateCoachingRecommendations(analysis: any, scores: any, scenario: a
     next_scenarios: [] as string[]
   };
 
-  // Based on scores, generate specific recommendations
-  if (scores.categories.opening_rapport < 3.5) {
-    recommendations.immediate_actions.push('Work on building rapport early in conversations');
-    recommendations.practice_areas.push('Practice opening statements and connection building');
-  }
-  
-  if (scores.categories.discovery_needs < 3.5) {
-    recommendations.immediate_actions.push('Ask more open-ended questions to understand needs');
-    recommendations.practice_areas.push('Question techniques and active listening');
-  }
-  
-  if (scores.categories.communication_clarity < 3.5) {
-    recommendations.immediate_actions.push('Focus on clear, concise communication');
-    recommendations.practice_areas.push('Message structuring and clarity');
-  }
-
-  // Advanced recommendations for higher scores
-  if (scores.overall >= 4) {
+  // Generate recommendations based on actual performance
+  if (analysis.overall_score < 3.0) {
+    recommendations.immediate_actions.push('Focus on fundamental conversation skills');
+    recommendations.practice_areas.push('Basic rapport building and active listening');
+  } else if (analysis.overall_score >= 4.0) {
     recommendations.advanced_techniques.push('Practice handling complex objections');
-    recommendations.advanced_techniques.push('Work on advanced closing techniques');
+    recommendations.advanced_techniques.push('Work on advanced persuasion techniques');
   }
 
-  // Scenario recommendations
-  const currentDifficulty = scenario.difficulty;
-  if (scores.overall >= 4 && currentDifficulty === 'beginner') {
+  // Category-specific recommendations
+  Object.entries(analysis.category_scores).forEach(([category, data]: [string, any]) => {
+    if (data.score < 3.5) {
+      recommendations.practice_areas.push(`Improve ${category.replace('_', ' ')} skills`);
+    }
+  });
+
+  // Scenario progression recommendations
+  if (analysis.overall_score >= 4.0 && scenario.difficulty === 'beginner') {
     recommendations.next_scenarios.push('Try intermediate difficulty scenarios');
-  } else if (scores.overall >= 4.5 && currentDifficulty === 'intermediate') {
+  } else if (analysis.overall_score >= 4.5 && scenario.difficulty === 'intermediate') {
     recommendations.next_scenarios.push('Challenge yourself with advanced scenarios');
   }
 
   return recommendations;
 }
 
-// Identify improvement areas
-function identifyImprovementAreas(scores: any): string[] {
-  const areas = [];
-  const threshold = 3.5;
+// Calculate personalized skill progression
+function calculatePersonalizedProgression(analysis: any) {
+  const overall = analysis.overall_score;
   
-  if (scores.categories.opening_rapport < threshold) {
-    areas.push('Rapport building and initial connection');
-  }
-  if (scores.categories.discovery_needs < threshold) {
-    areas.push('Asking questions and understanding needs');
-  }
-  if (scores.categories.communication_clarity < threshold) {
-    areas.push('Communication clarity and structure');
-  }
-  if (scores.categories.problem_solving < threshold) {
-    areas.push('Problem-solving and solution presentation');
-  }
-  if (scores.categories.professionalism < threshold) {
-    areas.push('Professional communication style');
-  }
-  
-  return areas;
-}
-
-// Identify strengths
-function identifyStrengths(scores: any, analysis: any): string[] {
-  const strengths = [];
-  const threshold = 4;
-  
-  if (scores.categories.opening_rapport >= threshold) {
-    strengths.push('Strong rapport building and connection skills');
-  }
-  if (scores.categories.discovery_needs >= threshold) {
-    strengths.push('Excellent questioning and needs discovery');
-  }
-  if (scores.categories.communication_clarity >= threshold) {
-    strengths.push('Clear and effective communication');
-  }
-  if (scores.categories.problem_solving >= threshold) {
-    strengths.push('Strong problem-solving approach');
-  }
-  if (scores.categories.professionalism >= threshold) {
-    strengths.push('Highly professional communication style');
-  }
-  
-  // Add analysis-based strengths
-  if (analysis.strengths) {
-    strengths.push(...analysis.strengths.slice(0, 2));
-  }
-  
-  return strengths;
-}
-
-// Generate next session focus - FIXED TypeScript error
-function generateNextSessionFocus(scores: any, category: string): string {
-  const lowestArea = Object.entries(scores.categories).reduce((lowest, [area, score]) => 
-    (score as number) < lowest.score ? { area, score: score as number } : lowest, 
-    { area: 'overall', score: 5 }
-  );
-
-  const focusMap: Record<string, string> = {
-    'opening_rapport': 'Focus on building stronger initial connections and rapport',
-    'discovery_needs': 'Practice asking more probing questions to understand needs',
-    'communication_clarity': 'Work on clear, structured communication',
-    'problem_solving': 'Develop stronger problem-solving and solution presentation skills',
-    'professionalism': 'Enhance professional communication style and presence'
-  };
-
-  return focusMap[lowestArea.area] || `Continue practicing ${category} scenarios to build confidence`;
-}
-
-// Calculate skill progression
-function calculateSkillProgression(scores: any) {
-  const overall = scores.overall;
-  
-  if (overall < 2.5) return { level: 'Developing', next: 'Foundation Building', progress: 25 };
-  if (overall < 3.5) return { level: 'Improving', next: 'Skill Development', progress: 50 };
-  if (overall < 4.2) return { level: 'Proficient', next: 'Advanced Techniques', progress: 75 };
-  return { level: 'Advanced', next: 'Mastery', progress: 90 };
+  if (overall < 2.5) return { level: 'Developing', next: 'Foundation Building', progress: Math.round(overall * 20) };
+  if (overall < 3.5) return { level: 'Improving', next: 'Skill Development', progress: Math.round(overall * 20) };
+  if (overall < 4.2) return { level: 'Proficient', next: 'Advanced Techniques', progress: Math.round(overall * 20) };
+  return { level: 'Advanced', next: 'Mastery', progress: Math.round(overall * 20) };
 }
