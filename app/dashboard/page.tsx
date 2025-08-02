@@ -316,7 +316,6 @@ export default function DashboardPage() {
         {/* Navigation Buttons */}
         <div className="flex justify-between items-center mb-4">
           <div className="flex items-center space-x-2 text-sm text-gray-600">
-            <span>🎯</span>
           </div>
           
           <div className="flex items-center space-x-3">
