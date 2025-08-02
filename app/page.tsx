@@ -68,9 +68,12 @@ export default function LoginPage() {
           <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent mb-2">
             Ace Your Role
           </h1>
-          <p className="text-lg text-gray-600">
-            Practice Professional Conversations with AI
-          </p>
+           <h2 className="text-2xl font-bold text-blue-900 mb-3">
+              ✨ AI-Powered Professional Training Platform
+            </h2>
+            <p className="text-blue-700 text-lg">
+              Practice real conversations, get instant feedback, and accelerate your career growth
+            </p>
         </div>
 
         {/* Form */}
