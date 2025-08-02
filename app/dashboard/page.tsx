@@ -10,12 +10,12 @@ interface Scenario {
   character_name: string;
   character_role: string;
   difficulty: string;
-  category: string;
+  role: string;
   is_active: boolean;
 }
 
 interface UserProgress {
-  category: string;
+  role: string;
   total_sessions: number;
   total_minutes: number;
   average_score: number;
@@ -24,11 +24,11 @@ interface UserProgress {
 }
 
 interface ProgressSummary {
-  total_categories: number;
+  total_roles: number;
   total_sessions: number;
   total_minutes: number;
   overall_average_score: number;
-  best_category: UserProgress | null;
+  best_role: UserProgress | null;
   days_active: number;
   streak_days: number;
 }
@@ -118,7 +118,7 @@ export default function DashboardPage() {
         if (progressData.success) {
           setUserProgress(progressData.data.progress || []);
           setProgressSummary(progressData.data.summary);
-          console.log('✅ Loaded progress for', progressData.data.progress?.length || 0, 'categories');
+          console.log('✅ Loaded progress for', progressData.data.progress?.length || 0, 'roles');
         } else {
           console.log('ℹ️ No progress data yet:', progressData.error);
           // This is normal for new users
@@ -167,7 +167,7 @@ export default function DashboardPage() {
     router.push('/');
   };
 
-  const getCategoryEmoji = (category: string) => {
+  const getRoleEmoji = (role: string) => {
     const emojiMap: Record<string, string> = {
       'sales': '💼',
       'healthcare': '🏥',
@@ -175,10 +175,10 @@ export default function DashboardPage() {
       'legal': '⚖️',
       'leadership': '👥'
     };
-    return emojiMap[category] || '💬';
+    return emojiMap[role] || '💬';
   };
 
-  const getCategoryDescription = (category: string) => {
+  const getRoleDescription = (role: string) => {
     const descriptions: Record<string, string> = {
       'sales': 'Practice consultative selling, objection handling, and closing techniques',
       'healthcare': 'Develop patient communication, empathy, and medical explanation skills',
@@ -186,7 +186,7 @@ export default function DashboardPage() {
       'legal': 'Practice client consultation, risk communication, and professional advice',
       'leadership': 'Develop team management, feedback delivery, and coaching skills'
     };
-    return descriptions[category] || 'Professional communication practice';
+    return descriptions[role] || 'Professional communication practice';
   };
 
   const getDifficultyColor = (difficulty: string) => {
@@ -490,7 +490,7 @@ export default function DashboardPage() {
                 : 'bg-white/80 text-gray-700 hover:bg-white'
             }`}
           >
-            📈 My Progress ({userProgress.length} categories)
+            📈 My Progress ({userProgress.length} roles)
           </button>
         </div>
 
@@ -504,37 +504,37 @@ export default function DashboardPage() {
 
             {scenarios.length > 0 ? (
               <div className="space-y-8">
-                {/* Group scenarios by category and sort by difficulty */}
+                {/* Group scenarios by role and sort by difficulty */}
                 {Object.entries(
                   scenarios.reduce((acc, scenario) => {
-                    if (!acc[scenario.category]) {
-                      acc[scenario.category] = [];
+                    if (!acc[scenario.role]) {
+                      acc[scenario.role] = [];
                     }
-                    acc[scenario.category].push(scenario);
+                    acc[scenario.role].push(scenario);
                     return acc;
                   }, {} as Record<string, Scenario[]>)
-                ).map(([category, categoryScenarios]) => {
+                ).map(([role, roleScenarios]) => {
                   // Sort scenarios by difficulty: beginner → intermediate → advanced
-                  const sortedScenarios = [...categoryScenarios].sort((a, b) => {
+                  const sortedScenarios = [...roleScenarios].sort((a, b) => {
                     const difficultyOrder = { beginner: 1, intermediate: 2, advanced: 3 };
                     return (difficultyOrder[a.difficulty as keyof typeof difficultyOrder] || 4) - 
                            (difficultyOrder[b.difficulty as keyof typeof difficultyOrder] || 4);
                   });
 
                   return (
-                    <div key={category} className="space-y-4">
-                      {/* Category Header */}
+                    <div key={role} className="space-y-4">
+                      {/* Role Header */}
                       <div className="flex items-center space-x-3 pb-3 border-b border-gray-200">
-                        <div className="text-3xl">{getCategoryEmoji(category)}</div>
+                        <div className="text-3xl">{getRoleEmoji(role)}</div>
                         <div>
-                          <h3 className="text-xl font-semibold text-gray-900 capitalize">{category}</h3>
+                          <h3 className="text-xl font-semibold text-gray-900 capitalize">{role}</h3>
                           <p className="text-sm text-gray-600">
-                            {getCategoryDescription(category)} • {sortedScenarios.length} scenario{sortedScenarios.length !== 1 ? 's' : ''}
+                            {getRoleDescription(role)} • {sortedScenarios.length} scenario{sortedScenarios.length !== 1 ? 's' : ''}
                           </p>
                         </div>
                       </div>
 
-                      {/* Category Scenarios - Carousel if more than display limit, Grid if within limit */}
+                      {/* Role Scenarios - Carousel if more than display limit, Grid if within limit */}
                       {sortedScenarios.length > 3 ? (
                         <ScenarioCarousel 
                           scenarios={sortedScenarios} 
@@ -596,12 +596,12 @@ export default function DashboardPage() {
             {userProgress.length > 0 ? (
               <div className="space-y-4">
                 {userProgress.map((progress) => (
-                  <div key={progress.category} className="bg-white/80 backdrop-blur-sm rounded-lg p-6 border border-white/20">
+                  <div key={progress.role} className="bg-white/80 backdrop-blur-sm rounded-lg p-6 border border-white/20">
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center space-x-3">
-                        <div className="text-2xl">{getCategoryEmoji(progress.category)}</div>
+                        <div className="text-2xl">{getRoleEmoji(progress.role)}</div>
                         <div>
-                          <h3 className="font-semibold text-gray-900 capitalize">{progress.category}</h3>
+                          <h3 className="font-semibold text-gray-900 capitalize">{progress.role}</h3>
                           <p className="text-sm text-gray-600">Last practiced: {formatDate(progress.last_session_date)}</p>
                         </div>
                       </div>
