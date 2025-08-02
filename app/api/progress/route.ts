@@ -6,7 +6,7 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const user_email = searchParams.get('user_email');
-    const category = searchParams.get('category');
+    const role = searchParams.get('role');
     
     console.log('📊 Progress API called with:', { user_email, category });
     
@@ -59,7 +59,7 @@ export async function GET(request: Request) {
       .eq('user_email', user_email);
     
     if (category && category !== 'all') {
-      query = query.eq('category', category);
+      query = query.eq('role', role);
     }
     
     const { data: progress, error } = await query.order('updated_at', { ascending: false });
@@ -103,12 +103,12 @@ export async function GET(request: Request) {
 
     // Calculate summary stats
     const summary = {
-      total_categories: progress?.length || 0,
+      total_roles: progress?.length || 0,
       total_sessions: user?.total_sessions || 0,
       total_minutes: user?.total_minutes || 0,
       overall_average_score: progress?.length ? 
         progress.reduce((sum, p) => sum + (p.average_score || 0), 0) / progress.length : 0,
-      best_category: progress?.length ? 
+      best_role: progress?.length ? 
         progress.reduce((best, current) => 
           (current.best_score || 0) > (best.best_score || 0) ? current : best
         ) : null,
@@ -176,7 +176,7 @@ function calculateStreak(sessions: any[]): number {
 // Update or create progress (manual endpoint for admin use)
 export async function POST(request: Request) {
   try {
-    const { user_email, category, session_data } = await request.json();
+    const { user_email, role, session_data } = await request.json();
     
     if (!user_email || !category) {
       return Response.json(
@@ -218,7 +218,7 @@ export async function POST(request: Request) {
       .from('user_progress')
       .select('*')
       .eq('user_email', user_email)
-      .eq('category', category)
+      .eq('role', role)
       .single();
 
     let result;
@@ -232,7 +232,7 @@ export async function POST(request: Request) {
           last_session_date: new Date().toISOString()
         })
         .eq('user_email', user_email)
-        .eq('category', category)
+        .eq('role', role)
         .select()
         .single();
         
