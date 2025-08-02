@@ -147,8 +147,8 @@ export default function LoginPage() {
                 <span className="text-white text-sm">🎭</span>
               </div>
               <div>
-                <h4 className="font-semibold text-blue-900">Multiple Industries</h4>
-                <p className="text-blue-700 text-sm">Practice sales, healthcare, support, leadership, and legal scenarios</p>
+                <h4 className="font-semibold text-blue-900">Multiple Role</h4>
+                <p className="text-blue-700 text-sm">Practice sales, product managers, project managers, technical program managers, managers, leaders, and strategy leads scenarios</p>
               </div>
             </div>
             
