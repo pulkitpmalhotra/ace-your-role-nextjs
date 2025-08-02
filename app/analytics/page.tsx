@@ -406,7 +406,7 @@ export default function AnalyticsDashboard() {
                 <ul className="space-y-2 text-sm text-blue-800">
                   <li className="flex items-start">
                     <span className="mr-2">•</span>
-                    You've practiced {analyticsData.summary.total_sessions} sessions across {analyticsData.summary.total_roles} skill areas
+                    You've practiced {analyticsData.summary.total_sessions} sessions across {analyticsData.summary.total_roles} professional roles
                   </li>
                   {analyticsData.summary.best_role && (
                     <li className="flex items-start">
