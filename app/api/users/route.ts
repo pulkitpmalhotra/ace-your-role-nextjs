@@ -1,10 +1,66 @@
-// app/api/users/route.ts - Enhanced User Management with Better Error Handling
+// app/api/users/route.ts - Enhanced User Management with Better Environment Variable Handling
 import { createClient } from '@supabase/supabase-js';
+
+// Environment variable checker
+function checkEnvironmentVariables() {
+  console.log('🔧 Checking environment variables...');
+  
+  const requiredVars = {
+    SUPABASE_URL: process.env.SUPABASE_URL,
+    SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY
+  };
+
+  console.log('🔍 Environment variable status:');
+  Object.entries(requiredVars).forEach(([key, value]) => {
+    console.log(`  ${key}: ${value ? '✓ Set' : '❌ Missing'}`);
+  });
+
+  const missing = Object.entries(requiredVars)
+    .filter(([key, value]) => !value)
+    .map(([key]) => key);
+
+  if (missing.length > 0) {
+    const availableEnvVars = Object.keys(process.env)
+      .filter(key => key.includes('SUPABASE') || key.includes('NEXT_PUBLIC'))
+      .sort();
+    
+    console.error('❌ Missing required variables:', missing);
+    console.log('📋 Available Supabase-related env vars:', availableEnvVars);
+    
+    return {
+      isValid: false,
+      missing,
+      available: availableEnvVars,
+      error: `Missing environment variables: ${missing.join(', ')}`
+    };
+  }
+
+  return {
+    isValid: true,
+    missing: [],
+    available: Object.keys(requiredVars),
+    error: null
+  };
+}
 
 export async function POST(request: Request) {
   try {
     console.log('🚀 Users API POST request received');
     
+    // Check environment variables first
+    const envCheck = checkEnvironmentVariables();
+    if (!envCheck.isValid) {
+      return Response.json({
+        success: false,
+        error: 'Database configuration missing. Please check environment variables.',
+        details: {
+          missing: envCheck.missing,
+          available: envCheck.available,
+          help: 'Make sure SUPABASE_URL and SUPABASE_ANON_KEY are set in your Vercel environment variables'
+        }
+      }, { status: 500 });
+    }
+
     const body = await request.json();
     const { email, name } = body;
     
@@ -13,7 +69,11 @@ export async function POST(request: Request) {
     if (!email) {
       console.error('❌ Email is required but not provided');
       return Response.json(
-        { success: false, error: 'Email is required' },
+        { 
+          success: false, 
+          error: 'Email is required',
+          received: { email, name }
+        },
         { status: 400 }
       );
     }
@@ -23,38 +83,28 @@ export async function POST(request: Request) {
     if (!emailRegex.test(email)) {
       console.error('❌ Invalid email format:', email);
       return Response.json(
-        { success: false, error: 'Invalid email format' },
+        { 
+          success: false, 
+          error: 'Invalid email format',
+          received: email
+        },
         { status: 400 }
       );
     }
 
     console.log('👤 Creating/updating user:', email);
 
-    // Check environment variables
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_ANON_KEY;
-    
-    console.log('🔧 Environment check:', {
-      supabaseUrl: supabaseUrl ? '✓ Set' : '❌ Missing',
-      supabaseKey: supabaseKey ? '✓ Set' : '❌ Missing'
-    });
-    
-    if (!supabaseUrl || !supabaseKey) {
-      console.error('❌ Missing Supabase environment variables');
-      return Response.json(
-        { success: false, error: 'Database configuration missing. Please check environment variables.' },
-        { status: 500 }
-      );
-    }
-
-    // Initialize Supabase client
+    // Initialize Supabase client with verified environment variables
     console.log('🗄️ Initializing Supabase client...');
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabase = createClient(
+      process.env.SUPABASE_URL!,
+      process.env.SUPABASE_ANON_KEY!
+    );
     
-    // Test database connection with a simple query
+    // Test database connection
     try {
       console.log('🔍 Testing database connection...');
-      const { data: testData, error: testError } = await supabase
+      const { error: testError } = await supabase
         .from('users')
         .select('count')
         .limit(1);
@@ -68,27 +118,29 @@ export async function POST(request: Request) {
           hint: testError.hint
         });
         
-        // Check if it's a table not found error
         if (testError.code === '42P01') {
-          return Response.json(
-            { success: false, error: 'Database tables not found. Please run the database setup script.' },
-            { status: 500 }
-          );
+          return Response.json({
+            success: false,
+            error: 'Database tables not found. Please run the database setup script.',
+            details: testError
+          }, { status: 500 });
         }
         
-        return Response.json(
-          { success: false, error: `Database error: ${testError.message}` },
-          { status: 500 }
-        );
+        return Response.json({
+          success: false,
+          error: `Database connection failed: ${testError.message}`,
+          details: testError
+        }, { status: 500 });
       }
       
       console.log('✅ Database connection successful');
     } catch (connectionError) {
       console.error('❌ Database connection failed:', connectionError);
-      return Response.json(
-        { success: false, error: 'Cannot connect to database' },
-        { status: 500 }
-      );
+      return Response.json({
+        success: false,
+        error: 'Cannot connect to database',
+        details: connectionError instanceof Error ? connectionError.message : 'Unknown connection error'
+      }, { status: 500 });
     }
     
     // Check if user exists
@@ -101,16 +153,11 @@ export async function POST(request: Request) {
 
     if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 = no rows returned
       console.error('❌ Error fetching user:', fetchError);
-      console.error('Fetch error details:', {
-        code: fetchError.code,
-        message: fetchError.message,
-        details: fetchError.details
-      });
-      
-      return Response.json(
-        { success: false, error: `Database query error: ${fetchError.message}` },
-        { status: 500 }
-      );
+      return Response.json({
+        success: false,
+        error: `Database query error: ${fetchError.message}`,
+        details: fetchError
+      }, { status: 500 });
     }
 
     if (existingUser) {
@@ -129,16 +176,11 @@ export async function POST(request: Request) {
 
       if (updateError) {
         console.error('❌ Error updating user:', updateError);
-        console.error('Update error details:', {
-          code: updateError.code,
-          message: updateError.message,
-          details: updateError.details
-        });
-        
-        return Response.json(
-          { success: false, error: `Failed to update user: ${updateError.message}` },
-          { status: 500 }
-        );
+        return Response.json({
+          success: false,
+          error: `Failed to update user: ${updateError.message}`,
+          details: updateError
+        }, { status: 500 });
       }
 
       console.log('✅ User login updated successfully:', email);
@@ -171,25 +213,19 @@ export async function POST(request: Request) {
 
       if (createError) {
         console.error('❌ Error creating user:', createError);
-        console.error('Create error details:', {
-          code: createError.code,
-          message: createError.message,
-          details: createError.details,
-          hint: createError.hint
-        });
         
-        // Handle specific error cases
         if (createError.code === '23505') { // Unique constraint violation
-          return Response.json(
-            { success: false, error: 'User with this email already exists' },
-            { status: 409 }
-          );
+          return Response.json({
+            success: false,
+            error: 'User with this email already exists'
+          }, { status: 409 });
         }
         
-        return Response.json(
-          { success: false, error: `Failed to create user: ${createError.message}` },
-          { status: 500 }
-        );
+        return Response.json({
+          success: false,
+          error: `Failed to create user: ${createError.message}`,
+          details: createError
+        }, { status: 500 });
       }
 
       console.log('✅ New user created successfully:', email);
@@ -208,10 +244,11 @@ export async function POST(request: Request) {
     
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
     
-    return Response.json(
-      { success: false, error: `Internal server error: ${errorMessage}` },
-      { status: 500 }
-    );
+    return Response.json({
+      success: false,
+      error: `Internal server error: ${errorMessage}`,
+      timestamp: new Date().toISOString()
+    }, { status: 500 });
   }
 }
 
@@ -227,17 +264,20 @@ export async function GET(request: Request) {
       );
     }
 
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_ANON_KEY;
-    
-    if (!supabaseUrl || !supabaseKey) {
-      return Response.json(
-        { success: false, error: 'Database configuration missing' },
-        { status: 500 }
-      );
+    // Check environment variables
+    const envCheck = checkEnvironmentVariables();
+    if (!envCheck.isValid) {
+      return Response.json({
+        success: false,
+        error: 'Database configuration missing',
+        details: envCheck
+      }, { status: 500 });
     }
 
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabase = createClient(
+      process.env.SUPABASE_URL!,
+      process.env.SUPABASE_ANON_KEY!
+    );
     
     // Get user with progress stats
     const { data: user, error } = await supabase
@@ -267,9 +307,9 @@ export async function GET(request: Request) {
     console.error('💥 User GET API error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
     
-    return Response.json(
-      { success: false, error: `Internal server error: ${errorMessage}` },
-      { status: 500 }
-    );
+    return Response.json({
+      success: false,
+      error: `Internal server error: ${errorMessage}`
+    }, { status: 500 });
   }
 }
