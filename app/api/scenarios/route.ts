@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const category = searchParams.get('category') || 'all';
+    const role = searchParams.get('role') || 'all';
     const difficulty = searchParams.get('difficulty') || 'all';
     const search = searchParams.get('search') || '';
     
@@ -32,7 +32,7 @@ export async function GET(request: Request) {
       
     // Apply filters
     if (category !== 'all') {
-      query = query.eq('category', category);
+      query = query.eq('role', role);
     }
     
     if (difficulty !== 'all') {
@@ -61,7 +61,7 @@ export async function GET(request: Request) {
     // Get category and difficulty stats for metadata
     const { data: categoryStats } = await supabase
       .from('scenarios')
-      .select('category')
+      .select('role')
       .eq('is_active', true);
 
     const { data: difficultyStats } = await supabase
@@ -69,7 +69,7 @@ export async function GET(request: Request) {
       .select('difficulty')
       .eq('is_active', true);
 
-    const categories = Array.from(new Set(categoryStats?.map(s => s.category) || []));
+    const roles = Array.from(new Set(roleStats?.map(s => s.role) || []));
     const difficulties = Array.from(new Set(difficultyStats?.map(s => s.difficulty) || []));
 
     return Response.json({
@@ -77,8 +77,8 @@ export async function GET(request: Request) {
       data: scenarios || [],
       meta: {
         total: scenarios?.length || 0,
-        filters: { category, difficulty, search },
-        available_categories: categories,
+        filters: { role, difficulty, search },
+        available_roles: roles,
         available_difficulties: difficulties,
         timestamp: new Date().toISOString(),
         source: 'supabase'
