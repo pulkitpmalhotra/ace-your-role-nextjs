@@ -198,7 +198,7 @@ export async function GET(request: Request) {
         .from('sessions')
         .select(`
           *,
-          scenarios:scenarios(title, character_name, difficulty, category)
+          scenarios:scenarios(title, character_name, difficulty, role)
         `)
         .eq('user_email', user_email)
         .order('created_at', { ascending: false })
@@ -329,7 +329,7 @@ export async function PUT(request: Request) {
 async function updateUserProgress(supabase: any, session: any) {
   try {
     const { user_email, scenarios, duration_minutes, overall_score } = session;
-    const category = scenarios?.category;
+    const role = scenarios?.role;
 
     if (!category) return;
 
@@ -338,7 +338,7 @@ async function updateUserProgress(supabase: any, session: any) {
       .from('user_progress')
       .select('*')
       .eq('user_email', user_email)
-      .eq('category', category)
+      .eq('role', role)
       .single();
 
     if (existingProgress) {
@@ -361,7 +361,7 @@ async function updateUserProgress(supabase: any, session: any) {
           last_session_date: new Date().toISOString()
         })
         .eq('user_email', user_email)
-        .eq('category', category);
+        .eq('role', role);
     } else {
       // Create new progress record
       const { data: user } = await supabase
@@ -376,7 +376,7 @@ async function updateUserProgress(supabase: any, session: any) {
           .insert({
             user_id: user.id,
             user_email,
-            category,
+            role,
             total_sessions: 1,
             total_minutes: duration_minutes || 0,
             average_score: overall_score || null,
