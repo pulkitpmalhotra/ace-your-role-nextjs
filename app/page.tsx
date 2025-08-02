@@ -1,10 +1,16 @@
-// app/page.tsx - MINIMAL TEST VERSION
-export default function HomePage() {
+// app/page.tsx - Simple test
+export default function TestPage() {
   return (
-    <div style={{ padding: '50px', textAlign: 'center' }}>
-      <h1>🎯 Ace Your Role - UPDATED</h1>
-      <p>Test deployment: {new Date().toISOString()}</p>
-      <p>If you see this timestamp, deployment is working!</p>
+    <div style={{ 
+      padding: '50px', 
+      textAlign: 'center', 
+      backgroundColor: 'red', 
+      color: 'white',
+      fontSize: '24px'
+    }}>
+      <h1>🚨 DEPLOYMENT TEST</h1>
+      <p>Updated: {new Date().toISOString()}</p>
+      <p>If you see this RED page, deployment works!</p>
     </div>
   );
 }
