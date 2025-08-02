@@ -1164,7 +1164,7 @@ export default function SessionPage({ params }: { params: { id: string } }) {
                     </h3>
                     <p className="text-gray-600 text-lg mb-6 max-w-md mx-auto">
                       You&apos;re about to have a conversation with <strong>{scenario.character_name}</strong>, 
-                      a {scenario.character_role}. They&apos;ll respond naturally to help you practice your skills.
+                      a {scenario.character_role}. They&apos;ll respond naturally to help you practice your skills. Please read the Practice Guide on the left before starting the conversation.
                     </p>
                     
                     {sessionState.status === 'ready' && !isEndingSession && (
