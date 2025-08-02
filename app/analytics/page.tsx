@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 interface ProgressData {
-  category: string;
+  role: string;
   total_sessions: number;
   total_minutes: number;
   average_score: number;
@@ -21,7 +21,7 @@ interface SessionData {
   scenarios: {
     title: string;
     character_name: string;
-    category: string;
+    role: string;
     difficulty: string;
   };
 }
@@ -29,11 +29,11 @@ interface SessionData {
 interface AnalyticsData {
   progress: ProgressData[];
   summary: {
-    total_categories: number;
+    total_roles: number;
     total_sessions: number;
     total_minutes: number;
     overall_average_score: number;
-    best_category: ProgressData | null;
+    best_role: ProgressData | null;
     days_active: number;
     streak_days: number;
   };
@@ -85,7 +85,7 @@ export default function AnalyticsDashboard() {
     return `${(score / 5) * 100}%`;
   };
 
-  const getCategoryEmoji = (category: string) => {
+  const getRoleEmoji = (role: string) => {
     const emojiMap: Record<string, string> = {
       'sales': '💼',
       'healthcare': '🏥',
@@ -93,7 +93,7 @@ export default function AnalyticsDashboard() {
       'legal': '⚖️',
       'leadership': '👥'
     };
-    return emojiMap[category] || '💬';
+    return emojiMap[role] || '💬';
   };
 
   const formatDate = (dateString: string) => {
@@ -105,22 +105,22 @@ export default function AnalyticsDashboard() {
     });
   };
 
-  const getImprovementTrend = (recent: SessionData[], category: string) => {
-    const categorySessions = recent
-      .filter(s => s.scenarios.category === category && s.overall_score)
+  const getImprovementTrend = (recent: SessionData[], role: string) => {
+    const roleSessions = recent
+      .filter(s => s.scenarios.role === role && s.overall_score)
       .slice(0, 5)
       .reverse();
     
-    if (categorySessions.length < 2) return null;
+    if (roleSessions.length < 2) return null;
     
-    const latest = categorySessions[categorySessions.length - 1].overall_score;
-    const previous = categorySessions[categorySessions.length - 2].overall_score;
+    const latest = roleSessions[roleSessions.length - 1].overall_score;
+    const previous = roleSessions[roleSessions.length - 2].overall_score;
     const change = latest - previous;
     
     return {
       trend: change > 0 ? 'improving' : change < 0 ? 'declining' : 'stable',
       change: Math.abs(change),
-      sessions: categorySessions.length
+      sessions: roleSessions.length
     };
   };
 
@@ -193,7 +193,7 @@ export default function AnalyticsDashboard() {
               </div>
             </div>
             <div className="text-xs text-gray-500">
-              Across {analyticsData.summary.total_categories} categories
+              Across {analyticsData.summary.total_roles} roles
             </div>
           </div>
 
@@ -242,33 +242,33 @@ export default function AnalyticsDashboard() {
           </div>
         </div>
 
-        {/* Category Progress */}
+        {/* Role Progress */}
         <div className="bg-white rounded-2xl shadow-xl p-8 mb-8 border border-white/20">
           <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
             <span className="text-2xl mr-3">📊</span>
-            Skill Category Analysis
+            Skill Role Analysis
           </h2>
           
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {analyticsData.progress.map((category) => {
-              const skillLevel = getSkillLevel(category.average_score);
-              const trend = getImprovementTrend(analyticsData.recent_sessions, category.category);
+            {analyticsData.progress.map((role) => {
+              const skillLevel = getSkillLevel(role.average_score);
+              const trend = getImprovementTrend(analyticsData.recent_sessions, role.role);
               
               return (
-                <div key={category.category} className="border border-gray-200 rounded-xl p-6">
+                <div key={role.role} className="border border-gray-200 rounded-xl p-6">
                   
-                  {/* Category Header */}
+                  {/* Role Header */}
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center space-x-3">
-                      <div className="text-2xl">{getCategoryEmoji(category.category)}</div>
+                      <div className="text-2xl">{getRoleEmoji(role.role)}</div>
                       <div>
-                        <h3 className="text-lg font-semibold text-gray-900 capitalize">{category.category}</h3>
+                        <h3 className="text-lg font-semibold text-gray-900 capitalize">{role.role}</h3>
                         <p className={`text-sm font-medium ${skillLevel.color}`}>{skillLevel.level}</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className={`text-2xl font-bold ${getScoreColor(category.average_score).text}`}>
-                        {category.average_score.toFixed(1)}
+                      <div className={`text-2xl font-bold ${getScoreColor(role.average_score).text}`}>
+                        {role.average_score.toFixed(1)}
                       </div>
                       <div className="text-xs text-gray-500">/ 5.0</div>
                     </div>
@@ -278,16 +278,16 @@ export default function AnalyticsDashboard() {
                   <div className="mb-4">
                     <div className="flex justify-between text-sm text-gray-600 mb-2">
                       <span>Progress</span>
-                      <span>{Math.round((category.average_score / 5) * 100)}%</span>
+                      <span>{Math.round((role.average_score / 5) * 100)}%</span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-3">
                       <div 
                         className={`h-3 rounded-full transition-all duration-500 ${
-                          category.average_score >= 4.5 ? 'bg-green-500' :
-                          category.average_score >= 3.5 ? 'bg-blue-500' :
-                          category.average_score >= 2.5 ? 'bg-yellow-500' : 'bg-red-500'
+                          role.average_score >= 4.5 ? 'bg-green-500' :
+                          role.average_score >= 3.5 ? 'bg-blue-500' :
+                          role.average_score >= 2.5 ? 'bg-yellow-500' : 'bg-red-500'
                         }`}
-                        style={{ width: getProgressWidth(category.average_score) }}
+                        style={{ width: getProgressWidth(role.average_score) }}
                       ></div>
                     </div>
                   </div>
@@ -295,16 +295,16 @@ export default function AnalyticsDashboard() {
                   {/* Statistics */}
                   <div className="grid grid-cols-3 gap-3 mb-4">
                     <div className="text-center">
-                      <div className="text-lg font-semibold text-gray-900">{category.total_sessions}</div>
+                      <div className="text-lg font-semibold text-gray-900">{role.total_sessions}</div>
                       <div className="text-xs text-gray-600">Sessions</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-lg font-semibold text-gray-900">{category.total_minutes}m</div>
+                      <div className="text-lg font-semibold text-gray-900">{role.total_minutes}m</div>
                       <div className="text-xs text-gray-600">Time</div>
                     </div>
                     <div className="text-center">
-                      <div className={`text-lg font-semibold ${getScoreColor(category.best_score).text}`}>
-                        {category.best_score.toFixed(1)}
+                      <div className={`text-lg font-semibold ${getScoreColor(role.best_score).text}`}>
+                        {role.best_score.toFixed(1)}
                       </div>
                       <div className="text-xs text-gray-600">Best</div>
                     </div>
@@ -328,7 +328,7 @@ export default function AnalyticsDashboard() {
 
                   {/* Last Practice */}
                   <div className="text-xs text-gray-500 mt-3">
-                    Last practiced: {formatDate(category.last_session_date)}
+                    Last practiced: {formatDate(role.last_session_date)}
                   </div>
                 </div>
               );
@@ -351,7 +351,7 @@ export default function AnalyticsDashboard() {
                     
                     {/* Session Info */}
                     <div className="flex items-center space-x-4">
-                      <div className="text-2xl">{getCategoryEmoji(session.scenarios.category)}</div>
+                      <div className="text-2xl">{getRoleEmoji(session.scenarios.role)}</div>
                       <div>
                         <h4 className="font-semibold text-gray-900">{session.scenarios.title}</h4>
                         <p className="text-sm text-gray-600">
@@ -406,12 +406,12 @@ export default function AnalyticsDashboard() {
                 <ul className="space-y-2 text-sm text-blue-800">
                   <li className="flex items-start">
                     <span className="mr-2">•</span>
-                    You've practiced {analyticsData.summary.total_sessions} sessions across {analyticsData.summary.total_categories} skill areas
+                    You've practiced {analyticsData.summary.total_sessions} sessions across {analyticsData.summary.total_roles} skill areas
                   </li>
-                  {analyticsData.summary.best_category && (
+                  {analyticsData.summary.best_role && (
                     <li className="flex items-start">
                       <span className="mr-2">•</span>
-                      Your strongest area is <strong>{analyticsData.summary.best_category.category}</strong> with {analyticsData.summary.best_category.best_score.toFixed(1)}/5.0
+                      Your strongest area is <strong>{analyticsData.summary.best_role.role}</strong> with {analyticsData.summary.best_role.best_score.toFixed(1)}/5.0
                     </li>
                   )}
                   {analyticsData.summary.streak_days > 0 && (
@@ -445,7 +445,7 @@ export default function AnalyticsDashboard() {
                   )}
                   <li className="flex items-start">
                     <span className="mr-2">•</span>
-                    Explore new categories to build diverse communication skills
+                    Explore new roles to build diverse communication skills
                   </li>
                 </ul>
               </div>
