@@ -8,7 +8,7 @@ export async function GET(request: Request) {
     const difficulty = searchParams.get('difficulty') || 'all';
     const search = searchParams.get('search') || '';
     
-    console.log('📚 Fetching scenarios from Supabase with filters:', { category, difficulty, search });
+    console.log('📚 Fetching scenarios from Supabase with filters:', { role, difficulty, search });
 
     // Initialize Supabase client
     const supabaseUrl = process.env.SUPABASE_URL;
@@ -31,7 +31,7 @@ export async function GET(request: Request) {
       .eq('is_active', true);
       
     // Apply filters
-    if (category !== 'all') {
+    if (role !== 'all') {
       query = query.eq('role', role);
     }
     
@@ -58,8 +58,8 @@ export async function GET(request: Request) {
 
     console.log(`✅ Retrieved ${scenarios?.length || 0} scenarios from Supabase`);
 
-    // Get category and difficulty stats for metadata
-    const { data: categoryStats } = await supabase
+    // Get role and difficulty stats for metadata
+    const { data: roleStats } = await supabase
       .from('scenarios')
       .select('role')
       .eq('is_active', true);
