@@ -579,7 +579,7 @@ export default function DashboardPage() {
             <div className="mb-6 flex items-center justify-between">
               <div>
                 <h2 className="text-xl font-semibold text-gray-900 mb-3">Your Progress Summary</h2>
-                <p className="text-gray-600">Track your improvement across different skill areas</p>
+                <p className="text-gray-600">Track your improvement across different professional roles</p>
               </div>
               {/* Single consolidated Analytics Dashboard button */}
               {userProgress.length > 0 && (
