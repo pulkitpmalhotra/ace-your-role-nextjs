@@ -273,59 +273,6 @@ export default function DashboardPage() {
 
       <main className="max-w-6xl mx-auto px-4 py-6">
         
-        {/* Platform Features Showcase */}
-        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-8 mb-8 border border-blue-200">
-          <div className="text-center mb-8">
-            <h2 className="text-2xl font-bold text-blue-900 mb-3">
-              ✨ AI-Powered Professional Training Platform
-            </h2>
-            <p className="text-blue-700 text-lg">
-              Practice real conversations, get instant feedback, and accelerate your career growth
-            </p>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-blue-100 text-center">
-              <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl text-white">🎤</span>
-              </div>
-              <h3 className="font-semibold text-blue-900 mb-2">Voice Conversations</h3>
-              <p className="text-blue-700 text-sm leading-relaxed">
-                Have natural voice conversations with AI characters that respond like real people in your industry
-              </p>
-            </div>
-            
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-green-100 text-center">
-              <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl text-white">🧠</span>
-              </div>
-              <h3 className="font-semibold text-green-900 mb-2">AI Analysis</h3>
-              <p className="text-green-700 text-sm leading-relaxed">
-                Get detailed feedback on communication skills, rapport building, and professional techniques
-              </p>
-            </div>
-            
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-purple-100 text-center">
-              <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl text-white">📊</span>
-              </div>
-              <h3 className="font-semibold text-purple-900 mb-2">Progress Tracking</h3>
-              <p className="text-purple-700 text-sm leading-relaxed">
-                Monitor improvement across sales, healthcare, support, leadership, and legal scenarios
-              </p>
-            </div>
-            
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-orange-100 text-center">
-              <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-orange-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl text-white">💡</span>
-              </div>
-              <h3 className="font-semibold text-orange-900 mb-2">Personal Coaching</h3>
-              <p className="text-orange-700 text-sm leading-relaxed">
-                Receive specific recommendations and practice areas tailored to your skill level
-              </p>
-            </div>
-          </div>
-        </div>
-
         {/* Navigation Tabs */}
         <div className="flex space-x-4 mb-6">
           <button
