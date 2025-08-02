@@ -59,7 +59,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center py-12 px-4">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-white/20">
+      <div className="max-w-3xl w-full bg-white rounded-2xl shadow-xl p-8 border border-white/20">
         {/* Logo */}
         <div className="text-center mb-8">
           <div className="mx-auto h-20 w-20 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center mb-6 shadow-lg">
@@ -68,16 +68,13 @@ export default function LoginPage() {
           <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent mb-2">
             Ace Your Role
           </h1>
-          <h2 className="text-2xl font-bold text-blue-900 mb-3">
-              ✨ AI-Powered Professional Training Platform
-            </h2>
-            <p className="text-blue-700 text-lg">
-              Practice real conversations, get instant feedback, and accelerate your career growth
-            </p>
+          <p className="text-lg text-gray-600">
+            Practice Professional Conversations with AI
+          </p>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleLogin} className="space-y-6">
+        <form onSubmit={handleLogin} className="space-y-6 max-w-md mx-auto">
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
               Email Address
@@ -121,7 +118,7 @@ export default function LoginPage() {
           <h3 className="text-lg font-bold text-blue-900 mb-4 text-center">
             ✨ What You'll Get
           </h3>
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="flex items-start space-x-3">
               <div className="flex-shrink-0 w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
                 <span className="text-white text-sm">🎤</span>
