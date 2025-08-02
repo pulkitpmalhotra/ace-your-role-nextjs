@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
 interface Scenario {
@@ -209,6 +209,188 @@ export default function DashboardPage() {
     return new Date(dateString).toLocaleDateString();
   };
 
+  // Scenario Card Component
+  const ScenarioCard = ({ scenario, onStartChat, getDifficultyColor }: {
+    scenario: Scenario;
+    onStartChat: (scenario: Scenario) => void;
+    getDifficultyColor: (difficulty: string) => string;
+  }) => (
+    <div className="bg-white/80 backdrop-blur-sm rounded-lg p-6 shadow-sm hover:shadow-md transition-all duration-200 border border-white/20 hover:border-blue-200 flex-shrink-0 w-full">
+      {/* Difficulty Badge */}
+      <div className="flex justify-end mb-4">
+        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getDifficultyColor(scenario.difficulty)}`}>
+          {scenario.difficulty}
+        </span>
+      </div>
+      
+      {/* Title */}
+      <h4 className="text-lg font-semibold text-gray-900 mb-2">
+        {scenario.title}
+      </h4>
+      
+      {/* Description */}
+      {scenario.description && (
+        <p className="text-gray-600 text-sm mb-4 line-clamp-3">
+          {scenario.description}
+        </p>
+      )}
+      
+      {/* Character */}
+      <div className="mb-6">
+        <p className="text-sm text-gray-700">
+          <span className="font-medium">Talk with:</span> {scenario.character_name}
+        </p>
+        <p className="text-xs text-gray-600">{scenario.character_role}</p>
+      </div>
+      
+      {/* Start Button */}
+      <button
+        onClick={() => onStartChat(scenario)}
+        className="w-full bg-blue-500 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-600 transition-colors"
+      >
+        Start Scenario
+      </button>
+    </div>
+  );
+
+  // Scenario Carousel Component
+  const ScenarioCarousel = ({ scenarios, onStartChat, getDifficultyColor }: {
+    scenarios: Scenario[];
+    onStartChat: (scenario: Scenario) => void;
+    getDifficultyColor: (difficulty: string) => string;
+  }) => {
+    const [currentIndex, setCurrentIndex] = useState(0);
+    const [itemsPerView, setItemsPerView] = useState(3);
+    const carouselRef = useRef<HTMLDivElement>(null);
+    
+    // Update items per view based on screen size
+    useEffect(() => {
+      const updateItemsPerView = () => {
+        if (window.innerWidth < 768) {
+          setItemsPerView(1); // Mobile: 1 item
+        } else if (window.innerWidth < 1024) {
+          setItemsPerView(2); // Tablet: 2 items
+        } else {
+          setItemsPerView(3); // Desktop: 3 items
+        }
+      };
+
+      updateItemsPerView();
+      window.addEventListener('resize', updateItemsPerView);
+      return () => window.removeEventListener('resize', updateItemsPerView);
+    }, []);
+    
+    const maxIndex = Math.max(0, scenarios.length - itemsPerView);
+    
+    const scrollToIndex = (index: number) => {
+      if (carouselRef.current) {
+        const cardWidth = carouselRef.current.scrollWidth / scenarios.length;
+        carouselRef.current.scrollTo({
+          left: cardWidth * index,
+          behavior: 'smooth'
+        });
+      }
+    };
+
+    const goToPrevious = () => {
+      const newIndex = Math.max(0, currentIndex - 1);
+      setCurrentIndex(newIndex);
+      scrollToIndex(newIndex);
+    };
+
+    const goToNext = () => {
+      const newIndex = Math.min(maxIndex, currentIndex + 1);
+      setCurrentIndex(newIndex);
+      scrollToIndex(newIndex);
+    };
+
+    // Get responsive width classes
+    const getItemWidth = () => {
+      if (itemsPerView === 1) return 'w-full';
+      if (itemsPerView === 2) return 'w-1/2';
+      return 'w-1/3';
+    };
+
+    return (
+      <div className="relative">
+        {/* Navigation Buttons */}
+        <div className="flex justify-between items-center mb-4">
+          <div className="flex items-center space-x-2 text-sm text-gray-600">
+            <span>🎯</span>
+            <span className="hidden sm:inline">Ordered by difficulty: Beginner → Intermediate → Advanced</span>
+            <span className="sm:hidden">By difficulty level</span>
+          </div>
+          
+          <div className="flex items-center space-x-3">
+            <span className="text-sm text-gray-500 hidden sm:inline">
+              {currentIndex + 1}-{Math.min(currentIndex + itemsPerView, scenarios.length)} of {scenarios.length}
+            </span>
+            <div className="flex space-x-2">
+              <button
+                onClick={goToPrevious}
+                disabled={currentIndex === 0}
+                className="p-2 rounded-lg bg-white border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                title="Previous scenarios"
+              >
+                ←
+              </button>
+              <button
+                onClick={goToNext}
+                disabled={currentIndex >= maxIndex}
+                className="p-2 rounded-lg bg-white border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                title="Next scenarios"
+              >
+                →
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Carousel Container */}
+        <div 
+          ref={carouselRef}
+          className="carousel-container flex gap-4 overflow-x-auto scroll-smooth"
+          style={{ scrollSnapType: 'x mandatory' }}
+        >
+          {scenarios.map((scenario) => (
+            <div 
+              key={scenario.id} 
+              className={`min-w-0 flex-shrink-0 ${getItemWidth()}`}
+              style={{ 
+                scrollSnapAlign: 'start',
+                paddingRight: '1rem'
+              }}
+            >
+              <ScenarioCard 
+                scenario={scenario}
+                onStartChat={onStartChat}
+                getDifficultyColor={getDifficultyColor}
+              />
+            </div>
+          ))}
+        </div>
+
+        {/* Progress Indicator */}
+        {maxIndex > 0 && (
+          <div className="flex justify-center mt-4 space-x-1">
+            {Array.from({ length: maxIndex + 1 }).map((_, index) => (
+              <button
+                key={index}
+                onClick={() => {
+                  setCurrentIndex(index);
+                  scrollToIndex(index);
+                }}
+                className={`w-2 h-2 rounded-full transition-colors ${
+                  index === currentIndex ? 'bg-blue-500' : 'bg-gray-300'
+                }`}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   // Show error screen
   if (error) {
     return (
@@ -318,7 +500,7 @@ export default function DashboardPage() {
 
             {scenarios.length > 0 ? (
               <div className="space-y-8">
-                {/* Group scenarios by category */}
+                {/* Group scenarios by category and sort by difficulty */}
                 {Object.entries(
                   scenarios.reduce((acc, scenario) => {
                     if (!acc[scenario.category]) {
@@ -327,65 +509,49 @@ export default function DashboardPage() {
                     acc[scenario.category].push(scenario);
                     return acc;
                   }, {} as Record<string, Scenario[]>)
-                ).map(([category, categoryScenarios]) => (
-                  <div key={category} className="space-y-4">
-                    {/* Category Header */}
-                    <div className="flex items-center space-x-3 pb-3 border-b border-gray-200">
-                      <div className="text-3xl">{getCategoryEmoji(category)}</div>
-                      <div>
-                        <h3 className="text-xl font-semibold text-gray-900 capitalize">{category}</h3>
-                        <p className="text-sm text-gray-600">
-                          {getCategoryDescription(category)} • {categoryScenarios.length} scenario{categoryScenarios.length !== 1 ? 's' : ''}
-                        </p>
-                      </div>
-                    </div>
+                ).map(([category, categoryScenarios]) => {
+                  // Sort scenarios by difficulty: beginner → intermediate → advanced
+                  const sortedScenarios = [...categoryScenarios].sort((a, b) => {
+                    const difficultyOrder = { beginner: 1, intermediate: 2, advanced: 3 };
+                    return (difficultyOrder[a.difficulty as keyof typeof difficultyOrder] || 4) - 
+                           (difficultyOrder[b.difficulty as keyof typeof difficultyOrder] || 4);
+                  });
 
-                    {/* Category Scenarios */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {categoryScenarios.map((scenario) => (
-                        <div 
-                          key={scenario.id} 
-                          className="bg-white/80 backdrop-blur-sm rounded-lg p-6 shadow-sm hover:shadow-md transition-all duration-200 border border-white/20 hover:border-blue-200"
-                        >
-                          {/* Difficulty Badge */}
-                          <div className="flex justify-end mb-4">
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getDifficultyColor(scenario.difficulty)}`}>
-                              {scenario.difficulty}
-                            </span>
-                          </div>
-                          
-                          {/* Title */}
-                          <h4 className="text-lg font-semibold text-gray-900 mb-2">
-                            {scenario.title}
-                          </h4>
-                          
-                          {/* Description */}
-                          {scenario.description && (
-                            <p className="text-gray-600 text-sm mb-4 line-clamp-3">
-                              {scenario.description}
-                            </p>
-                          )}
-                          
-                          {/* Character */}
-                          <div className="mb-6">
-                            <p className="text-sm text-gray-700">
-                              <span className="font-medium">Talk with:</span> {scenario.character_name}
-                            </p>
-                            <p className="text-xs text-gray-600">{scenario.character_role}</p>
-                          </div>
-                          
-                          {/* Start Button */}
-                          <button
-                            onClick={() => startChat(scenario)}
-                            className="w-full bg-blue-500 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-600 transition-colors"
-                          >
-                            Start Scenario
-                          </button>
+                  return (
+                    <div key={category} className="space-y-4">
+                      {/* Category Header */}
+                      <div className="flex items-center space-x-3 pb-3 border-b border-gray-200">
+                        <div className="text-3xl">{getCategoryEmoji(category)}</div>
+                        <div>
+                          <h3 className="text-xl font-semibold text-gray-900 capitalize">{category}</h3>
+                          <p className="text-sm text-gray-600">
+                            {getCategoryDescription(category)} • {sortedScenarios.length} scenario{sortedScenarios.length !== 1 ? 's' : ''}
+                          </p>
                         </div>
-                      ))}
+                      </div>
+
+                      {/* Category Scenarios - Carousel if more than display limit, Grid if within limit */}
+                      {sortedScenarios.length > 3 ? (
+                        <ScenarioCarousel 
+                          scenarios={sortedScenarios} 
+                          onStartChat={startChat}
+                          getDifficultyColor={getDifficultyColor}
+                        />
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {sortedScenarios.map((scenario) => (
+                            <ScenarioCard 
+                              key={scenario.id}
+                              scenario={scenario}
+                              onStartChat={startChat}
+                              getDifficultyColor={getDifficultyColor}
+                            />
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="text-center py-16">
