@@ -215,7 +215,7 @@ export default function DashboardPage() {
     onStartChat: (scenario: Scenario) => void;
     getDifficultyColor: (difficulty: string) => string;
   }) => (
-    <div className="bg-white/80 backdrop-blur-sm rounded-lg p-6 shadow-sm hover:shadow-md transition-all duration-200 border border-white/20 hover:border-blue-200 flex-shrink-0 w-full">
+    <div className="bg-white/80 backdrop-blur-sm rounded-lg p-6 shadow-sm hover:shadow-md transition-all duration-200 border border-white/20 hover:border-blue-200 flex-shrink-0 w-full h-80 flex flex-col">
       {/* Difficulty Badge */}
       <div className="flex justify-end mb-4">
         <span className={`px-2 py-1 rounded-full text-xs font-medium ${getDifficultyColor(scenario.difficulty)}`}>
@@ -224,32 +224,36 @@ export default function DashboardPage() {
       </div>
       
       {/* Title */}
-      <h4 className="text-lg font-semibold text-gray-900 mb-2">
+      <h4 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">
         {scenario.title}
       </h4>
       
       {/* Description */}
-      {scenario.description && (
-        <p className="text-gray-600 text-sm mb-4 line-clamp-3">
-          {scenario.description}
-        </p>
-      )}
+      <div className="flex-grow mb-4">
+        {scenario.description && (
+          <p className="text-gray-600 text-sm line-clamp-3">
+            {scenario.description}
+          </p>
+        )}
+      </div>
       
       {/* Character */}
       <div className="mb-6">
         <p className="text-sm text-gray-700">
           <span className="font-medium">Talk with:</span> {scenario.character_name}
         </p>
-        <p className="text-xs text-gray-600">{scenario.character_role}</p>
+        <p className="text-xs text-gray-600 line-clamp-1">{scenario.character_role}</p>
       </div>
       
-      {/* Start Button */}
-      <button
-        onClick={() => onStartChat(scenario)}
-        className="w-full bg-blue-500 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-600 transition-colors"
-      >
-        Start Scenario
-      </button>
+      {/* Start Button - Always at bottom */}
+      <div className="mt-auto">
+        <button
+          onClick={() => onStartChat(scenario)}
+          className="w-full bg-blue-500 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-600 transition-colors"
+        >
+          Start Scenario
+        </button>
+      </div>
     </div>
   );
 
@@ -316,6 +320,9 @@ export default function DashboardPage() {
         {/* Navigation Buttons */}
         <div className="flex justify-between items-center mb-4">
           <div className="flex items-center space-x-2 text-sm text-gray-600">
+            <span>🎯</span>
+            <span className="hidden sm:inline">Ordered by difficulty: Beginner → Intermediate → Advanced</span>
+            <span className="sm:hidden">By difficulty level</span>
           </div>
           
           <div className="flex items-center space-x-3">
@@ -346,7 +353,7 @@ export default function DashboardPage() {
         {/* Carousel Container */}
         <div 
           ref={carouselRef}
-          className="carousel-container flex gap-4 overflow-x-auto scroll-smooth"
+          className="carousel-container flex gap-4 overflow-x-auto scroll-smooth items-stretch"
           style={{ scrollSnapType: 'x mandatory' }}
         >
           {scenarios.map((scenario) => (
