@@ -178,14 +178,16 @@ export default function DashboardPage() {
     return emojiMap[role] || '💬';
   };
 
-  const getRoleDescription = (role: string) => {
-    const descriptions: Record<string, string> = {
-      'sales': 'Practice consultative selling, objection handling, and closing techniques',
-      'healthcare': 'Develop patient communication, empathy, and medical explanation skills',
-      'support': 'Master customer service, issue resolution, and satisfaction techniques',
-      'legal': 'Practice client consultation, risk communication, and professional advice',
-      'leadership': 'Develop team management, feedback delivery, and coaching skills'
-    };
+  const descriptions: Record<string, string> = {
+  'sales': 'Practice consultative selling...',                    // Keep
+  'product-manager': 'Develop product strategy...',
+  'project-manager': 'Master project coordination...',
+  'engineer': 'Practice technical communication...',
+  'technical-program-manager': 'Develop cross-team coordination...',
+  'strategy-lead': 'Practice strategic thinking...',
+  'manager': 'Develop team management...',
+  'leader': 'Practice vision communication...'
+};
     return descriptions[role] || 'Professional communication practice';
   };
 
