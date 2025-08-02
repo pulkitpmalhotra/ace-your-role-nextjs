@@ -282,34 +282,6 @@ export default function DashboardPage() {
             <p className="text-blue-700 text-lg">
               Practice real conversations, get instant feedback, and accelerate your career growth
             </p>
-            
-            {/* Quick Stats for Returning Users */}
-            {progressSummary && (
-              <div className="mt-6 bg-white rounded-xl p-4 border border-blue-200 max-w-2xl mx-auto">
-                <p className="text-blue-900 font-medium mb-3">Your Progress Snapshot</p>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                  <div className="text-center">
-                    <div className="text-xl font-bold text-blue-600">{progressSummary.total_sessions}</div>
-                    <div className="text-blue-700">Sessions</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-xl font-bold text-green-600">{progressSummary.total_minutes}m</div>
-                    <div className="text-blue-700">Practice Time</div>
-                  </div>
-                  <div className="text-center">
-                    <div className={`text-xl font-bold ${getScoreColor(progressSummary.overall_average_score)}`}>
-                      {progressSummary.overall_average_score ? progressSummary.overall_average_score.toFixed(1) : '0.0'}
-                    </div>
-                    <div className="text-blue-700">Avg Score</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-xl font-bold text-purple-600">{progressSummary.streak_days}</div>
-                    <div className="text-blue-700">Day Streak</div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <div className="bg-white rounded-xl p-6 shadow-sm border border-blue-100 text-center">
