@@ -18,10 +18,10 @@ export async function POST(request: Request) {
     }
 
     console.log('🎭 Enhanced AI acting as character:', scenario.character_name);
-    console.log('👤 User is practicing as:', getTrainerRole(scenario.category));
+    console.log('👤 User is practicing as:', getTrainerRole(scenario.role));
 
     const emotion = determineAdvancedEmotionProgression(messageCount || 0, conversationHistory, userMessage, scenario);
-    const conversationStage = getConversationStage(messageCount || 0, scenario.category);
+    const conversationStage = getConversationStage(messageCount || 0, scenario.role);
     
     // Enhanced prompting for better character responses
     const prompt = enhancedMode ? 
@@ -121,8 +121,8 @@ function buildAdvancedCharacterPrompt(scenario: any, userMessage: string, conver
   }
 
   const trainerRole = getTrainerRole(scenario.category);
-  const characterMotivation = getCharacterMotivation(scenario.category);
-  const industryContext = getIndustryContext(scenario.category);
+  const characterMotivation = getCharacterMotivation(scenario.role);
+  const industryContext = getIndustryContext(scenario.role);
   
   return `You are ${scenario.character_name}, a ${scenario.character_role} in a ${scenario.category} scenario.
 
@@ -135,7 +135,7 @@ CRITICAL INSTRUCTIONS:
 CHARACTER PROFILE:
 - Name: ${scenario.character_name}
 - Role: ${scenario.character_role}
-- Personality: ${scenario.character_personality || getDefaultPersonality(scenario.category)}
+- Personality: ${scenario.character_personality || getDefaultPersonality(scenario.role)}
 - Current Emotional State: ${emotion}
 - Conversation Stage: ${conversationStage}
 
