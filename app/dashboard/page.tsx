@@ -273,39 +273,86 @@ export default function DashboardPage() {
 
       <main className="max-w-6xl mx-auto px-4 py-6">
         
-        {/* Quick Stats */}
-        {progressSummary ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <div className="bg-white/80 backdrop-blur-sm rounded-lg p-4 text-center">
-              <div className="text-2xl font-bold text-blue-600">{progressSummary.total_sessions}</div>
-              <div className="text-sm text-gray-600">Sessions</div>
-            </div>
-            <div className="bg-white/80 backdrop-blur-sm rounded-lg p-4 text-center">
-              <div className="text-2xl font-bold text-green-600">{progressSummary.total_minutes}m</div>
-              <div className="text-sm text-gray-600">Practice Time</div>
-            </div>
-            <div className="bg-white/80 backdrop-blur-sm rounded-lg p-4 text-center">
-              <div className={`text-2xl font-bold ${getScoreColor(progressSummary.overall_average_score)}`}>
-                {progressSummary.overall_average_score ? progressSummary.overall_average_score.toFixed(1) : '0.0'}
+        {/* Platform Features Showcase */}
+        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-8 mb-8 border border-blue-200">
+          <div className="text-center mb-8">
+            <h2 className="text-2xl font-bold text-blue-900 mb-3">
+              ✨ AI-Powered Professional Training Platform
+            </h2>
+            <p className="text-blue-700 text-lg">
+              Practice real conversations, get instant feedback, and accelerate your career growth
+            </p>
+            
+            {/* Quick Stats for Returning Users */}
+            {progressSummary && (
+              <div className="mt-6 bg-white rounded-xl p-4 border border-blue-200 max-w-2xl mx-auto">
+                <p className="text-blue-900 font-medium mb-3">Your Progress Snapshot</p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div className="text-center">
+                    <div className="text-xl font-bold text-blue-600">{progressSummary.total_sessions}</div>
+                    <div className="text-blue-700">Sessions</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-xl font-bold text-green-600">{progressSummary.total_minutes}m</div>
+                    <div className="text-blue-700">Practice Time</div>
+                  </div>
+                  <div className="text-center">
+                    <div className={`text-xl font-bold ${getScoreColor(progressSummary.overall_average_score)}`}>
+                      {progressSummary.overall_average_score ? progressSummary.overall_average_score.toFixed(1) : '0.0'}
+                    </div>
+                    <div className="text-blue-700">Avg Score</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-xl font-bold text-purple-600">{progressSummary.streak_days}</div>
+                    <div className="text-blue-700">Day Streak</div>
+                  </div>
+                </div>
               </div>
-              <div className="text-sm text-gray-600">Avg Score</div>
+            )}
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="bg-white rounded-xl p-6 shadow-sm border border-blue-100 text-center">
+              <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-2xl text-white">🎤</span>
+              </div>
+              <h3 className="font-semibold text-blue-900 mb-2">Voice Conversations</h3>
+              <p className="text-blue-700 text-sm leading-relaxed">
+                Have natural voice conversations with AI characters that respond like real people in your industry
+              </p>
             </div>
-            <div className="bg-white/80 backdrop-blur-sm rounded-lg p-4 text-center">
-              <div className="text-2xl font-bold text-purple-600">{progressSummary.streak_days}</div>
-              <div className="text-sm text-gray-600">Day Streak</div>
+            
+            <div className="bg-white rounded-xl p-6 shadow-sm border border-green-100 text-center">
+              <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-2xl text-white">🧠</span>
+              </div>
+              <h3 className="font-semibold text-green-900 mb-2">AI Analysis</h3>
+              <p className="text-green-700 text-sm leading-relaxed">
+                Get detailed feedback on communication skills, rapport building, and professional techniques
+              </p>
+            </div>
+            
+            <div className="bg-white rounded-xl p-6 shadow-sm border border-purple-100 text-center">
+              <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-2xl text-white">📊</span>
+              </div>
+              <h3 className="font-semibold text-purple-900 mb-2">Progress Tracking</h3>
+              <p className="text-purple-700 text-sm leading-relaxed">
+                Monitor improvement across sales, healthcare, support, leadership, and legal scenarios
+              </p>
+            </div>
+            
+            <div className="bg-white rounded-xl p-6 shadow-sm border border-orange-100 text-center">
+              <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-orange-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-2xl text-white">💡</span>
+              </div>
+              <h3 className="font-semibold text-orange-900 mb-2">Personal Coaching</h3>
+              <p className="text-orange-700 text-sm leading-relaxed">
+                Receive specific recommendations and practice areas tailored to your skill level
+              </p>
             </div>
           </div>
-        ) : (
-          /* New User Welcome */
-          <div className="bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl p-8 mb-8 text-white text-center">
-            <div className="text-4xl mb-4">🎉</div>
-            <h2 className="text-2xl font-bold mb-2">Welcome to Ace Your Role!</h2>
-            <p className="text-blue-100 mb-4">Start your first conversation below to begin tracking your progress</p>
-            <div className="bg-white/20 rounded-lg p-4 inline-block">
-              <p className="text-sm">Ready to practice? Choose a scenario and start practicing!</p>
-            </div>
-          </div>
-        )}
+        </div>
 
         {/* Navigation Tabs */}
         <div className="flex space-x-4 mb-6">
@@ -477,27 +524,6 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Enhanced Help Section */}
-        <div className="mt-12 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-6 text-center border border-blue-200">
-          <h3 className="font-semibold text-blue-900 mb-4">✨ Enhanced Features Now Available!</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm text-blue-800">
-            <div className="flex flex-col items-center space-y-2">
-              <span className="text-2xl">🧠</span>
-              <span className="font-medium">AI Analysis</span>
-              <span>Get detailed feedback on your conversation skills</span>
-            </div>
-            <div className="flex flex-col items-center space-y-2">
-              <span className="text-2xl">📊</span>
-              <span className="font-medium">Progress Tracking</span>
-              <span>Monitor improvement across multiple skill areas</span>
-            </div>
-            <div className="flex flex-col items-center space-y-2">
-              <span className="text-2xl">💡</span>
-              <span className="font-medium">Personalized Coaching</span>
-              <span>Receive specific recommendations for growth</span>
-            </div>
-          </div>
-        </div>
       </main>
     </div>
   );
