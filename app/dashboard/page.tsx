@@ -178,6 +178,17 @@ export default function DashboardPage() {
     return emojiMap[category] || '💬';
   };
 
+  const getCategoryDescription = (category: string) => {
+    const descriptions: Record<string, string> = {
+      'sales': 'Practice consultative selling, objection handling, and closing techniques',
+      'healthcare': 'Develop patient communication, empathy, and medical explanation skills',
+      'support': 'Master customer service, issue resolution, and satisfaction techniques',
+      'legal': 'Practice client consultation, risk communication, and professional advice',
+      'leadership': 'Develop team management, feedback delivery, and coaching skills'
+    };
+    return descriptions[category] || 'Professional communication practice';
+  };
+
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
       case 'beginner': return 'bg-green-100 text-green-800';
@@ -305,54 +316,78 @@ export default function DashboardPage() {
               <p className="text-gray-600">Select a scenario below and start practicing with AI characters</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {scenarios.map((scenario) => (
-                <div 
-                  key={scenario.id} 
-                  className="bg-white/80 backdrop-blur-sm rounded-lg p-6 shadow-sm hover:shadow-md transition-all duration-200 border border-white/20 hover:border-blue-200"
-                >
-                  {/* Category and Difficulty */}
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="text-3xl">
-                      {getCategoryEmoji(scenario.category)}
+            {scenarios.length > 0 ? (
+              <div className="space-y-8">
+                {/* Group scenarios by category */}
+                {Object.entries(
+                  scenarios.reduce((acc, scenario) => {
+                    if (!acc[scenario.category]) {
+                      acc[scenario.category] = [];
+                    }
+                    acc[scenario.category].push(scenario);
+                    return acc;
+                  }, {} as Record<string, Scenario[]>)
+                ).map(([category, categoryScenarios]) => (
+                  <div key={category} className="space-y-4">
+                    {/* Category Header */}
+                    <div className="flex items-center space-x-3 pb-3 border-b border-gray-200">
+                      <div className="text-3xl">{getCategoryEmoji(category)}</div>
+                      <div>
+                        <h3 className="text-xl font-semibold text-gray-900 capitalize">{category}</h3>
+                        <p className="text-sm text-gray-600">
+                          {getCategoryDescription(category)} • {categoryScenarios.length} scenario{categoryScenarios.length !== 1 ? 's' : ''}
+                        </p>
+                      </div>
                     </div>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getDifficultyColor(scenario.difficulty)}`}>
-                      {scenario.difficulty}
-                    </span>
-                  </div>
-                  
-                  {/* Title */}
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    {scenario.title}
-                  </h3>
-                  
-                  {/* Description */}
-                  {scenario.description && (
-                    <p className="text-gray-600 text-sm mb-4 line-clamp-3">
-                      {scenario.description}
-                    </p>
-                  )}
-                  
-                  {/* Character */}
-                  <div className="mb-6">
-                    <p className="text-sm text-gray-700">
-                      <span className="font-medium">Talk with:</span> {scenario.character_name}
-                    </p>
-                    <p className="text-xs text-gray-600">{scenario.character_role}</p>
-                  </div>
-                  
-                  {/* Start Button */}
-                  <button
-                    onClick={() => startChat(scenario)}
-                    className="w-full bg-blue-500 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-600 transition-colors"
-                  >
-                    Start Scenario
-                  </button>
-                </div>
-              ))}
-            </div>
 
-            {scenarios.length === 0 && (
+                    {/* Category Scenarios */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {categoryScenarios.map((scenario) => (
+                        <div 
+                          key={scenario.id} 
+                          className="bg-white/80 backdrop-blur-sm rounded-lg p-6 shadow-sm hover:shadow-md transition-all duration-200 border border-white/20 hover:border-blue-200"
+                        >
+                          {/* Difficulty Badge */}
+                          <div className="flex justify-end mb-4">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getDifficultyColor(scenario.difficulty)}`}>
+                              {scenario.difficulty}
+                            </span>
+                          </div>
+                          
+                          {/* Title */}
+                          <h4 className="text-lg font-semibold text-gray-900 mb-2">
+                            {scenario.title}
+                          </h4>
+                          
+                          {/* Description */}
+                          {scenario.description && (
+                            <p className="text-gray-600 text-sm mb-4 line-clamp-3">
+                              {scenario.description}
+                            </p>
+                          )}
+                          
+                          {/* Character */}
+                          <div className="mb-6">
+                            <p className="text-sm text-gray-700">
+                              <span className="font-medium">Talk with:</span> {scenario.character_name}
+                            </p>
+                            <p className="text-xs text-gray-600">{scenario.character_role}</p>
+                          </div>
+                          
+                          {/* Start Button */}
+                          <button
+                            onClick={() => startChat(scenario)}
+                            className="w-full bg-blue-500 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-600 transition-colors"
+                          >
+                            Start Scenario
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
               <div className="text-center py-16">
                 <div className="text-6xl mb-4">🤔</div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">No scenarios available</h3>
