@@ -8,7 +8,7 @@ export async function GET(request: Request) {
     const user_email = searchParams.get('user_email');
     const role = searchParams.get('role');
     
-    console.log('📊 Progress API called with:', { user_email, category });
+    console.log('📊 Progress API called with:', { user_email, role });
     
     // Enhanced validation
     if (!user_email) {
@@ -17,7 +17,7 @@ export async function GET(request: Request) {
         { 
           success: false, 
           error: 'User email is required',
-          received: { user_email, category },
+          received: { user_email, role },
           help: 'Make sure user_email parameter is provided in the URL'
         },
         { status: 400 }
@@ -37,7 +37,7 @@ export async function GET(request: Request) {
       );
     }
 
-    console.log('📊 Fetching progress for:', user_email, category || 'all categories');
+    console.log('📊 Fetching progress for:', user_email, role || 'all roles');
 
     const supabaseUrl = process.env.SUPABASE_URL;
     const supabaseKey = process.env.SUPABASE_ANON_KEY;
@@ -58,7 +58,7 @@ export async function GET(request: Request) {
       .select('*')
       .eq('user_email', user_email);
     
-    if (category && category !== 'all') {
+    if (role && role !== 'all') {
       query = query.eq('role', role);
     }
     
@@ -89,7 +89,7 @@ export async function GET(request: Request) {
       .from('sessions')
       .select(`
         id, start_time, duration_minutes, overall_score, session_status,
-        scenarios:scenarios(title, character_name, category, difficulty)
+        scenarios:scenarios(title, character_name, role, difficulty)
       `)
       .eq('user_email', user_email)
       .eq('session_status', 'completed')
@@ -117,7 +117,7 @@ export async function GET(request: Request) {
       streak_days: calculateStreak(recentSessions || [])
     };
 
-    console.log(`✅ Retrieved progress for ${user_email}: ${progress?.length || 0} categories`);
+    console.log(`✅ Retrieved progress for ${user_email}: ${progress?.length || 0} roles`);
 
     return Response.json({
       success: true,
@@ -178,14 +178,14 @@ export async function POST(request: Request) {
   try {
     const { user_email, role, session_data } = await request.json();
     
-    if (!user_email || !category) {
+    if (!user_email || !role) {
       return Response.json(
-        { success: false, error: 'User email and category are required' },
+        { success: false, error: 'User email and role are required' },
         { status: 400 }
       );
     }
 
-    console.log('📈 Manually updating progress for:', user_email, category);
+    console.log('📈 Manually updating progress for:', user_email, role);
 
     const supabaseUrl = process.env.SUPABASE_URL;
     const supabaseKey = process.env.SUPABASE_ANON_KEY;
@@ -252,7 +252,7 @@ export async function POST(request: Request) {
         .insert({
           user_id: user.id,
           user_email,
-          category,
+          role,
           ...session_data,
           last_session_date: new Date().toISOString()
         })
@@ -270,7 +270,7 @@ export async function POST(request: Request) {
       result = data;
     }
 
-    console.log('✅ Progress updated for:', user_email, category);
+    console.log('✅ Progress updated for:', user_email, role);
 
     return Response.json({
       success: true,
