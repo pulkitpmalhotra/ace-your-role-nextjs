@@ -16,28 +16,45 @@ export async function POST() {
     const ninetyDaysAgo = new Date();
     ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
     
-    const { data: oldSessions, error: deleteError } = await supabase
+    // First count how many sessions will be deleted
+    const { count: sessionsToDelete, error: countError } = await supabase
+      .from('sessions')
+      .select('*', { count: 'exact', head: true })
+      .lt('created_at', ninetyDaysAgo.toISOString());
+
+    if (countError) {
+      console.error('❌ Error counting sessions to delete:', countError);
+      throw countError;
+    }
+
+    // Delete the sessions and get the deleted rows back
+    const { data: deletedSessions, error: deleteError } = await supabase
       .from('sessions')
       .delete()
-      .lt('created_at', ninetyDaysAgo.toISOString());
+      .lt('created_at', ninetyDaysAgo.toISOString())
+      .select('id');
 
     if (deleteError) {
       console.error('❌ Cleanup error:', deleteError);
       throw deleteError;
     }
 
-    console.log('✅ Cleanup completed:', oldSessions?.length || 0, 'sessions deleted');
+    const deletedCount = deletedSessions?.length || 0;
+    console.log('✅ Cleanup completed:', deletedCount, 'sessions deleted');
     
     return Response.json({
       success: true,
-      deleted: oldSessions?.length || 0,
-      cutoff_date: ninetyDaysAgo.toISOString()
+      deleted: deletedCount,
+      cutoff_date: ninetyDaysAgo.toISOString(),
+      sessions_found: sessionsToDelete || 0
     });
 
   } catch (error) {
     console.error('💥 Cleanup API error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    
     return Response.json(
-      { success: false, error: 'Cleanup failed' },
+      { success: false, error: 'Cleanup failed', details: errorMessage },
       { status: 500 }
     );
   }
