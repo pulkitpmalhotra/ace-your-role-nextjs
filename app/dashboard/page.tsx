@@ -155,7 +155,7 @@ export default function DashboardPage() {
     router.push(`/session/${scenario.id}`);
   };
 
-  const viewAnalytics = () => {
+  const viewAnalyticsDashboard = () => {
     router.push('/analytics');
   };
 
@@ -273,9 +273,9 @@ export default function DashboardPage() {
 
       <main className="max-w-6xl mx-auto px-4 py-6">
         
-        {/* Enhanced Quick Stats with Analytics */}
+        {/* Quick Stats */}
         {progressSummary ? (
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
             <div className="bg-white/80 backdrop-blur-sm rounded-lg p-4 text-center">
               <div className="text-2xl font-bold text-blue-600">{progressSummary.total_sessions}</div>
               <div className="text-sm text-gray-600">Sessions</div>
@@ -293,11 +293,6 @@ export default function DashboardPage() {
             <div className="bg-white/80 backdrop-blur-sm rounded-lg p-4 text-center">
               <div className="text-2xl font-bold text-purple-600">{progressSummary.streak_days}</div>
               <div className="text-sm text-gray-600">Day Streak</div>
-            </div>
-            {/* Analytics Button */}
-            <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg p-4 text-center text-white cursor-pointer hover:from-indigo-600 hover:to-purple-700 transition-all" onClick={viewAnalytics}>
-              <div className="text-2xl font-bold">📊</div>
-              <div className="text-sm">Analytics</div>
             </div>
           </div>
         ) : (
@@ -333,12 +328,6 @@ export default function DashboardPage() {
             }`}
           >
             📈 My Progress ({userProgress.length} categories)
-          </button>
-          <button
-            onClick={viewAnalytics}
-            className="px-6 py-3 rounded-lg font-medium bg-gradient-to-r from-indigo-500 to-purple-600 text-white hover:from-indigo-600 hover:to-purple-700 transition-all shadow-lg"
-          >
-            🔬 Advanced Analytics
           </button>
         </div>
 
@@ -413,7 +402,7 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Quick Progress View */}
+        {/* Progress View */}
         {selectedView === 'progress' && (
           <div>
             <div className="mb-6 flex items-center justify-between">
@@ -421,12 +410,16 @@ export default function DashboardPage() {
                 <h2 className="text-xl font-semibold text-gray-900 mb-3">Your Progress Summary</h2>
                 <p className="text-gray-600">Track your improvement across different skill areas</p>
               </div>
-              <button
-                onClick={viewAnalytics}
-                className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-6 py-3 rounded-lg font-medium hover:from-indigo-600 hover:to-purple-700 transition-all shadow-lg"
-              >
-                🔬 View Detailed Analytics
-              </button>
+              {/* Single consolidated Analytics Dashboard button */}
+              {userProgress.length > 0 && (
+                <button
+                  onClick={viewAnalyticsDashboard}
+                  className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-6 py-3 rounded-lg font-medium hover:from-indigo-600 hover:to-purple-700 transition-all shadow-lg flex items-center space-x-2"
+                >
+                  <span className="text-lg">📊</span>
+                  <span>Analytics Dashboard</span>
+                </button>
+              )}
             </div>
 
             {userProgress.length > 0 ? (
