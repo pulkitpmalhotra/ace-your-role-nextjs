@@ -25,13 +25,18 @@ interface SessionData {
 interface DetailedFeedback {
   overall_score: number;
   category_scores: {
-    opening_rapport: number;
-    discovery_needs: number;
-    communication_clarity: number;
-    problem_solving: number;
-    professionalism: number;
+    [key: string]: {
+      score: number;
+      feedback: string;
+    };
   };
-  conversation_analysis: any;
+  conversation_analysis: {
+    specific_strengths: string[];
+    specific_improvements: string[];
+    conversation_flow_analysis: string;
+    character_interaction_quality: string;
+    ai_assessment: string;
+  };
   coaching_insights: {
     immediate_actions: string[];
     practice_areas: string[];
@@ -46,6 +51,8 @@ interface DetailedFeedback {
     next: string;
     progress: number;
   };
+  personalized_feedback: string;
+  analysis_type: string;
 }
 
 export default function FeedbackPage() {
@@ -53,6 +60,7 @@ export default function FeedbackPage() {
   const [detailedFeedback, setDetailedFeedback] = useState<DetailedFeedback | null>(null);
   const [loading, setLoading] = useState(true);
   const [analyzingConversation, setAnalyzingConversation] = useState(false);
+  const [analysisError, setAnalysisError] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -69,11 +77,12 @@ export default function FeedbackPage() {
       const data = JSON.parse(lastSession);
       setSessionData(data);
       
-      // Trigger detailed analysis
-      if (data.sessionId && data.conversation.length > 0) {
-        analyzeConversation(data);
+      // Trigger real AI analysis
+      if (data.sessionId && data.conversation.length >= 2) {
+        analyzeConversationWithAI(data);
       } else {
         setLoading(false);
+        setAnalysisError(true);
       }
     } else {
       router.push('/dashboard');
@@ -81,11 +90,12 @@ export default function FeedbackPage() {
     }
   }, [router]);
 
-  const analyzeConversation = async (data: SessionData) => {
+  const analyzeConversationWithAI = async (data: SessionData) => {
     setAnalyzingConversation(true);
+    setAnalysisError(false);
     
     try {
-      console.log('🧠 Starting detailed conversation analysis...');
+      console.log('🧠 Starting REAL AI conversation analysis...');
       
       const response = await fetch('/api/analyze-conversation', {
         method: 'POST',
@@ -99,14 +109,21 @@ export default function FeedbackPage() {
 
       const result = await response.json();
       
-      if (result.success) {
+      if (result.success && result.data) {
         setDetailedFeedback(result.data);
-        console.log('✅ Detailed analysis completed');
+        console.log('✅ Real AI analysis completed:', result.data.analysis_type);
+        
+        // Show success indicator if it's real AI analysis
+        if (result.data.analysis_type === 'ai-powered-real') {
+          console.log('🎉 This is REAL AI analysis, not mock data!');
+        }
       } else {
-        console.error('❌ Analysis failed:', result.error);
+        console.error('❌ AI Analysis failed:', result.error);
+        setAnalysisError(true);
       }
     } catch (error) {
-      console.error('❌ Error analyzing conversation:', error);
+      console.error('❌ Error during AI analysis:', error);
+      setAnalysisError(true);
     } finally {
       setAnalyzingConversation(false);
       setLoading(false);
@@ -137,12 +154,12 @@ export default function FeedbackPage() {
   const formatCategoryName = (category: string) => {
     const names: Record<string, string> = {
       opening_rapport: 'Opening & Rapport',
-      discovery_needs: 'Discovery & Needs',
+      discovery_needs: 'Discovery & Needs', 
       communication_clarity: 'Communication Clarity',
       problem_solving: 'Problem Solving',
       professionalism: 'Professionalism'
     };
-    return names[category] || category;
+    return names[category] || category.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
 
   const backToDashboard = () => {
@@ -160,8 +177,12 @@ export default function FeedbackPage() {
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Analyzing Your Performance</h2>
-          <p className="text-gray-600">Our AI is reviewing your conversation...</p>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">
+            {analyzingConversation ? 'Analyzing Your Performance with AI' : 'Loading Your Results'}
+          </h2>
+          <p className="text-gray-600">
+            {analyzingConversation ? 'Our AI is conducting a detailed review of your conversation...' : 'Preparing your feedback...'}
+          </p>
         </div>
       </div>
     );
@@ -174,14 +195,61 @@ export default function FeedbackPage() {
         {/* Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full mb-6">
-            <span className="text-3xl text-white">📊</span>
+            <span className="text-3xl text-white">
+              {analysisError ? '⚠️' : detailedFeedback?.analysis_type === 'ai-powered-real' ? '🤖' : '📊'}
+            </span>
           </div>
           <h1 className="text-4xl font-bold text-gray-900 mb-3">Session Complete!</h1>
-          <p className="text-xl text-gray-600">Here's your detailed performance analysis</p>
+          <p className="text-xl text-gray-600">
+            {analysisError ? 'Basic analysis available' : 
+             detailedFeedback?.analysis_type === 'ai-powered-real' ? 'AI-powered personalized analysis' : 
+             'Here\'s your performance analysis'}
+          </p>
+          
+          {/* Analysis Type Indicator */}
+          {detailedFeedback && (
+            <div className="mt-4">
+              <span className={`inline-block px-4 py-2 rounded-full text-sm font-semibold ${
+                detailedFeedback.analysis_type === 'ai-powered-real' 
+                  ? 'bg-green-100 text-green-800 border border-green-200' 
+                  : 'bg-yellow-100 text-yellow-800 border border-yellow-200'
+              }`}>
+                {detailedFeedback.analysis_type === 'ai-powered-real' 
+                  ? '✨ Real AI Analysis - Personalized for You' 
+                  : '📊 Standard Analysis'}
+              </span>
+            </div>
+          )}
         </div>
 
+        {/* Error State */}
+        {analysisError && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-6 mb-8">
+            <div className="text-center">
+              <h3 className="text-lg font-semibold text-yellow-800 mb-2">Analysis Temporarily Unavailable</h3>
+              <p className="text-yellow-700 mb-4">
+                Our AI analysis service is currently unavailable. Your session was saved successfully!
+              </p>
+              <div className="space-x-4">
+                <button
+                  onClick={() => analyzeConversationWithAI(sessionData)}
+                  className="bg-yellow-600 text-white px-6 py-2 rounded-lg hover:bg-yellow-700"
+                >
+                  Retry Analysis
+                </button>
+                <button
+                  onClick={backToDashboard}
+                  className="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700"
+                >
+                  Continue to Dashboard
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Overall Score Card */}
-        {detailedFeedback ? (
+        {detailedFeedback && (
           <div className="bg-white rounded-2xl shadow-xl p-8 mb-8 border border-white/20">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               {/* Overall Score */}
@@ -222,187 +290,192 @@ export default function FeedbackPage() {
               </div>
             </div>
           </div>
-        ) : (
-          /* Basic Score Card (while analyzing) */
-          <div className="bg-white rounded-2xl shadow-xl p-8 mb-8 border border-white/20">
-            {analyzingConversation ? (
-              <div className="text-center">
-                <div className="w-12 h-12 border-3 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">AI Analysis in Progress</h3>
-                <p className="text-gray-600">Analyzing your conversation for detailed insights...</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-8 text-center">
-                <div>
-                  <div className="text-4xl font-bold text-blue-600 mb-2">{sessionData.exchanges}</div>
-                  <div className="text-gray-600">Exchanges</div>
-                </div>
-                <div>
-                  <div className="text-4xl font-bold text-green-600 mb-2">{sessionData.duration}m</div>
-                  <div className="text-gray-600">Duration</div>
-                </div>
-              </div>
-            )}
+        )}
+
+        {/* Personalized Feedback */}
+        {detailedFeedback?.personalized_feedback && (
+          <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-2xl p-8 mb-8 border border-purple-200">
+            <h2 className="text-2xl font-bold text-purple-900 mb-4 flex items-center">
+              <span className="text-2xl mr-3">🎯</span>
+              Your Personalized Assessment
+            </h2>
+            <p className="text-purple-800 text-lg leading-relaxed">
+              {detailedFeedback.personalized_feedback}
+            </p>
           </div>
         )}
 
-        {/* Detailed Analysis */}
+        {/* Skills Breakdown */}
         {detailedFeedback && (
-          <>
-            {/* Skills Breakdown */}
-            <div className="bg-white rounded-2xl shadow-xl p-8 mb-8 border border-white/20">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
-                <span className="text-2xl mr-3">🎯</span>
-                Skills Assessment
-              </h2>
-              
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {Object.entries(detailedFeedback.category_scores).map(([category, score]) => (
-                  <div key={category} className="border border-gray-200 rounded-xl p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-semibold text-gray-900">
-                        {formatCategoryName(category)}
-                      </h3>
-                      <div className={`px-3 py-1 rounded-full text-sm font-bold ${getScoreColor(score)}`}>
-                        {score.toFixed(1)}/5.0
-                      </div>
+          <div className="bg-white rounded-2xl shadow-xl p-8 mb-8 border border-white/20">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+              <span className="text-2xl mr-3">📊</span>
+              Detailed Skills Assessment
+            </h2>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {Object.entries(detailedFeedback.category_scores).map(([category, scoreData]) => (
+                <div key={category} className="border border-gray-200 rounded-xl p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      {formatCategoryName(category)}
+                    </h3>
+                    <div className={`px-3 py-1 rounded-full text-sm font-bold ${getScoreColor(scoreData.score)}`}>
+                      {scoreData.score.toFixed(1)}/5.0
                     </div>
-                    
-                    {/* Progress Bar */}
-                    <div className="w-full bg-gray-200 rounded-full h-2 mb-3">
-                      <div 
-                        className={`h-2 rounded-full transition-all duration-500 ${getProgressColor((score / 5) * 100)}`}
-                        style={{ width: `${(score / 5) * 100}%` }}
-                      ></div>
-                    </div>
-                    
-                    <p className="text-sm text-gray-600">
-                      {getScoreLabel(score)} - {score >= 4 ? 'Strong performance' : score >= 3 ? 'Good foundation' : 'Room for improvement'}
-                    </p>
+                  </div>
+                  
+                  {/* Progress Bar */}
+                  <div className="w-full bg-gray-200 rounded-full h-2 mb-3">
+                    <div 
+                      className={`h-2 rounded-full transition-all duration-500 ${getProgressColor((scoreData.score / 5) * 100)}`}
+                      style={{ width: `${(scoreData.score / 5) * 100}%` }}
+                    ></div>
+                  </div>
+                  
+                  {/* Specific Feedback */}
+                  <p className="text-sm text-gray-600 leading-relaxed">
+                    {scoreData.feedback}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Conversation Analysis */}
+        {detailedFeedback?.conversation_analysis && (
+          <div className="bg-white rounded-2xl shadow-xl p-8 mb-8 border border-white/20">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+              <span className="text-2xl mr-3">🎭</span>
+              Conversation Analysis
+            </h2>
+            
+            <div className="space-y-6">
+              {/* Conversation Flow */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">Conversation Flow</h3>
+                <p className="text-gray-700 leading-relaxed bg-gray-50 p-4 rounded-lg">
+                  {detailedFeedback.conversation_analysis.conversation_flow_analysis}
+                </p>
+              </div>
+
+              {/* Character Interaction */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                  Interaction with {sessionData.scenario.character_name}
+                </h3>
+                <p className="text-gray-700 leading-relaxed bg-gray-50 p-4 rounded-lg">
+                  {detailedFeedback.conversation_analysis.character_interaction_quality}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Strengths and Improvements */}
+        {detailedFeedback && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            
+            {/* Specific Strengths */}
+            <div className="bg-white rounded-2xl shadow-xl p-8 border border-white/20">
+              <h3 className="text-xl font-bold text-green-800 mb-6 flex items-center">
+                <span className="text-xl mr-3">✅</span>
+                What You Did Well
+              </h3>
+              <div className="space-y-4">
+                {(detailedFeedback.conversation_analysis?.specific_strengths || detailedFeedback.strengths || []).map((strength, index) => (
+                  <div key={index} className="flex items-start space-x-3">
+                    <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0"></div>
+                    <p className="text-gray-700 leading-relaxed">{strength}</p>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Strengths and Improvements */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-              
-              {/* Strengths */}
-              <div className="bg-white rounded-2xl shadow-xl p-8 border border-white/20">
-                <h3 className="text-xl font-bold text-green-800 mb-6 flex items-center">
-                  <span className="text-xl mr-3">✅</span>
-                  Your Strengths
-                </h3>
-                <div className="space-y-4">
-                  {detailedFeedback.strengths.map((strength, index) => (
-                    <div key={index} className="flex items-start space-x-3">
-                      <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0"></div>
-                      <p className="text-gray-700 leading-relaxed">{strength}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Improvement Areas */}
-              <div className="bg-white rounded-2xl shadow-xl p-8 border border-white/20">
-                <h3 className="text-xl font-bold text-orange-800 mb-6 flex items-center">
-                  <span className="text-xl mr-3">🎯</span>
-                  Focus Areas
-                </h3>
-                <div className="space-y-4">
-                  {detailedFeedback.improvement_areas.map((area, index) => (
-                    <div key={index} className="flex items-start space-x-3">
-                      <div className="w-2 h-2 bg-orange-500 rounded-full mt-2 flex-shrink-0"></div>
-                      <p className="text-gray-700 leading-relaxed">{area}</p>
-                    </div>
-                  ))}
-                </div>
+            {/* Specific Improvements */}
+            <div className="bg-white rounded-2xl shadow-xl p-8 border border-white/20">
+              <h3 className="text-xl font-bold text-orange-800 mb-6 flex items-center">
+                <span className="text-xl mr-3">🎯</span>
+                Areas to Improve
+              </h3>
+              <div className="space-y-4">
+                {(detailedFeedback.conversation_analysis?.specific_improvements || detailedFeedback.improvement_areas || []).map((improvement, index) => (
+                  <div key={index} className="flex items-start space-x-3">
+                    <div className="w-2 h-2 bg-orange-500 rounded-full mt-2 flex-shrink-0"></div>
+                    <p className="text-gray-700 leading-relaxed">{improvement}</p>
+                  </div>
+                ))}
               </div>
             </div>
+          </div>
+        )}
 
-            {/* Coaching Insights */}
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-8 mb-8 border border-blue-200">
-              <h3 className="text-2xl font-bold text-blue-900 mb-6 flex items-center">
-                <span className="text-2xl mr-3">💡</span>
-                Personalized Coaching
-              </h3>
+        {/* Coaching Insights */}
+        {detailedFeedback?.coaching_insights && (
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-8 mb-8 border border-blue-200">
+            <h3 className="text-2xl font-bold text-blue-900 mb-6 flex items-center">
+              <span className="text-2xl mr-3">💡</span>
+              Your Action Plan
+            </h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                
-                {/* Immediate Actions */}
-                {detailedFeedback.coaching_insights.immediate_actions.length > 0 && (
-                  <div className="bg-white rounded-xl p-6 border border-blue-200">
-                    <h4 className="font-semibold text-blue-900 mb-4 flex items-center">
-                      <span className="mr-2">🚀</span>
-                      Quick Wins
-                    </h4>
-                    <ul className="space-y-2">
-                      {detailedFeedback.coaching_insights.immediate_actions.map((action, index) => (
-                        <li key={index} className="text-blue-800 text-sm flex items-start">
-                          <span className="mr-2">•</span>
-                          {action}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {/* Practice Areas */}
-                {detailedFeedback.coaching_insights.practice_areas.length > 0 && (
-                  <div className="bg-white rounded-xl p-6 border border-blue-200">
-                    <h4 className="font-semibold text-blue-900 mb-4 flex items-center">
-                      <span className="mr-2">📚</span>
-                      Practice Focus
-                    </h4>
-                    <ul className="space-y-2">
-                      {detailedFeedback.coaching_insights.practice_areas.map((area, index) => (
-                        <li key={index} className="text-blue-800 text-sm flex items-start">
-                          <span className="mr-2">•</span>
-                          {area}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {/* Advanced Techniques */}
-                {detailedFeedback.coaching_insights.advanced_techniques.length > 0 && (
-                  <div className="bg-white rounded-xl p-6 border border-blue-200">
-                    <h4 className="font-semibold text-blue-900 mb-4 flex items-center">
-                      <span className="mr-2">⚡</span>
-                      Advanced Skills
-                    </h4>
-                    <ul className="space-y-2">
-                      {detailedFeedback.coaching_insights.advanced_techniques.map((technique, index) => (
-                        <li key={index} className="text-blue-800 text-sm flex items-start">
-                          <span className="mr-2">•</span>
-                          {technique}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {/* Next Session Focus */}
+              {/* Immediate Actions */}
+              {detailedFeedback.coaching_insights.immediate_actions.length > 0 && (
                 <div className="bg-white rounded-xl p-6 border border-blue-200">
                   <h4 className="font-semibold text-blue-900 mb-4 flex items-center">
-                    <span className="mr-2">🎯</span>
-                    Next Session
+                    <span className="mr-2">🚀</span>
+                    Immediate Focus
                   </h4>
-                  <p className="text-blue-800 text-sm leading-relaxed">
-                    {detailedFeedback.next_session_focus}
-                  </p>
+                  <ul className="space-y-2">
+                    {detailedFeedback.coaching_insights.immediate_actions.map((action, index) => (
+                      <li key={index} className="text-blue-800 text-sm flex items-start">
+                        <span className="mr-2">•</span>
+                        {action}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
+              )}
+
+              {/* Practice Areas */}
+              {detailedFeedback.coaching_insights.practice_areas.length > 0 && (
+                <div className="bg-white rounded-xl p-6 border border-blue-200">
+                  <h4 className="font-semibold text-blue-900 mb-4 flex items-center">
+                    <span className="mr-2">📚</span>
+                    Practice Focus
+                  </h4>
+                  <ul className="space-y-2">
+                    {detailedFeedback.coaching_insights.practice_areas.map((area, index) => (
+                      <li key={index} className="text-blue-800 text-sm flex items-start">
+                        <span className="mr-2">•</span>
+                        {area}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Next Session Focus */}
+              <div className="bg-white rounded-xl p-6 border border-blue-200 md:col-span-2">
+                <h4 className="font-semibold text-blue-900 mb-4 flex items-center">
+                  <span className="mr-2">🎯</span>
+                  Next Session Recommendation
+                </h4>
+                <p className="text-blue-800 text-sm leading-relaxed">
+                  {detailedFeedback.next_session_focus}
+                </p>
               </div>
             </div>
-          </>
+          </div>
         )}
 
         {/* Session Details */}
         <div className="bg-white rounded-2xl shadow-xl p-8 mb-8 border border-white/20">
           <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
             <span className="text-xl mr-3">💬</span>
-            Session Details
+            Session Summary
           </h3>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
@@ -432,7 +505,7 @@ export default function FeedbackPage() {
 
           {/* Conversation Preview */}
           <div className="bg-gray-50 rounded-xl p-6">
-            <h4 className="font-semibold text-gray-900 mb-4">Conversation Summary</h4>
+            <h4 className="font-semibold text-gray-900 mb-4">Conversation Highlights</h4>
             <div className="space-y-3 max-h-64 overflow-y-auto">
               {sessionData.conversation.slice(0, 6).map((message, index) => (
                 <div
@@ -455,7 +528,7 @@ export default function FeedbackPage() {
               ))}
               {sessionData.conversation.length > 6 && (
                 <p className="text-center text-gray-500 text-sm">
-                  ... and {sessionData.conversation.length - 6} more messages
+                  ... and {sessionData.conversation.length - 6} more exchanges
                 </p>
               )}
             </div>
@@ -478,16 +551,18 @@ export default function FeedbackPage() {
           </button>
         </div>
 
-        {/* Encouragement */}
-        <div className="text-center mt-8 p-6 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border border-green-200">
-          <h3 className="text-lg font-semibold text-green-800 mb-2">
-            🌟 Keep Up the Great Work!
-          </h3>
-          <p className="text-green-700">
-            Regular practice is the key to mastering professional communication skills. 
-            Every conversation makes you better!
-          </p>
-        </div>
+        {/* Success Indicator for Real AI Analysis */}
+        {detailedFeedback?.analysis_type === 'ai-powered-real' && (
+          <div className="text-center mt-8 p-6 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border border-green-200">
+            <h3 className="text-lg font-semibold text-green-800 mb-2">
+              🤖 Powered by Real AI Analysis
+            </h3>
+            <p className="text-green-700">
+              This feedback was generated by analyzing your actual conversation content with advanced AI. 
+              Every insight is personalized to your specific performance!
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
