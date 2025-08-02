@@ -331,7 +331,7 @@ async function updateUserProgress(supabase: any, session: any) {
     const { user_email, scenarios, duration_minutes, overall_score } = session;
     const role = scenarios?.role;
 
-    if (!category) return;
+    if (!role) return;
 
     // Get existing progress
     const { data: existingProgress } = await supabase
@@ -398,7 +398,7 @@ async function updateUserProgress(supabase: any, session: any) {
     if (updateError) {
       console.error('❌ Error updating user totals:', updateError);
     } else {
-      console.log('✅ User progress updated for:', user_email, category);
+      console.log('✅ User progress updated for:', user_email, role);
     }
 
   } catch (error) {
