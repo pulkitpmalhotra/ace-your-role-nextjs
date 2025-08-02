@@ -39,6 +39,13 @@ interface AudioState {
   permissionDenied: boolean;
 }
 
+interface AIGuide {
+  goal: string;
+  objectives: string[];
+  tips: string[];
+  insights: string[];
+}
+
 export default function SessionPage({ params }: { params: { id: string } }) {
   // Core state
   const [scenario, setScenario] = useState<Scenario | null>(null);
@@ -57,6 +64,11 @@ export default function SessionPage({ params }: { params: { id: string } }) {
     hasPermission: false,
     permissionDenied: false
   });
+  
+  // AI Guide state
+  const [aiGuide, setAiGuide] = useState<AIGuide | null>(null);
+  const [isGeneratingGuide, setIsGeneratingGuide] = useState(false);
+  const [guideSource, setGuideSource] = useState<'ai-generated' | 'fallback' | null>(null);
   
   // UI state
   const [error, setError] = useState('');
@@ -110,6 +122,43 @@ export default function SessionPage({ params }: { params: { id: string } }) {
       cleanup();
     };
   }, []);
+
+  // Generate AI guide when scenario is loaded
+  useEffect(() => {
+    if (scenario && !aiGuide && !isGeneratingGuide) {
+      generateAIGuide(scenario);
+    }
+  }, [scenario]);
+
+  // Generate AI-powered scenario guide
+  const generateAIGuide = async (scenarioData: Scenario) => {
+    setIsGeneratingGuide(true);
+    console.log('🧠 Generating AI guide for scenario:', scenarioData.title);
+    
+    try {
+      const response = await fetch('/api/generate-guide', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scenario: scenarioData })
+      });
+
+      const result = await response.json();
+      
+      if (result.success && result.data) {
+        setAiGuide(result.data);
+        setGuideSource(result.source);
+        console.log('✅ AI guide generated:', result.source);
+      } else {
+        console.error('❌ Failed to generate AI guide');
+        setGuideSource('fallback');
+      }
+    } catch (error) {
+      console.error('❌ Error generating AI guide:', error);
+      setGuideSource('fallback');
+    } finally {
+      setIsGeneratingGuide(false);
+    }
+  };
 
   // Initialize session data
   const initializeSession = async () => {
@@ -735,94 +784,6 @@ export default function SessionPage({ params }: { params: { id: string } }) {
     router.push('/feedback');
   };
 
-  // Get scenario objectives and tips
-  const getScenarioObjectives = (scenario: Scenario) => {
-    const objectives: Record<string, { goal: string; objectives: string[]; tips: string[] }> = {
-      'sales': {
-        goal: 'Master consultative selling by understanding customer needs and presenting value-driven solutions.',
-        objectives: [
-          'Build rapport and establish credibility',
-          'Discover customer pain points and needs',
-          'Present relevant solutions with clear benefits',
-          'Handle objections professionally',
-          'Guide toward next steps'
-        ],
-        tips: [
-          'Ask open-ended questions to understand their business',
-          'Listen actively and acknowledge their concerns',
-          'Connect features to specific benefits for their situation',
-          'Be prepared to discuss ROI and implementation'
-        ]
-      },
-      'healthcare': {
-        goal: 'Develop empathetic patient communication skills while gathering accurate medical information.',
-        objectives: [
-          'Show empathy and build patient trust',
-          'Gather comprehensive health information',
-          'Explain medical concepts clearly',
-          'Address patient concerns and fears',
-          'Provide clear next steps for care'
-        ],
-        tips: [
-          'Use empathetic language and active listening',
-          'Ask follow-up questions about symptoms',
-          'Explain medical terms in simple language',
-          'Reassure while being honest about next steps'
-        ]
-      },
-      'support': {
-        goal: 'Provide excellent customer service by resolving issues efficiently and maintaining customer satisfaction.',
-        objectives: [
-          'Quickly understand the customer issue',
-          'Show empathy for their frustration',
-          'Provide clear troubleshooting steps',
-          'Ensure issue resolution',
-          'Follow up to confirm satisfaction'
-        ],
-        tips: [
-          'Acknowledge their frustration first',
-          'Ask specific questions to diagnose the problem',
-          'Explain each solution step clearly',
-          'Confirm understanding before moving on'
-        ]
-      },
-      'leadership': {
-        goal: 'Practice effective leadership communication including feedback, coaching, and team management.',
-        objectives: [
-          'Provide constructive feedback',
-          'Listen to employee concerns',
-          'Set clear expectations',
-          'Motivate and support team members',
-          'Develop action plans together'
-        ],
-        tips: [
-          'Start with positive observations',
-          'Be specific about areas for improvement',
-          'Ask for their perspective and input',
-          'Create collaborative development plans'
-        ]
-      },
-      'legal': {
-        goal: 'Develop professional legal consultation skills while building client trust and gathering case information.',
-        objectives: [
-          'Establish professional credibility',
-          'Gather detailed case information',
-          'Explain legal options clearly',
-          'Discuss risks and outcomes',
-          'Outline next steps and timeline'
-        ],
-        tips: [
-          'Ask detailed questions about their situation',
-          'Explain legal concepts in simple terms',
-          'Be honest about potential outcomes',
-          'Discuss fees and process transparently'
-        ]
-      }
-    };
-
-    return objectives[scenario.category] || objectives['sales'];
-  };
-
   // Get status display info
   const getStatusInfo = () => {
     const exchanges = Math.floor(conversation.length / 2);
@@ -908,7 +869,6 @@ export default function SessionPage({ params }: { params: { id: string } }) {
   }
 
   const statusInfo = getStatusInfo();
-  const scenarioInfo = getScenarioObjectives(scenario);
 
   // Error Screen
   if (error) {
@@ -1023,7 +983,7 @@ export default function SessionPage({ params }: { params: { id: string } }) {
       <main className="max-w-7xl mx-auto px-4 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           
-          {/* Scenario Details Panel */}
+          {/* AI-Enhanced Scenario Details Panel */}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-2xl shadow-lg border border-white/20 sticky top-24">
               
@@ -1034,63 +994,116 @@ export default function SessionPage({ params }: { params: { id: string } }) {
                   className="flex items-center justify-between w-full text-left"
                 >
                   <h3 className="font-semibold text-gray-900 flex items-center">
-                    <span className="text-xl mr-2">🎯</span>
-                    Practice Guide
+                    <span className="text-xl mr-2">
+                      {isGeneratingGuide ? '🧠' : guideSource === 'ai-generated' ? '🤖' : '🎯'}
+                    </span>
+                    {isGeneratingGuide ? 'Generating AI Guide...' : 'Practice Guide'}
                   </h3>
                   <span className="text-gray-400">
                     {showScenarioDetails ? '−' : '+'}
                   </span>
                 </button>
+                
+                {/* Guide source indicator */}
+                {!isGeneratingGuide && guideSource && (
+                  <div className="mt-2">
+                    <span className={`text-xs px-2 py-1 rounded-full ${
+                      guideSource === 'ai-generated' 
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-gray-100 text-gray-800'
+                    }`}>
+                      {guideSource === 'ai-generated' ? '✨ AI-Enhanced' : '📋 Standard'}
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Content */}
               {showScenarioDetails && (
                 <div className="p-4 space-y-4">
                   
-                  {/* Goal */}
-                  <div>
-                    <h4 className="font-medium text-gray-900 mb-2 flex items-center">
-                      <span className="text-sm mr-2">🚀</span>
-                      Your Goal
-                    </h4>
-                    <p className="text-sm text-gray-600 leading-relaxed">
-                      {scenarioInfo.goal}
-                    </p>
-                  </div>
+                  {isGeneratingGuide ? (
+                    /* Loading State */
+                    <div className="text-center py-8">
+                      <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                      <p className="text-sm text-gray-600">
+                        AI is creating a personalized guide for your conversation with {scenario.character_name}...
+                      </p>
+                    </div>
+                  ) : aiGuide ? (
+                    /* AI-Generated Guide */
+                    <>
+                      {/* Goal */}
+                      <div>
+                        <h4 className="font-medium text-gray-900 mb-2 flex items-center">
+                          <span className="text-sm mr-2">🚀</span>
+                          Your Goal
+                        </h4>
+                        <p className="text-sm text-gray-600 leading-relaxed">
+                          {aiGuide.goal}
+                        </p>
+                      </div>
 
-                  {/* Objectives */}
-                  <div>
-                    <h4 className="font-medium text-gray-900 mb-2 flex items-center">
-                      <span className="text-sm mr-2">📋</span>
-                      Practice Objectives
-                    </h4>
-                    <ul className="space-y-1">
-                      {scenarioInfo.objectives.map((objective, index) => (
-                        <li key={index} className="text-sm text-gray-600 flex items-start">
-                          <span className="text-blue-500 mr-2 mt-0.5 text-xs">•</span>
-                          {objective}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
+                      {/* Objectives */}
+                      <div>
+                        <h4 className="font-medium text-gray-900 mb-2 flex items-center">
+                          <span className="text-sm mr-2">📋</span>
+                          Practice Objectives
+                        </h4>
+                        <ul className="space-y-1">
+                          {aiGuide.objectives.map((objective, index) => (
+                            <li key={index} className="text-sm text-gray-600 flex items-start">
+                              <span className="text-blue-500 mr-2 mt-0.5 text-xs">•</span>
+                              {objective}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
 
-                  {/* Tips */}
-                  <div>
-                    <h4 className="font-medium text-gray-900 mb-2 flex items-center">
-                      <span className="text-sm mr-2">💡</span>
-                      Success Tips
-                    </h4>
-                    <ul className="space-y-1">
-                      {scenarioInfo.tips.map((tip, index) => (
-                        <li key={index} className="text-sm text-gray-600 flex items-start">
-                          <span className="text-green-500 mr-2 mt-0.5 text-xs">→</span>
-                          {tip}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
+                      {/* Tips */}
+                      <div>
+                        <h4 className="font-medium text-gray-900 mb-2 flex items-center">
+                          <span className="text-sm mr-2">💡</span>
+                          Success Tips
+                        </h4>
+                        <ul className="space-y-1">
+                          {aiGuide.tips.map((tip, index) => (
+                            <li key={index} className="text-sm text-gray-600 flex items-start">
+                              <span className="text-green-500 mr-2 mt-0.5 text-xs">→</span>
+                              {tip}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
 
-                  {/* Character Info */}
+                      {/* Character Insights */}
+                      {aiGuide.insights && aiGuide.insights.length > 0 && (
+                        <div>
+                          <h4 className="font-medium text-gray-900 mb-2 flex items-center">
+                            <span className="text-sm mr-2">🎭</span>
+                            Character Insights
+                          </h4>
+                          <ul className="space-y-1">
+                            {aiGuide.insights.map((insight, index) => (
+                              <li key={index} className="text-sm text-gray-600 flex items-start">
+                                <span className="text-purple-500 mr-2 mt-0.5 text-xs">★</span>
+                                {insight}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    /* Fallback Content */
+                    <div className="text-center py-4">
+                      <p className="text-sm text-gray-500">
+                        Guide temporarily unavailable. The conversation will still work perfectly!
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Character Profile */}
                   <div className="pt-4 border-t border-gray-100">
                     <h4 className="font-medium text-gray-900 mb-2 flex items-center">
                       <span className="text-sm mr-2">👤</span>
@@ -1131,7 +1144,6 @@ export default function SessionPage({ params }: { params: { id: string } }) {
                       </div>
                     </div>
                   )}
-
                 </div>
               )}
             </div>
@@ -1283,6 +1295,15 @@ export default function SessionPage({ params }: { params: { id: string } }) {
           <div className="mt-6 bg-green-50 border border-green-200 rounded-lg p-4 text-center">
             <p className="text-green-800 font-medium">
               🎉 Excellent conversation depth! You can continue practicing or end the session for detailed feedback.
+            </p>
+          </div>
+        )}
+
+        {/* AI Guide Indicator */}
+        {guideSource === 'ai-generated' && !isGeneratingGuide && (
+          <div className="mt-6 bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-lg p-4 text-center">
+            <p className="text-purple-800 font-medium text-sm">
+              ✨ <strong>Enhanced with AI:</strong> Your practice guide was specially created for this scenario with {scenario.character_name}
             </p>
           </div>
         )}
