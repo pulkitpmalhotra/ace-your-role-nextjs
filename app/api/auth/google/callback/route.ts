@@ -1,4 +1,4 @@
-// app/api/auth/google/callback/route.ts - COMPLETE VERSION WITH PROPER IMPORTS
+// app/api/auth/google/callback/route.ts - TYPESCRIPT COMPATIBLE VERSION
 
 import { NextRequest } from 'next/server';
 
@@ -17,9 +17,12 @@ export async function GET(request: NextRequest) {
     console.log('🔍 === OAUTH CALLBACK DEBUG ===');
     console.log('📥 Full callback URL:', request.url);
     console.log('📥 All URL parameters received from Google:');
-    for (const [key, value] of searchParams.entries()) {
+    
+    // Fixed: Convert iterator to array for TypeScript compatibility
+    const params = Array.from(searchParams.entries());
+    params.forEach(([key, value]) => {
       console.log(`    ${key}: ${value}`);
-    }
+    });
     
     const code = searchParams.get('code');
     const error = searchParams.get('error');
