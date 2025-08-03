@@ -170,27 +170,28 @@ export default function DashboardPage() {
   const getRoleEmoji = (role: string) => {
     const emojiMap: Record<string, string> = {
       'sales': '💼',
-'product-manager': '📱',
-  'project-manager': '📋', 
-  'engineer': '👩‍💻',
-  'technical-program-manager': '🔧',
-  'strategy-lead': '🎯',
-  'manager': '👥',
+      'product-manager': '📱',
+      'project-manager': '📋', 
+      'engineer': '👩‍💻',
+      'technical-program-manager': '🔧',
+      'strategy-lead': '🎯',
+      'manager': '👥',
       'leader': '👥'
     };
     return emojiMap[role] || '💬';
   };
 
-  const descriptions: Record<string, string> = {
-  'sales': 'Practice consultative selling...',                    // Keep
-  'product-manager': 'Develop product strategy...',
-  'project-manager': 'Master project coordination...',
-  'engineer': 'Practice technical communication...',
-  'technical-program-manager': 'Develop cross-team coordination...',
-  'strategy-lead': 'Practice strategic thinking...',
-  'manager': 'Develop team management...',
-  'leader': 'Practice vision communication...'
-};
+  const getRoleDescription = (role: string) => {
+    const descriptions: Record<string, string> = {
+      'sales': 'Practice consultative selling and customer relationship building',
+      'product-manager': 'Develop product strategy and stakeholder management skills',
+      'project-manager': 'Master project coordination and team leadership',
+      'engineer': 'Practice technical communication and problem-solving',
+      'technical-program-manager': 'Develop cross-team coordination and technical strategy',
+      'strategy-lead': 'Practice strategic thinking and executive communication',
+      'manager': 'Develop team management and performance coaching skills',
+      'leader': 'Practice vision communication and organizational influence'
+    };
     return descriptions[role] || 'Professional communication practice';
   };
 
@@ -611,10 +612,10 @@ export default function DashboardPage() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className={`text-xl font-bold ${getScoreColor(progress.average_score)}`}>
+                        <div className={`text-2xl font-bold ${getScoreColor(progress.average_score)}`}>
                           {progress.average_score ? progress.average_score.toFixed(1) : '0.0'}/5.0
                         </div>
-                        <div className="text-xs text-gray-600">Average Score</div>
+                        <div className="text-xs text-gray-500">Average Score</div>
                       </div>
                     </div>
 
