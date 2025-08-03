@@ -48,24 +48,19 @@ export async function GET(request: Request) {
         }, { status: 500 });
       }
 
-      // Manually construct OAuth URL to ensure all parameters are correct
+      // Use the most basic OAuth URL construction that Google definitely accepts
       const redirectUri = getRedirectUri();
       const clientId = process.env.GOOGLE_CLIENT_ID;
       
-      const oauthParams = new URLSearchParams({
-        client_id: clientId,
-        redirect_uri: redirectUri,
-        response_type: 'code',
-        scope: 'openid email profile',
-        access_type: 'offline',
-        include_granted_scopes: 'true',
-        prompt: 'select_account'
-      });
+      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
+        `client_id=${encodeURIComponent(clientId)}&` +
+        `redirect_uri=${encodeURIComponent(redirectUri)}&` +
+        `response_type=code&` +
+        `scope=${encodeURIComponent('email profile')}&` +
+        `access_type=offline&` +
+        `prompt=select_account`;
 
-      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${oauthParams.toString()}`;
-
-      console.log('✅ Manual OAuth URL constructed:', authUrl);
-      console.log('🔍 OAuth parameters:', Object.fromEntries(oauthParams.entries()));
+      console.log('✅ Basic OAuth URL constructed:', authUrl);
 
       return Response.json({
         success: true,
@@ -73,7 +68,7 @@ export async function GET(request: Request) {
         debug: {
           redirectUri,
           clientId: clientId.substring(0, 20) + '...',
-          parameters: Object.fromEntries(oauthParams.entries())
+          rawUrl: authUrl
         }
       });
     }
