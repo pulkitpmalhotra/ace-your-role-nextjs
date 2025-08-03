@@ -3,19 +3,49 @@ import { OAuth2Client } from 'google-auth-library';
 import { createClient } from '@supabase/supabase-js';
 import { SignJWT } from 'jose';
 
+// Ensure consistent redirect URI
+const getRedirectUri = () => {
+  const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+  return `${baseUrl}/api/auth/google/callback`;
+};
+
 const client = new OAuth2Client(
   process.env.GOOGLE_CLIENT_ID,
   process.env.GOOGLE_CLIENT_SECRET,
-  `${process.env.NEXTAUTH_URL}/api/auth/google/callback`
+  getRedirectUri()
 );
 
-// Handle OAuth login initiation
+// Handle OAuth login initiation and debugging
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action');
 
+    if (action === 'debug') {
+      // Return configuration info for debugging
+      return Response.json({
+        success: true,
+        debug: {
+          GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID ? 'Set (' + process.env.GOOGLE_CLIENT_ID.substring(0, 20) + '...)' : 'Missing',
+          GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET ? 'Set' : 'Missing',
+          NEXTAUTH_URL: process.env.NEXTAUTH_URL || 'Missing',
+          NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET ? 'Set' : 'Missing',
+          redirectUri: getRedirectUri(),
+          nodeEnv: process.env.NODE_ENV
+        }
+      });
+    }
+
     if (action === 'login') {
+      // Validate required environment variables
+      if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+        console.error('❌ Missing Google OAuth credentials');
+        return Response.json({
+          success: false,
+          error: 'Google OAuth not configured. Missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET'
+        }, { status: 500 });
+      }
+
       // Generate OAuth URL
       const authUrl = client.generateAuthUrl({
         access_type: 'offline',
@@ -24,7 +54,10 @@ export async function GET(request: Request) {
           'https://www.googleapis.com/auth/userinfo.profile'
         ],
         include_granted_scopes: true,
+        redirect_uri: getRedirectUri() // Explicitly set redirect URI
       });
+
+      console.log('✅ Generated OAuth URL:', authUrl);
 
       return Response.json({
         success: true,
@@ -40,7 +73,7 @@ export async function GET(request: Request) {
   } catch (error) {
     console.error('❌ Google OAuth error:', error);
     return Response.json(
-      { success: false, error: 'OAuth setup failed' },
+      { success: false, error: 'OAuth setup failed', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }
