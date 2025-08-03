@@ -1,67 +1,30 @@
-// app/api/auth/google/callback/route.ts - OAuth Callback Handler
+// Add this to your useEffect in app/page.tsx to show detailed errors
 
-// Use same redirect URI logic
-const getBaseUrl = () => {
-  const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
-  // Remove trailing slash if present
-  return baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
-};
-
-export async function GET(request: Request) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const code = searchParams.get('code');
-    const error = searchParams.get('error');
-
-    if (error) {
-      console.error('❌ OAuth error:', error);
-      // Redirect to login with error
-      return Response.redirect(
-        `${getBaseUrl()}/?error=oauth_error&message=${encodeURIComponent(error)}`
-      );
+useEffect(() => {
+  const error = searchParams.get('error');
+  const message = searchParams.get('message');
+  const googleError = searchParams.get('google_error');
+  const debug = searchParams.get('debug');
+  
+  if (error) {
+    let errorMessage = 'Google sign-in failed. Please try again.';
+    
+    if (googleError === 'invalid_request' && message?.includes('response_type')) {
+      errorMessage = `🔍 DEBUG: Google says "response_type missing" - This is a Google Cloud Console configuration issue. 
+      
+Check your OAuth client settings:
+• Application type must be "Web application"
+• Authorized redirect URIs must include: https://ace-your-role-nextjs.vercel.app/api/auth/google/callback
+• OAuth consent screen must be "In Production"`;
+    } else if (googleError) {
+      errorMessage = `OAuth Error from Google: ${googleError}
+      ${message ? `\nDetails: ${message}` : ''}
+      ${debug ? `\nDebug: ${debug}` : ''}`;
+    } else if (message) {
+      errorMessage = message;
     }
-
-    if (!code) {
-      console.error('❌ No authorization code received');
-      return Response.redirect(
-        `${getBaseUrl()}/?error=oauth_error&message=no_code`
-      );
-    }
-
-    // Exchange code for user data by calling our POST endpoint
-    const response = await fetch(`${getBaseUrl()}/api/auth/google`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code })
-    });
-
-    const result = await response.json();
-
-    if (!result.success) {
-      console.error('❌ OAuth exchange failed:', result.error);
-      return Response.redirect(
-        `${getBaseUrl()}/?error=oauth_error&message=${encodeURIComponent(result.error)}`
-      );
-    }
-
-    // Create success URL with user data
-    const successParams = new URLSearchParams({
-      success: 'true',
-      sessionToken: result.sessionToken,
-      user: JSON.stringify(result.user),
-      isNewUser: result.isNewUser.toString()
-    });
-
-    console.log('✅ OAuth callback successful, redirecting to dashboard');
-
-    return Response.redirect(
-      `${getBaseUrl()}/auth/callback?${successParams.toString()}`
-    );
-
-  } catch (error) {
-    console.error('💥 OAuth callback error:', error);
-    return Response.redirect(
-      `${getBaseUrl()}/?error=oauth_error&message=callback_failed`
-    );
+    
+    setError(errorMessage);
+    console.log('🚨 OAuth Error Details:', { error, message, googleError, debug });
   }
-}
+}, [searchParams]);
