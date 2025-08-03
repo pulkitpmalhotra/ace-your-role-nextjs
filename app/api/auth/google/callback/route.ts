@@ -1,4 +1,10 @@
 // app/api/auth/google/callback/route.ts - OAuth Callback Handler
+
+// Use same redirect URI logic
+const getBaseUrl = () => {
+  return process.env.NEXTAUTH_URL || 'http://localhost:3000';
+};
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -9,19 +15,19 @@ export async function GET(request: Request) {
       console.error('❌ OAuth error:', error);
       // Redirect to login with error
       return Response.redirect(
-        `${process.env.NEXTAUTH_URL}/?error=oauth_error&message=${encodeURIComponent(error)}`
+        `${getBaseUrl()}/?error=oauth_error&message=${encodeURIComponent(error)}`
       );
     }
 
     if (!code) {
       console.error('❌ No authorization code received');
       return Response.redirect(
-        `${process.env.NEXTAUTH_URL}/?error=oauth_error&message=no_code`
+        `${getBaseUrl()}/?error=oauth_error&message=no_code`
       );
     }
 
     // Exchange code for user data by calling our POST endpoint
-    const response = await fetch(`${process.env.NEXTAUTH_URL}/api/auth/google`, {
+    const response = await fetch(`${getBaseUrl()}/api/auth/google`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code })
@@ -32,7 +38,7 @@ export async function GET(request: Request) {
     if (!result.success) {
       console.error('❌ OAuth exchange failed:', result.error);
       return Response.redirect(
-        `${process.env.NEXTAUTH_URL}/?error=oauth_error&message=${encodeURIComponent(result.error)}`
+        `${getBaseUrl()}/?error=oauth_error&message=${encodeURIComponent(result.error)}`
       );
     }
 
@@ -47,13 +53,13 @@ export async function GET(request: Request) {
     console.log('✅ OAuth callback successful, redirecting to dashboard');
 
     return Response.redirect(
-      `${process.env.NEXTAUTH_URL}/auth/callback?${successParams.toString()}`
+      `${getBaseUrl()}/auth/callback?${successParams.toString()}`
     );
 
   } catch (error) {
     console.error('💥 OAuth callback error:', error);
     return Response.redirect(
-      `${process.env.NEXTAUTH_URL}/?error=oauth_error&message=callback_failed`
+      `${getBaseUrl()}/?error=oauth_error&message=callback_failed`
     );
   }
 }
