@@ -1,9 +1,8 @@
-// app/api/auth/google/route.ts - MANUAL URL CONSTRUCTION APPROACH
+// app/api/auth/google/route.ts - CLEAN PRODUCTION VERSION
 
 import { createClient } from '@supabase/supabase-js';
 import { SignJWT } from 'jose';
 
-// FIXED: Completely manual URL construction
 const getRedirectUri = () => {
   if (process.env.NODE_ENV === 'production') {
     return 'https://ace-your-role-nextjs.vercel.app/api/auth/google/callback';
@@ -14,84 +13,36 @@ const getRedirectUri = () => {
   return `${cleanBaseUrl}/api/auth/google/callback`;
 };
 
-// Handle OAuth login initiation and debugging
+// Handle OAuth login initiation
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action');
 
-    if (action === 'debug') {
-      const redirectUri = getRedirectUri();
-      return Response.json({
-        success: true,
-        debug: {
-          GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID ? 'Set (' + process.env.GOOGLE_CLIENT_ID.substring(0, 20) + '...)' : 'Missing',
-          GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET ? 'Set' : 'Missing',
-          NEXTAUTH_URL: process.env.NEXTAUTH_URL || 'Missing',
-          NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET ? 'Set' : 'Missing',
-          redirectUri: redirectUri,
-          nodeEnv: process.env.NODE_ENV,
-          productionMode: process.env.NODE_ENV === 'production'
-        }
-      });
-    }
-
     if (action === 'login') {
       // Validate required environment variables
       if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
-        console.error('❌ Missing Google OAuth credentials');
         return Response.json({
           success: false,
-          error: 'Google OAuth not configured. Missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET'
+          error: 'OAuth configuration missing'
         }, { status: 500 });
       }
 
       const redirectUri = getRedirectUri();
       const clientId = process.env.GOOGLE_CLIENT_ID;
       
-      console.log('🔐 Creating OAuth URL with MANUAL construction:');
-      console.log('  - Client ID:', clientId.substring(0, 20) + '...');
-      console.log('  - Redirect URI:', redirectUri);
-      console.log('  - Environment:', process.env.NODE_ENV);
-
-      // 🚀 COMPLETELY MANUAL URL CONSTRUCTION
-      const responseType = 'code'; // Ensure this is never null/undefined
-      const scope = 'openid email profile';
-      const accessType = 'offline';
-      const prompt = 'consent';
-      
-      // Build URL piece by piece to ensure no parameters are lost
-      const baseAuthUrl = 'https://accounts.google.com/o/oauth2/v2/auth';
-      
-      // Method 1: Template literal (most explicit)
-      const authUrl = `${baseAuthUrl}?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=${responseType}&scope=${encodeURIComponent(scope)}&access_type=${accessType}&prompt=${prompt}`;
-
-      console.log('✅ Manually constructed OAuth URL:');
-      console.log('URL:', authUrl);
-      console.log('Contains response_type:', authUrl.includes('response_type=code'));
-      console.log('URL Length:', authUrl.length);
-      
-      // Additional verification
-      const urlParts = authUrl.split('&');
-      console.log('🔍 URL Parts:');
-      urlParts.forEach((part, index) => {
-        console.log(`  ${index}: ${part}`);
-      });
+      // Build OAuth URL
+      const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+      authUrl.searchParams.set('client_id', clientId);
+      authUrl.searchParams.set('redirect_uri', redirectUri);
+      authUrl.searchParams.set('response_type', 'code');
+      authUrl.searchParams.set('scope', 'openid email profile');
+      authUrl.searchParams.set('access_type', 'offline');
+      authUrl.searchParams.set('prompt', 'consent');
 
       return Response.json({
         success: true,
-        authUrl: authUrl,
-        debug: {
-          method: 'manual_construction',
-          redirectUri,
-          clientId: clientId.substring(0, 20) + '...',
-          responseType,
-          scope,
-          responseTypePresent: authUrl.includes('response_type=code'),
-          urlLength: authUrl.length,
-          environment: process.env.NODE_ENV,
-          urlParts: urlParts.length
-        }
+        authUrl: authUrl.toString()
       });
     }
 
@@ -101,15 +52,15 @@ export async function GET(request: Request) {
     );
 
   } catch (error) {
-    console.error('❌ Google OAuth error:', error);
+    console.error('OAuth setup error:', error);
     return Response.json(
-      { success: false, error: 'OAuth setup failed', details: error instanceof Error ? error.message : 'Unknown error' },
+      { success: false, error: 'OAuth setup failed' },
       { status: 500 }
     );
   }
 }
 
-// Handle OAuth callback - MANUAL TOKEN EXCHANGE
+// Handle OAuth callback token exchange
 export async function POST(request: Request) {
   try {
     const { code } = await request.json();
@@ -121,9 +72,7 @@ export async function POST(request: Request) {
       );
     }
 
-    console.log('🔐 Processing Google OAuth callback with MANUAL token exchange...');
-
-    // MANUAL token exchange instead of using google-auth-library
+    // Exchange code for tokens
     const tokenUrl = 'https://oauth2.googleapis.com/token';
     const redirectUri = getRedirectUri();
     
@@ -133,12 +82,6 @@ export async function POST(request: Request) {
       code: code,
       grant_type: 'authorization_code',
       redirect_uri: redirectUri
-    });
-
-    console.log('🔄 Token exchange request:', {
-      url: tokenUrl,
-      redirect_uri: redirectUri,
-      code_length: code.length
     });
 
     const tokenResponse = await fetch(tokenUrl, {
@@ -151,22 +94,15 @@ export async function POST(request: Request) {
 
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text();
-      console.error('❌ Google token exchange error:', tokenResponse.status, errorText);
-      throw new Error(`Token exchange failed: ${tokenResponse.status} - ${errorText}`);
+      console.error('Token exchange failed:', tokenResponse.status, errorText);
+      throw new Error('Token exchange failed');
     }
 
     const tokens = await tokenResponse.json();
     
     if (!tokens.access_token) {
-      console.error('❌ No access token in response:', tokens);
-      throw new Error('No access token received from Google');
+      throw new Error('No access token received');
     }
-
-    console.log('✅ Tokens received:', {
-      access_token: tokens.access_token ? 'PRESENT' : 'MISSING',
-      id_token: tokens.id_token ? 'PRESENT' : 'MISSING',
-      refresh_token: tokens.refresh_token ? 'PRESENT' : 'MISSING'
-    });
 
     // Get user info from Google
     const userInfoResponse = await fetch(
@@ -174,26 +110,17 @@ export async function POST(request: Request) {
     );
     
     if (!userInfoResponse.ok) {
-      const errorText = await userInfoResponse.text();
-      console.error('❌ Google userinfo API error:', errorText);
-      throw new Error('Failed to fetch user info from Google');
+      throw new Error('Failed to fetch user info');
     }
 
     const googleUser = await userInfoResponse.json();
-    
-    console.log('✅ Google user data:', {
-      id: googleUser.id,
-      email: googleUser.email,
-      name: googleUser.name,
-      verified_email: googleUser.verified_email
-    });
 
     // Initialize Supabase
     const supabaseUrl = process.env.SUPABASE_URL;
     const supabaseKey = process.env.SUPABASE_ANON_KEY;
     
     if (!supabaseUrl || !supabaseKey) {
-      throw new Error('Supabase configuration missing');
+      throw new Error('Database configuration missing');
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -207,12 +134,12 @@ export async function POST(request: Request) {
       .single();
 
     if (fetchError && fetchError.code !== 'PGRST116') {
-      console.error('❌ Error fetching user:', fetchError);
+      console.error('Database error:', fetchError);
       throw new Error('Database error during user lookup');
     }
 
     if (existingUser) {
-      // Update existing user with Google info
+      // Update existing user
       const { data: updatedUser, error: updateError } = await supabase
         .from('users')
         .update({
@@ -228,12 +155,11 @@ export async function POST(request: Request) {
         .single();
 
       if (updateError) {
-        console.error('❌ Error updating user:', updateError);
+        console.error('User update error:', updateError);
         throw new Error('Failed to update user');
       }
 
       user = updatedUser;
-      console.log('✅ Updated existing user:', user.email);
     } else {
       // Create new user
       const { data: newUser, error: createError } = await supabase
@@ -253,22 +179,21 @@ export async function POST(request: Request) {
         .single();
 
       if (createError) {
-        console.error('❌ Error creating user:', createError);
+        console.error('User creation error:', createError);
         
         if (createError.code === '23505') {
-          throw new Error('User with this email already exists');
+          throw new Error('User already exists');
         }
         
-        throw new Error('Failed to create user account');
+        throw new Error('Failed to create user');
       }
 
       user = newUser;
-      console.log('✅ Created new user:', user.email);
     }
 
     // Generate JWT session token
     if (!process.env.NEXTAUTH_SECRET) {
-      throw new Error('NEXTAUTH_SECRET not configured');
+      throw new Error('Session secret not configured');
     }
 
     const secret = new TextEncoder().encode(process.env.NEXTAUTH_SECRET);
@@ -284,8 +209,6 @@ export async function POST(request: Request) {
       .setExpirationTime('7d')
       .sign(secret);
 
-    console.log('✅ Manual OAuth login successful for:', user.email);
-
     return Response.json({
       success: true,
       user: {
@@ -300,8 +223,8 @@ export async function POST(request: Request) {
     });
 
   } catch (error) {
-    console.error('💥 Manual OAuth callback error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'OAuth authentication failed';
+    console.error('OAuth callback error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Authentication failed';
     
     return Response.json(
       { success: false, error: errorMessage },
