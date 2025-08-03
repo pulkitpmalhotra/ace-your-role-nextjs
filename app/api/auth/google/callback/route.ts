@@ -2,7 +2,9 @@
 
 // Use same redirect URI logic
 const getBaseUrl = () => {
-  return process.env.NEXTAUTH_URL || 'http://localhost:3000';
+  const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+  // Remove trailing slash if present
+  return baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
 };
 
 export async function GET(request: Request) {
