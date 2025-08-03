@@ -5,99 +5,39 @@ import { useState, useEffect } from 'react';
 export default function LoginPage() {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [error, setError] = useState('');
-  const [debugInfo, setDebugInfo] = useState<any>(null);
 
   // Check for OAuth errors in URL
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const error = urlParams.get('error');
     const message = urlParams.get('message');
-    const googleError = urlParams.get('google_error');
-    const debug = urlParams.get('debug');
     
-    if (error) {
-      let errorMessage = 'Google sign-in failed. Please try again.';
-      
-      if (googleError === 'invalid_request' && message?.includes('response_type')) {
-        errorMessage = `🔍 DEBUG: Google says "response_type missing" - This is a Google Cloud Console configuration issue. 
-        
-Check your OAuth client settings:
-• Application type must be "Web application"
-• Authorized redirect URIs must include: https://ace-your-role-nextjs.vercel.app/api/auth/google/callback
-• OAuth consent screen must be "In Production"`;
-      } else if (googleError) {
-        errorMessage = `OAuth Error from Google: ${googleError}
-        ${message ? `\nDetails: ${message}` : ''}
-        ${debug ? `\nDebug: ${debug}` : ''}`;
-      } else if (message) {
-        errorMessage = message;
-      }
-      
-      setError(errorMessage);
-      console.log('🚨 OAuth Error Details:', { error, message, googleError, debug });
+    if (error && message) {
+      setError('Google sign-in failed. Please try again.');
     }
   }, []);
-
-  // Debug function to check configuration
-  const checkConfiguration = async () => {
-    try {
-      console.log('🔍 Checking configuration...');
-      const response = await fetch('/api/auth/google?action=debug');
-      const result = await response.json();
-      
-      // Also test login URL generation
-      const loginResponse = await fetch('/api/auth/google?action=login');
-      const loginResult = await loginResponse.json();
-      
-      setDebugInfo({
-        config: result,
-        loginTest: loginResult
-      });
-    } catch (error) {
-      console.error('❌ Debug check failed:', error);
-      setDebugInfo({
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-    }
-  };
 
   const handleGoogleLogin = async () => {
     setIsGoogleLoading(true);
     setError('');
     
     try {
-      console.log('🔐 Step 1: Initiating Google OAuth...');
-      console.log('🔐 Current URL:', window.location.origin);
-      
       const response = await fetch('/api/auth/google?action=login');
-      console.log('🔐 Step 2: API Response status:', response.status);
       
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ API Response Error:', response.status, errorText);
-        throw new Error(`API Error: ${response.status} - ${errorText}`);
+        throw new Error('Failed to initialize Google login');
       }
       
       const result = await response.json();
-      console.log('🔐 Step 3: API Response data:', result);
       
       if (!result.success || !result.authUrl) {
-        console.error('❌ Invalid API response:', result);
         throw new Error(result.error || 'Failed to initialize Google login');
       }
-      
-      console.log('🔐 Step 4: Redirecting to Google OAuth URL:', result.authUrl);
-      
-      // Add a small delay to see the loading state
-      await new Promise(resolve => setTimeout(resolve, 500));
       
       // Redirect to Google OAuth
       window.location.href = result.authUrl;
       
     } catch (error) {
-      console.error('❌ Google login error details:', error);
-      console.error('❌ Error stack:', error instanceof Error ? error.stack : 'No stack trace');
-      
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       setError(`Google sign-in failed: ${errorMessage}`);
       setIsGoogleLoading(false);
@@ -127,23 +67,7 @@ Check your OAuth client settings:
         {/* Error Display */}
         {error && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-red-700 text-sm font-medium whitespace-pre-line">{error}</p>
-            <button
-              onClick={checkConfiguration}
-              className="mt-2 text-xs text-red-600 underline"
-            >
-              Check Configuration
-            </button>
-          </div>
-        )}
-
-        {/* Debug Info */}
-        {debugInfo && (
-          <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <p className="text-yellow-800 text-sm font-medium mb-2">Debug Information:</p>
-            <pre className="text-xs text-yellow-700 whitespace-pre-wrap max-h-32 overflow-y-auto">
-              {JSON.stringify(debugInfo, null, 2)}
-            </pre>
+            <p className="text-red-700 text-sm font-medium">{error}</p>
           </div>
         )}
 
