@@ -183,3 +183,12 @@ export default function LoginPage() {
     </div>
   );
 }
+// In your app/page.tsx, add these links at the bottom:
+<div className="text-center mt-6">
+  <p className="text-xs text-gray-500">
+    By signing in, you agree to our{' '}
+    <a href="/terms" className="text-blue-600 hover:underline">Terms of Service</a>
+    {' '}and{' '}
+    <a href="/privacy" className="text-blue-600 hover:underline">Privacy Policy</a>
+  </p>
+</div>
