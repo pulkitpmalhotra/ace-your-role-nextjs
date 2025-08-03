@@ -35,12 +35,26 @@ export default function LoginPage() {
   // Debug function to check configuration
   const checkConfiguration = async () => {
     try {
+      console.log('🔍 Checking configuration...');
       const response = await fetch('/api/auth/google?action=debug');
       const result = await response.json();
       setDebugInfo(result);
       console.log('🔍 Configuration check:', result);
+      
+      // Also test login URL generation
+      const loginResponse = await fetch('/api/auth/google?action=login');
+      const loginResult = await loginResponse.json();
+      console.log('🔍 Login URL test:', loginResult);
+      
+      setDebugInfo({
+        config: result,
+        loginTest: loginResult
+      });
     } catch (error) {
       console.error('❌ Debug check failed:', error);
+      setDebugInfo({
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   };
 
@@ -49,9 +63,11 @@ export default function LoginPage() {
     setError('');
     
     try {
-      console.log('🔐 Initiating Google OAuth...');
+      console.log('🔐 Step 1: Initiating Google OAuth...');
+      console.log('🔐 Current URL:', window.location.origin);
       
       const response = await fetch('/api/auth/google?action=login');
+      console.log('🔐 Step 2: API Response status:', response.status);
       
       if (!response.ok) {
         const errorText = await response.text();
@@ -60,20 +76,25 @@ export default function LoginPage() {
       }
       
       const result = await response.json();
-      console.log('📝 Google OAuth API response:', result);
+      console.log('🔐 Step 3: API Response data:', result);
       
       if (!result.success || !result.authUrl) {
         console.error('❌ Invalid API response:', result);
         throw new Error(result.error || 'Failed to initialize Google login');
       }
       
-      console.log('✅ Redirecting to Google OAuth URL:', result.authUrl);
+      console.log('🔐 Step 4: Redirecting to Google OAuth URL:', result.authUrl);
+      
+      // Add a small delay to see the loading state
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       // Redirect to Google OAuth
       window.location.href = result.authUrl;
       
     } catch (error) {
-      console.error('❌ Google login error:', error);
+      console.error('❌ Google login error details:', error);
+      console.error('❌ Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+      
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       setError(`Google sign-in failed: ${errorMessage}`);
       setIsGoogleLoading(false);
