@@ -6,7 +6,9 @@ import { SignJWT } from 'jose';
 // Ensure consistent redirect URI
 const getRedirectUri = () => {
   const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
-  return `${baseUrl}/api/auth/google/callback`;
+  // Remove trailing slash if present, then add the callback path
+  const cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+  return `${cleanBaseUrl}/api/auth/google/callback`;
 };
 
 const client = new OAuth2Client(
