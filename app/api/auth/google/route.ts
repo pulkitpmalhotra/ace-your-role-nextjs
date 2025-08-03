@@ -48,19 +48,27 @@ export async function GET(request: Request) {
         }, { status: 500 });
       }
 
-      // Use the most basic OAuth URL construction that Google definitely accepts
+      // Create the cleanest possible OAuth URL
       const redirectUri = getRedirectUri();
       const clientId = process.env.GOOGLE_CLIENT_ID;
       
-      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
-        `client_id=${encodeURIComponent(clientId)}&` +
-        `redirect_uri=${encodeURIComponent(redirectUri)}&` +
-        `response_type=code&` +
-        `scope=${encodeURIComponent('email profile')}&` +
-        `access_type=offline&` +
-        `prompt=select_account`;
+      // Build URL step by step to ensure proper encoding
+      const baseUrl = 'https://accounts.google.com/o/oauth2/v2/auth';
+      const params = [
+        `client_id=${clientId}`,
+        `redirect_uri=${encodeURIComponent(redirectUri)}`,
+        `response_type=code`,
+        `scope=email%20profile`,
+        `access_type=offline`
+      ];
+      
+      const authUrl = `${baseUrl}?${params.join('&')}`;
 
-      console.log('✅ Basic OAuth URL constructed:', authUrl);
+      console.log('✅ Clean OAuth URL constructed:', authUrl);
+      console.log('🔍 Checking response_type parameter:');
+      console.log('   - Base URL:', baseUrl);
+      console.log('   - Parameters:', params);
+      console.log('   - response_type present:', authUrl.includes('response_type=code'));
 
       return Response.json({
         success: true,
@@ -68,7 +76,9 @@ export async function GET(request: Request) {
         debug: {
           redirectUri,
           clientId: clientId.substring(0, 20) + '...',
-          rawUrl: authUrl
+          parametersUsed: params,
+          responseTypePresent: authUrl.includes('response_type=code'),
+          urlLength: authUrl.length
         }
       });
     }
