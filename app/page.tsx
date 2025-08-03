@@ -1,3 +1,5 @@
+'use client';
+
 // Alternative: Google Identity Services approach
 // Add this to your app/page.tsx or create a new login component
 // Make sure to set NEXT_PUBLIC_GOOGLE_CLIENT_ID in your environment variables
