@@ -1,30 +1,17 @@
-// app/api/auth/google/route.ts - FIXED VERSION
-import { OAuth2Client } from 'google-auth-library';
+// app/api/auth/google/route.ts - MANUAL URL CONSTRUCTION APPROACH
+
 import { createClient } from '@supabase/supabase-js';
 import { SignJWT } from 'jose';
 
-// FIXED: More robust redirect URI handling
+// FIXED: Completely manual URL construction
 const getRedirectUri = () => {
-  // Use exact production URL to avoid any mismatches
   if (process.env.NODE_ENV === 'production') {
     return 'https://ace-your-role-nextjs.vercel.app/api/auth/google/callback';
   }
   
   const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
-  const cleanBaseUrl = baseUrl.replace(/\/+$/, ''); // Remove trailing slashes
+  const cleanBaseUrl = baseUrl.replace(/\/+$/, '');
   return `${cleanBaseUrl}/api/auth/google/callback`;
-};
-
-// FIXED: Initialize client with explicit redirect URI
-const getOAuthClient = () => {
-  const redirectUri = getRedirectUri();
-  console.log('🔍 Using redirect URI:', redirectUri);
-  
-  return new OAuth2Client(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-    redirectUri
-  );
 };
 
 // Handle OAuth login initiation and debugging
@@ -62,35 +49,48 @@ export async function GET(request: Request) {
       const redirectUri = getRedirectUri();
       const clientId = process.env.GOOGLE_CLIENT_ID;
       
-      console.log('🔐 Creating OAuth URL with:');
+      console.log('🔐 Creating OAuth URL with MANUAL construction:');
       console.log('  - Client ID:', clientId.substring(0, 20) + '...');
       console.log('  - Redirect URI:', redirectUri);
       console.log('  - Environment:', process.env.NODE_ENV);
 
-      // FIXED: Use Google's latest OAuth 2.0 endpoint with proper parameters
-      const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
-      authUrl.searchParams.set('client_id', clientId);
-      authUrl.searchParams.set('redirect_uri', redirectUri);
-      authUrl.searchParams.set('response_type', 'code');
-      authUrl.searchParams.set('scope', 'openid email profile');
-      authUrl.searchParams.set('access_type', 'offline');
-      authUrl.searchParams.set('prompt', 'consent');
-      authUrl.searchParams.set('include_granted_scopes', 'true');
+      // 🚀 COMPLETELY MANUAL URL CONSTRUCTION
+      const responseType = 'code'; // Ensure this is never null/undefined
+      const scope = 'openid email profile';
+      const accessType = 'offline';
+      const prompt = 'consent';
+      
+      // Build URL piece by piece to ensure no parameters are lost
+      const baseAuthUrl = 'https://accounts.google.com/o/oauth2/v2/auth';
+      
+      // Method 1: Template literal (most explicit)
+      const authUrl = `${baseAuthUrl}?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=${responseType}&scope=${encodeURIComponent(scope)}&access_type=${accessType}&prompt=${prompt}`;
 
-      const finalAuthUrl = authUrl.toString();
-
-      console.log('✅ OAuth URL created:', finalAuthUrl);
-      console.log('🔍 URL contains response_type:', finalAuthUrl.includes('response_type=code'));
+      console.log('✅ Manually constructed OAuth URL:');
+      console.log('URL:', authUrl);
+      console.log('Contains response_type:', authUrl.includes('response_type=code'));
+      console.log('URL Length:', authUrl.length);
+      
+      // Additional verification
+      const urlParts = authUrl.split('&');
+      console.log('🔍 URL Parts:');
+      urlParts.forEach((part, index) => {
+        console.log(`  ${index}: ${part}`);
+      });
 
       return Response.json({
         success: true,
-        authUrl: finalAuthUrl,
+        authUrl: authUrl,
         debug: {
+          method: 'manual_construction',
           redirectUri,
           clientId: clientId.substring(0, 20) + '...',
-          responseTypePresent: finalAuthUrl.includes('response_type=code'),
-          urlLength: finalAuthUrl.length,
-          environment: process.env.NODE_ENV
+          responseType,
+          scope,
+          responseTypePresent: authUrl.includes('response_type=code'),
+          urlLength: authUrl.length,
+          environment: process.env.NODE_ENV,
+          urlParts: urlParts.length
         }
       });
     }
@@ -109,7 +109,7 @@ export async function GET(request: Request) {
   }
 }
 
-// Handle OAuth callback
+// Handle OAuth callback - MANUAL TOKEN EXCHANGE
 export async function POST(request: Request) {
   try {
     const { code } = await request.json();
@@ -121,17 +121,52 @@ export async function POST(request: Request) {
       );
     }
 
-    console.log('🔐 Processing Google OAuth callback...');
+    console.log('🔐 Processing Google OAuth callback with MANUAL token exchange...');
 
-    // FIXED: Use the same client configuration
-    const client = getOAuthClient();
+    // MANUAL token exchange instead of using google-auth-library
+    const tokenUrl = 'https://oauth2.googleapis.com/token';
+    const redirectUri = getRedirectUri();
+    
+    const tokenParams = new URLSearchParams({
+      client_id: process.env.GOOGLE_CLIENT_ID!,
+      client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+      code: code,
+      grant_type: 'authorization_code',
+      redirect_uri: redirectUri
+    });
 
-    // Exchange code for tokens
-    const { tokens } = await client.getToken(code);
+    console.log('🔄 Token exchange request:', {
+      url: tokenUrl,
+      redirect_uri: redirectUri,
+      code_length: code.length
+    });
+
+    const tokenResponse = await fetch(tokenUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: tokenParams.toString()
+    });
+
+    if (!tokenResponse.ok) {
+      const errorText = await tokenResponse.text();
+      console.error('❌ Google token exchange error:', tokenResponse.status, errorText);
+      throw new Error(`Token exchange failed: ${tokenResponse.status} - ${errorText}`);
+    }
+
+    const tokens = await tokenResponse.json();
     
     if (!tokens.access_token) {
+      console.error('❌ No access token in response:', tokens);
       throw new Error('No access token received from Google');
     }
+
+    console.log('✅ Tokens received:', {
+      access_token: tokens.access_token ? 'PRESENT' : 'MISSING',
+      id_token: tokens.id_token ? 'PRESENT' : 'MISSING',
+      refresh_token: tokens.refresh_token ? 'PRESENT' : 'MISSING'
+    });
 
     // Get user info from Google
     const userInfoResponse = await fetch(
@@ -249,7 +284,7 @@ export async function POST(request: Request) {
       .setExpirationTime('7d')
       .sign(secret);
 
-    console.log('✅ OAuth login successful for:', user.email);
+    console.log('✅ Manual OAuth login successful for:', user.email);
 
     return Response.json({
       success: true,
@@ -265,7 +300,7 @@ export async function POST(request: Request) {
     });
 
   } catch (error) {
-    console.error('💥 OAuth callback error:', error);
+    console.error('💥 Manual OAuth callback error:', error);
     const errorMessage = error instanceof Error ? error.message : 'OAuth authentication failed';
     
     return Response.json(
