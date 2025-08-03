@@ -49,7 +49,7 @@ export default function PrivacyPolicy() {
         <p>
           For privacy-related questions or to exercise your rights, contact us at: 
           <a href="mailto:privacy@aceyourrole.com" className="text-blue-600 hover:underline">
-            privacy@aceyourrole.com
+            pulkitpmalhotra@gmail.com
           </a>
         </p>
       </section>
