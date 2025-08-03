@@ -1,21 +1,31 @@
-// app/api/auth/google/route.ts - Google OAuth Integration
+// app/api/auth/google/route.ts - FIXED VERSION
 import { OAuth2Client } from 'google-auth-library';
 import { createClient } from '@supabase/supabase-js';
 import { SignJWT } from 'jose';
 
-// Ensure consistent redirect URI
+// FIXED: More robust redirect URI handling
 const getRedirectUri = () => {
+  // Use exact production URL to avoid any mismatches
+  if (process.env.NODE_ENV === 'production') {
+    return 'https://ace-your-role-nextjs.vercel.app/api/auth/google/callback';
+  }
+  
   const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
-  // Remove trailing slash if present, then add the callback path
-  const cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+  const cleanBaseUrl = baseUrl.replace(/\/+$/, ''); // Remove trailing slashes
   return `${cleanBaseUrl}/api/auth/google/callback`;
 };
 
-const client = new OAuth2Client(
-  process.env.GOOGLE_CLIENT_ID,
-  process.env.GOOGLE_CLIENT_SECRET,
-  getRedirectUri()
-);
+// FIXED: Initialize client with explicit redirect URI
+const getOAuthClient = () => {
+  const redirectUri = getRedirectUri();
+  console.log('🔍 Using redirect URI:', redirectUri);
+  
+  return new OAuth2Client(
+    process.env.GOOGLE_CLIENT_ID,
+    process.env.GOOGLE_CLIENT_SECRET,
+    redirectUri
+  );
+};
 
 // Handle OAuth login initiation and debugging
 export async function GET(request: Request) {
@@ -24,7 +34,7 @@ export async function GET(request: Request) {
     const action = searchParams.get('action');
 
     if (action === 'debug') {
-      // Return configuration info for debugging
+      const redirectUri = getRedirectUri();
       return Response.json({
         success: true,
         debug: {
@@ -32,8 +42,9 @@ export async function GET(request: Request) {
           GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET ? 'Set' : 'Missing',
           NEXTAUTH_URL: process.env.NEXTAUTH_URL || 'Missing',
           NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET ? 'Set' : 'Missing',
-          redirectUri: getRedirectUri(),
-          nodeEnv: process.env.NODE_ENV
+          redirectUri: redirectUri,
+          nodeEnv: process.env.NODE_ENV,
+          productionMode: process.env.NODE_ENV === 'production'
         }
       });
     }
@@ -48,37 +59,38 @@ export async function GET(request: Request) {
         }, { status: 500 });
       }
 
-      // Create the cleanest possible OAuth URL
       const redirectUri = getRedirectUri();
       const clientId = process.env.GOOGLE_CLIENT_ID;
       
-      // Build URL step by step to ensure proper encoding
-      const baseUrl = 'https://accounts.google.com/o/oauth2/v2/auth';
-      const params = [
-        `client_id=${clientId}`,
-        `redirect_uri=${encodeURIComponent(redirectUri)}`,
-        `response_type=code`,
-        `scope=email%20profile`,
-        `access_type=offline`
-      ];
-      
-      const authUrl = `${baseUrl}?${params.join('&')}`;
+      console.log('🔐 Creating OAuth URL with:');
+      console.log('  - Client ID:', clientId.substring(0, 20) + '...');
+      console.log('  - Redirect URI:', redirectUri);
+      console.log('  - Environment:', process.env.NODE_ENV);
 
-      console.log('✅ Clean OAuth URL constructed:', authUrl);
-      console.log('🔍 Checking response_type parameter:');
-      console.log('   - Base URL:', baseUrl);
-      console.log('   - Parameters:', params);
-      console.log('   - response_type present:', authUrl.includes('response_type=code'));
+      // FIXED: Use Google's latest OAuth 2.0 endpoint with proper parameters
+      const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+      authUrl.searchParams.set('client_id', clientId);
+      authUrl.searchParams.set('redirect_uri', redirectUri);
+      authUrl.searchParams.set('response_type', 'code');
+      authUrl.searchParams.set('scope', 'openid email profile');
+      authUrl.searchParams.set('access_type', 'offline');
+      authUrl.searchParams.set('prompt', 'consent');
+      authUrl.searchParams.set('include_granted_scopes', 'true');
+
+      const finalAuthUrl = authUrl.toString();
+
+      console.log('✅ OAuth URL created:', finalAuthUrl);
+      console.log('🔍 URL contains response_type:', finalAuthUrl.includes('response_type=code'));
 
       return Response.json({
         success: true,
-        authUrl,
+        authUrl: finalAuthUrl,
         debug: {
           redirectUri,
           clientId: clientId.substring(0, 20) + '...',
-          parametersUsed: params,
-          responseTypePresent: authUrl.includes('response_type=code'),
-          urlLength: authUrl.length
+          responseTypePresent: finalAuthUrl.includes('response_type=code'),
+          urlLength: finalAuthUrl.length,
+          environment: process.env.NODE_ENV
         }
       });
     }
@@ -111,9 +123,15 @@ export async function POST(request: Request) {
 
     console.log('🔐 Processing Google OAuth callback...');
 
+    // FIXED: Use the same client configuration
+    const client = getOAuthClient();
+
     // Exchange code for tokens
     const { tokens } = await client.getToken(code);
-    client.setCredentials(tokens);
+    
+    if (!tokens.access_token) {
+      throw new Error('No access token received from Google');
+    }
 
     // Get user info from Google
     const userInfoResponse = await fetch(
@@ -121,6 +139,8 @@ export async function POST(request: Request) {
     );
     
     if (!userInfoResponse.ok) {
+      const errorText = await userInfoResponse.text();
+      console.error('❌ Google userinfo API error:', errorText);
       throw new Error('Failed to fetch user info from Google');
     }
 
@@ -129,7 +149,8 @@ export async function POST(request: Request) {
     console.log('✅ Google user data:', {
       id: googleUser.id,
       email: googleUser.email,
-      name: googleUser.name
+      name: googleUser.name,
+      verified_email: googleUser.verified_email
     });
 
     // Initialize Supabase
@@ -211,6 +232,10 @@ export async function POST(request: Request) {
     }
 
     // Generate JWT session token
+    if (!process.env.NEXTAUTH_SECRET) {
+      throw new Error('NEXTAUTH_SECRET not configured');
+    }
+
     const secret = new TextEncoder().encode(process.env.NEXTAUTH_SECRET);
     const sessionToken = await new SignJWT({ 
       userId: user.id,
