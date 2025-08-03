@@ -174,21 +174,26 @@ export default function LoginPage() {
             <p className="text-xs text-gray-500 leading-relaxed mb-2">
               🔒 <strong>Secure & Private:</strong> We use Google's secure authentication and never store your passwords.
             </p>
-            <p className="text-xs text-gray-500 leading-relaxed">
+            <p className="text-xs text-gray-500 leading-relaxed mb-4">
               Your practice sessions are automatically deleted after 90 days for privacy.
             </p>
+            
+            {/* Legal Links - FIXED SYNTAX */}
+            <div className="text-center">
+              <p className="text-xs text-gray-500">
+                By signing in, you agree to our{' '}
+                <a href="/terms" className="text-blue-600 hover:underline font-medium">
+                  Terms of Service
+                </a>
+                {' '}and{' '}
+                <a href="/privacy" className="text-blue-600 hover:underline font-medium">
+                  Privacy Policy
+                </a>
+              </p>
+            </div>
           </div>
         </div>
       </div>
     </div>
   );
 }
-// In your app/page.tsx, add these links at the bottom:
-<div className="text-center mt-6">
-  <p className="text-xs text-gray-500">
-    By signing in, you agree to our{' '}
-    <a href="/terms" className="text-blue-600 hover:underline">Terms of Service</a>
-    {' '}and{' '}
-    <a href="/privacy" className="text-blue-600 hover:underline">Privacy Policy</a>
-  </p>
-</div>
