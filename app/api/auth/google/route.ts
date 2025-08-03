@@ -48,24 +48,33 @@ export async function GET(request: Request) {
         }, { status: 500 });
       }
 
-      // Generate OAuth URL with explicit parameters
-      const authUrl = client.generateAuthUrl({
-        access_type: 'offline',
-        scope: [
-          'https://www.googleapis.com/auth/userinfo.email',
-          'https://www.googleapis.com/auth/userinfo.profile'
-        ],
-        include_granted_scopes: true,
-        redirect_uri: getRedirectUri(),
+      // Manually construct OAuth URL to ensure all parameters are correct
+      const redirectUri = getRedirectUri();
+      const clientId = process.env.GOOGLE_CLIENT_ID;
+      
+      const oauthParams = new URLSearchParams({
+        client_id: clientId,
+        redirect_uri: redirectUri,
         response_type: 'code',
+        scope: 'openid email profile',
+        access_type: 'offline',
+        include_granted_scopes: 'true',
         prompt: 'select_account'
       });
 
-      console.log('✅ Generated OAuth URL:', authUrl);
+      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${oauthParams.toString()}`;
+
+      console.log('✅ Manual OAuth URL constructed:', authUrl);
+      console.log('🔍 OAuth parameters:', Object.fromEntries(oauthParams.entries()));
 
       return Response.json({
         success: true,
-        authUrl
+        authUrl,
+        debug: {
+          redirectUri,
+          clientId: clientId.substring(0, 20) + '...',
+          parameters: Object.fromEntries(oauthParams.entries())
+        }
       });
     }
 
