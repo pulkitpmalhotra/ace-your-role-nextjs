@@ -1,30 +1,102 @@
-// Add this to your useEffect in app/page.tsx to show detailed errors
+// app/api/auth/google/callback/route.ts - COMPLETE VERSION WITH PROPER IMPORTS
 
-useEffect(() => {
-  const error = searchParams.get('error');
-  const message = searchParams.get('message');
-  const googleError = searchParams.get('google_error');
-  const debug = searchParams.get('debug');
-  
-  if (error) {
-    let errorMessage = 'Google sign-in failed. Please try again.';
+import { NextRequest } from 'next/server';
+
+// Use same redirect URI logic
+const getBaseUrl = () => {
+  const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+  // Remove trailing slash if present
+  return baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+};
+
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
     
-    if (googleError === 'invalid_request' && message?.includes('response_type')) {
-      errorMessage = `🔍 DEBUG: Google says "response_type missing" - This is a Google Cloud Console configuration issue. 
-      
-Check your OAuth client settings:
-• Application type must be "Web application"
-• Authorized redirect URIs must include: https://ace-your-role-nextjs.vercel.app/api/auth/google/callback
-• OAuth consent screen must be "In Production"`;
-    } else if (googleError) {
-      errorMessage = `OAuth Error from Google: ${googleError}
-      ${message ? `\nDetails: ${message}` : ''}
-      ${debug ? `\nDebug: ${debug}` : ''}`;
-    } else if (message) {
-      errorMessage = message;
+    // 🔍 DEBUG: Log ALL parameters received from Google
+    console.log('🔍 === OAUTH CALLBACK DEBUG ===');
+    console.log('📥 Full callback URL:', request.url);
+    console.log('📥 All URL parameters received from Google:');
+    for (const [key, value] of searchParams.entries()) {
+      console.log(`    ${key}: ${value}`);
     }
     
-    setError(errorMessage);
-    console.log('🚨 OAuth Error Details:', { error, message, googleError, debug });
+    const code = searchParams.get('code');
+    const error = searchParams.get('error');
+    const errorDescription = searchParams.get('error_description');
+    const state = searchParams.get('state');
+    
+    console.log('📊 Parsed OAuth Response:');
+    console.log('    code:', code ? `${code.substring(0, 20)}...` : 'NULL');
+    console.log('    error:', error || 'NULL');
+    console.log('    error_description:', errorDescription || 'NULL');
+    console.log('    state:', state || 'NULL');
+    console.log('🔍 === END DEBUG ===');
+
+    if (error) {
+      console.error('❌ OAuth error from Google:', error);
+      console.error('❌ Error description:', errorDescription);
+      
+      // Create detailed error URL for debugging
+      const errorParams = new URLSearchParams({
+        error: 'oauth_error',
+        google_error: error,
+        message: errorDescription || error,
+        debug: 'callback_error'
+      });
+      
+      return Response.redirect(
+        `${getBaseUrl()}/?${errorParams.toString()}`
+      );
+    }
+
+    if (!code) {
+      console.error('❌ No authorization code received from Google');
+      console.error('❌ This usually means Google rejected the OAuth request');
+      
+      return Response.redirect(
+        `${getBaseUrl()}/?error=oauth_error&message=no_code&debug=missing_code`
+      );
+    }
+
+    console.log('✅ Authorization code received, proceeding with token exchange...');
+
+    // Exchange code for user data by calling our POST endpoint
+    const response = await fetch(`${getBaseUrl()}/api/auth/google`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code })
+    });
+
+    const result = await response.json();
+
+    if (!result.success) {
+      console.error('❌ OAuth exchange failed:', result.error);
+      return Response.redirect(
+        `${getBaseUrl()}/?error=oauth_error&message=${encodeURIComponent(result.error)}&debug=exchange_failed`
+      );
+    }
+
+    // Create success URL with user data
+    const successParams = new URLSearchParams({
+      success: 'true',
+      sessionToken: result.sessionToken,
+      user: JSON.stringify(result.user),
+      isNewUser: result.isNewUser.toString()
+    });
+
+    console.log('✅ OAuth callback successful, redirecting to dashboard');
+
+    return Response.redirect(
+      `${getBaseUrl()}/auth/callback?${successParams.toString()}`
+    );
+
+  } catch (error) {
+    console.error('💥 OAuth callback error:', error);
+    console.error('💥 Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+    
+    return Response.redirect(
+      `${getBaseUrl()}/?error=oauth_error&message=callback_failed&debug=exception`
+    );
   }
-}, [searchParams]);
+}
