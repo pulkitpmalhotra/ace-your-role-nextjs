@@ -48,7 +48,7 @@ export async function GET(request: Request) {
         }, { status: 500 });
       }
 
-      // Generate OAuth URL
+      // Generate OAuth URL with explicit parameters
       const authUrl = client.generateAuthUrl({
         access_type: 'offline',
         scope: [
@@ -56,7 +56,9 @@ export async function GET(request: Request) {
           'https://www.googleapis.com/auth/userinfo.profile'
         ],
         include_granted_scopes: true,
-        redirect_uri: getRedirectUri() // Explicitly set redirect URI
+        redirect_uri: getRedirectUri(),
+        response_type: 'code',
+        prompt: 'select_account'
       });
 
       console.log('✅ Generated OAuth URL:', authUrl);
