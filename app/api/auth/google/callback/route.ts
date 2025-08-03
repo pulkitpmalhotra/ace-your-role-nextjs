@@ -1,6 +1,5 @@
-// app/api/auth/google/callback/route.ts - NEXT.JS 13+ APP ROUTER COMPATIBLE
+// app/api/auth/google/callback/route.ts - BULLETPROOF NEXT.JS COMPATIBILITY
 
-import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { SignJWT } from 'jose';
 
@@ -9,54 +8,63 @@ const getBaseUrl = () => {
   return baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
 };
 
-export async function GET(request: NextRequest) {
+// Force dynamic rendering
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+export async function GET(request: Request) {
   console.log('🔍 === OAUTH CALLBACK DEBUG START ===');
   
   try {
     console.log('📥 STEP 1: Parse callback URL');
-    // Fix: Use NextRequest.nextUrl instead of new URL(request.url)
-    const searchParams = request.nextUrl.searchParams;
+    // Use the most compatible approach - parse the URL string directly
+    const url = new URL(request.url);
+    const searchParams = url.searchParams;
     console.log('✅ STEP 1: URL parsed successfully');
+    console.log('📊 Raw URL:', request.url);
     
-    // Log all parameters safely
-    console.log('📥 STEP 2: Extract parameters');
-    const paramEntries: [string, string][] = [];
-    searchParams.forEach((value, key) => {
-      paramEntries.push([key, value]);
-    });
-    
-    console.log('📊 All parameters received:');
-    paramEntries.forEach(([key, value]) => {
-      console.log(`    ${key}: ${value}`);
-    });
-    
+    // Extract parameters manually to avoid Next.js issues
+    console.log('📥 STEP 2: Extract parameters manually');
     const code = searchParams.get('code');
     const error = searchParams.get('error');
     const errorDescription = searchParams.get('error_description');
+    const state = searchParams.get('state');
     
-    console.log('📊 Key parameters:');
-    console.log('    code:', code ? `PRESENT (${code.length} chars)` : 'MISSING');
-    console.log('    error:', error || 'NONE');
-    console.log('    error_description:', errorDescription || 'NONE');
+    // Log all parameters
+    console.log('📊 All URL parameters:');
+    console.log(`    Full URL: ${request.url}`);
+    console.log(`    code: ${code ? `PRESENT (${code.length} chars)` : 'MISSING'}`);
+    console.log(`    error: ${error || 'NONE'}`);
+    console.log(`    error_description: ${errorDescription || 'NONE'}`);
+    console.log(`    state: ${state || 'NONE'}`);
     console.log('✅ STEP 2: Parameters extracted');
 
     if (error) {
       console.log('❌ STEP 3: OAuth error from Google - redirecting with error');
-      const errorUrl = `${getBaseUrl()}/?error=oauth_error&google_error=${error}&message=${encodeURIComponent(errorDescription || error)}&debug=google_error`;
-      return NextResponse.redirect(errorUrl);
+      const errorUrl = new URL('/', getBaseUrl());
+      errorUrl.searchParams.set('error', 'oauth_error');
+      errorUrl.searchParams.set('google_error', error);
+      errorUrl.searchParams.set('message', errorDescription || error);
+      errorUrl.searchParams.set('debug', 'google_error');
+      
+      return Response.redirect(errorUrl.toString());
     }
 
     if (!code) {
       console.log('❌ STEP 3: No authorization code - redirecting with error');
-      const errorUrl = `${getBaseUrl()}/?error=oauth_error&message=no_code&debug=missing_code`;
-      return NextResponse.redirect(errorUrl);
+      const errorUrl = new URL('/', getBaseUrl());
+      errorUrl.searchParams.set('error', 'oauth_error');
+      errorUrl.searchParams.set('message', 'no_code');
+      errorUrl.searchParams.set('debug', 'missing_code');
+      
+      return Response.redirect(errorUrl.toString());
     }
 
     console.log('✅ STEP 3: Authorization code received');
 
     console.log('📥 STEP 4: Attempt token exchange with Google');
     
-    // MANUAL token exchange
+    // Token exchange
     const tokenUrl = 'https://oauth2.googleapis.com/token';
     const redirectUri = `${getBaseUrl()}/api/auth/google/callback`;
     
@@ -89,8 +97,14 @@ export async function GET(request: NextRequest) {
       console.error('❌ Status:', tokenResponse.status);
       console.error('❌ Response:', errorText);
       
-      const errorUrl = `${getBaseUrl()}/?error=oauth_error&message=token_exchange_failed&debug=step4&status=${tokenResponse.status}`;
-      return NextResponse.redirect(errorUrl);
+      const errorUrl = new URL('/', getBaseUrl());
+      errorUrl.searchParams.set('error', 'oauth_error');
+      errorUrl.searchParams.set('message', 'token_exchange_failed');
+      errorUrl.searchParams.set('debug', 'step4');
+      errorUrl.searchParams.set('status', tokenResponse.status.toString());
+      errorUrl.searchParams.set('details', errorText.substring(0, 200));
+      
+      return Response.redirect(errorUrl.toString());
     }
 
     const tokens = await tokenResponse.json();
@@ -111,8 +125,13 @@ export async function GET(request: NextRequest) {
       console.error('❌ Status:', userInfoResponse.status);
       console.error('❌ Response:', errorText);
       
-      const errorUrl = `${getBaseUrl()}/?error=oauth_error&message=userinfo_failed&debug=step5&status=${userInfoResponse.status}`;
-      return NextResponse.redirect(errorUrl);
+      const errorUrl = new URL('/', getBaseUrl());
+      errorUrl.searchParams.set('error', 'oauth_error');
+      errorUrl.searchParams.set('message', 'userinfo_failed');
+      errorUrl.searchParams.set('debug', 'step5');
+      errorUrl.searchParams.set('status', userInfoResponse.status.toString());
+      
+      return Response.redirect(errorUrl.toString());
     }
 
     const googleUser = await userInfoResponse.json();
@@ -137,8 +156,13 @@ export async function GET(request: NextRequest) {
 
     if (fetchError && fetchError.code !== 'PGRST116') {
       console.error('❌ STEP 6: Database fetch error:', fetchError);
-      const errorUrl = `${getBaseUrl()}/?error=oauth_error&message=db_fetch_error&debug=step6&code=${fetchError.code}`;
-      return NextResponse.redirect(errorUrl);
+      const errorUrl = new URL('/', getBaseUrl());
+      errorUrl.searchParams.set('error', 'oauth_error');
+      errorUrl.searchParams.set('message', 'db_fetch_error');
+      errorUrl.searchParams.set('debug', 'step6');
+      errorUrl.searchParams.set('code', fetchError.code || 'unknown');
+      
+      return Response.redirect(errorUrl.toString());
     }
 
     let user;
@@ -160,8 +184,13 @@ export async function GET(request: NextRequest) {
 
       if (updateError) {
         console.error('❌ STEP 6: User update failed:', updateError);
-        const errorUrl = `${getBaseUrl()}/?error=oauth_error&message=db_update_error&debug=step6&code=${updateError.code}`;
-        return NextResponse.redirect(errorUrl);
+        const errorUrl = new URL('/', getBaseUrl());
+        errorUrl.searchParams.set('error', 'oauth_error');
+        errorUrl.searchParams.set('message', 'db_update_error');
+        errorUrl.searchParams.set('debug', 'step6');
+        errorUrl.searchParams.set('code', updateError.code || 'unknown');
+        
+        return Response.redirect(errorUrl.toString());
       }
       
       user = updatedUser;
@@ -186,8 +215,13 @@ export async function GET(request: NextRequest) {
 
       if (createError) {
         console.error('❌ STEP 6: User creation failed:', createError);
-        const errorUrl = `${getBaseUrl()}/?error=oauth_error&message=db_create_error&debug=step6&code=${createError.code}`;
-        return NextResponse.redirect(errorUrl);
+        const errorUrl = new URL('/', getBaseUrl());
+        errorUrl.searchParams.set('error', 'oauth_error');
+        errorUrl.searchParams.set('message', 'db_create_error');
+        errorUrl.searchParams.set('debug', 'step6');
+        errorUrl.searchParams.set('code', createError.code || 'unknown');
+        
+        return Response.redirect(errorUrl.toString());
       }
       
       user = newUser;
@@ -212,24 +246,22 @@ export async function GET(request: NextRequest) {
     console.log('✅ STEP 7: JWT token generated successfully');
 
     console.log('📥 STEP 8: Create success redirect');
-    const successParams = new URLSearchParams({
-      success: 'true',
-      sessionToken: sessionToken,
-      user: JSON.stringify({
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        picture: user.picture,
-        emailVerified: user.email_verified
-      }),
-      isNewUser: (!existingUser).toString()
-    });
+    const successUrl = new URL('/auth/callback', getBaseUrl());
+    successUrl.searchParams.set('success', 'true');
+    successUrl.searchParams.set('sessionToken', sessionToken);
+    successUrl.searchParams.set('user', JSON.stringify({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      picture: user.picture,
+      emailVerified: user.email_verified
+    }));
+    successUrl.searchParams.set('isNewUser', (!existingUser).toString());
 
-    const redirectUrl = `${getBaseUrl()}/auth/callback?${successParams.toString()}`;
     console.log('✅ STEP 8: Success redirect URL created');
     console.log('🔍 === OAUTH CALLBACK DEBUG END - SUCCESS ===');
 
-    return NextResponse.redirect(redirectUrl);
+    return Response.redirect(successUrl.toString());
 
   } catch (error) {
     console.error('💥 === CALLBACK EXCEPTION ===');
@@ -239,8 +271,11 @@ export async function GET(request: NextRequest) {
     console.error('💥 === END EXCEPTION DEBUG ===');
     
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    const errorUrl = `${getBaseUrl()}/?error=oauth_error&message=${encodeURIComponent('Exception: ' + errorMessage)}&debug=exception_detailed`;
+    const errorUrl = new URL('/', getBaseUrl());
+    errorUrl.searchParams.set('error', 'oauth_error');
+    errorUrl.searchParams.set('message', `Exception: ${errorMessage}`);
+    errorUrl.searchParams.set('debug', 'exception_detailed');
     
-    return NextResponse.redirect(errorUrl);
+    return Response.redirect(errorUrl.toString());
   }
 }
