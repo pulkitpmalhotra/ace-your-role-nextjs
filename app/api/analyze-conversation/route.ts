@@ -119,7 +119,7 @@ function performRuleBasedAnalysis(conversation: any[], scenario: any, session_id
   return {
     session_id,
     overall_score: scores.overall,
-    category_scores: scores.categories,
+    role_scores: scores.categories, // Changed from category_scores to role_scores for frontend compatibility
     conversation_analysis: {
       specific_strengths: generateStrengthsFromRules(userMessages, exchanges),
       specific_improvements: generateImprovementsFromRules(userMessages, exchanges),
@@ -289,7 +289,7 @@ function createFallbackAnalysis(request: any) {
   return {
     session_id: 'unknown',
     overall_score: 3.0,
-    category_scores: {
+    role_scores: { // Changed from category_scores to role_scores
       opening_rapport: { score: 3.0, feedback: 'Good conversation participation' },
       discovery_needs: { score: 3.0, feedback: 'Effective communication approach' },
       communication_clarity: { score: 3.0, feedback: 'Clear professional interaction' },
@@ -410,7 +410,7 @@ function parseAIAnalysis(aiResponse: string, conversation: any[], scenario: any)
 
   return {
     overall_score,
-    category_scores,
+    role_scores: category_scores, // Changed from category_scores to role_scores
     conversation_analysis: {
       specific_strengths: strengths.length > 0 ? strengths : ['Active participation in conversation'],
       specific_improvements: improvements.length > 0 ? improvements : ['Continue building confidence'],
