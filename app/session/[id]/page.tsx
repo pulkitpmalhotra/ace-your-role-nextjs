@@ -4,11 +4,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { AdvancedSpeechProcessor } from '../../../utils/advanced-speech-processor';
-import { AdvancedAIPromptingSystem } from '../../../utils/advanced-ai-prompting';
-import { EnhancedVoiceSynthesizer } from '../../../utils/enhanced-voice-synthesis';
-import { PerformanceOptimizer } from '../../../utils/performance-optimizer';
-import { AdvancedAnalytics } from '../../../utils/advanced-analytics';
-import { PerformanceMonitor } from '../../../utils/performance-monitor';
+import { AdvancedAIPromptingSystem } from '../../../utils/advanced-speech-processor';
+import { EnhancedVoiceSynthesizer } from '../../../utils/advanced-speech-processor';
+import { PerformanceOptimizer } from '../../../utils/advanced-speech-processor';
+import { AdvancedAnalytics } from '../../../utils/advanced-speech-processor';
+import { PerformanceMonitor } from '../../../utils/advanced-speech-processor';
 
 // Types
 interface Scenario {
