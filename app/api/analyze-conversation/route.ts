@@ -155,7 +155,7 @@ function calculateRuleBasedScores(userMessages: any[], exchanges: number, scenar
   // Bonus for varied responses
   const uniqueWords = new Set(
     userMessages.flatMap(msg => 
-      msg.message.toLowerCase().split(/\s+/).filter(word => word.length > 3)
+      msg.message.toLowerCase().split(/\s+/).filter((word: string) => word.length > 3)
     )
   ).size;
   if (uniqueWords > 15) overallScore += 0.3;
