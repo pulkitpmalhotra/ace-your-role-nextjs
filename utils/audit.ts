@@ -174,7 +174,7 @@ export async function logDataExport(email: string, request: Request, dataType: s
 }
 
 // Log account deletion
-export async function logAccountDeletion(email: String, request: Request, userId: string) {
+export async function logAccountDeletion(email: string, request: Request, userId: string) {
   await logAuditEvent(
     email,
     AUDIT_ACTIONS.ACCOUNT_DELETE,
