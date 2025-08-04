@@ -1,131 +1,193 @@
-// middleware.ts
+// middleware.ts - Compatible Security Middleware
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-// Simple in-memory rate limiting (for production, use Redis or database)
-const rateLimitMap = new Map();
+// Simple rate limiting storage
+interface RateLimitData {
+  count: number;
+  resetTime: number;
+}
 
-// Clean up old entries every 15 minutes
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, value] of rateLimitMap.entries()) {
-    if (now > value.resetTime) {
-      rateLimitMap.delete(key);
-    }
-  }
-}, 15 * 60 * 1000);
+const rateLimitMap: { [key: string]: RateLimitData } = {};
 
 export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-  
-  // Skip middleware for static files and internal Next.js routes
+  // Skip middleware for static files and Next.js internals
   if (
-    pathname.startsWith('/_next') ||
-    pathname.startsWith('/static') ||
-    pathname.includes('.') ||
-    pathname === '/favicon.ico'
+    request.nextUrl.pathname.startsWith('/_next') ||
+    request.nextUrl.pathname.startsWith('/static') ||
+    request.nextUrl.pathname.includes('.') ||
+    request.nextUrl.pathname === '/favicon.ico'
   ) {
     return NextResponse.next();
   }
 
-  // Get client IP
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 
-            request.headers.get('x-real-ip') || 
-            request.ip || 
-            'anonymous';
-
-  const now = Date.now();
-  const windowMs = 15 * 60 * 1000; // 15 minutes
-  
-  // Different rate limits for different endpoints
-  let maxRequests = 100; // Default
-  
-  if (pathname.startsWith('/api/ai-chat')) {
-    maxRequests = 30; // More restrictive for AI endpoints
-  } else if (pathname.startsWith('/api/auth')) {
-    maxRequests = 10; // Very restrictive for auth
-  } else if (pathname.startsWith('/api/sessions')) {
-    maxRequests = 50; // Moderate for sessions
-  }
-
-  // Check rate limit
-  if (!rateLimitMap.has(ip)) {
-    rateLimitMap.set(ip, { count: 1, resetTime: now + windowMs });
-  } else {
-    const userData = rateLimitMap.get(ip);
-    
-    if (now > userData.resetTime) {
-      rateLimitMap.set(ip, { count: 1, resetTime: now + windowMs });
-    } else {
-      if (userData.count >= maxRequests) {
-        console.log(`🚨 Rate limit exceeded for IP: ${ip} on ${pathname}`);
-        return new NextResponse(
-          JSON.stringify({ 
-            error: 'Too many requests', 
-            message: 'Please wait before making more requests',
-            retryAfter: Math.ceil((userData.resetTime - now) / 1000)
-          }), 
-          { 
-            status: 429,
-            headers: {
-              'Content-Type': 'application/json',
-              'Retry-After': Math.ceil((userData.resetTime - now) / 1000).toString(),
-              'X-RateLimit-Limit': maxRequests.toString(),
-              'X-RateLimit-Remaining': Math.max(0, maxRequests - userData.count).toString(),
-              'X-RateLimit-Reset': new Date(userData.resetTime).toISOString()
-            }
-          }
-        );
-      }
-      userData.count += 1;
-    }
-  }
-
-  // Add security headers to response
   const response = NextResponse.next();
-  
-  // Add rate limit headers
-  const userData = rateLimitMap.get(ip);
-  if (userData) {
-    response.headers.set('X-RateLimit-Limit', maxRequests.toString());
-    response.headers.set('X-RateLimit-Remaining', Math.max(0, maxRequests - userData.count).toString());
-    response.headers.set('X-RateLimit-Reset', new Date(userData.resetTime).toISOString());
+  const { pathname } = request.nextUrl;
+
+  // Get client IP
+  const forwarded = request.headers.get('x-forwarded-for');
+  const realIp = request.headers.get('x-real-ip');
+  const ip = forwarded ? forwarded.split(',')[0].trim() : realIp || 'unknown';
+
+  // Clean up old rate limit entries periodically
+  cleanupOldEntries();
+
+  // Apply rate limiting to API routes
+  if (pathname.startsWith('/api/')) {
+    const rateLimitResult = applyRateLimit(ip, pathname);
+    
+    if (!rateLimitResult.allowed) {
+      console.log(`🚨 Rate limit exceeded for ${ip} on ${pathname}`);
+      return new NextResponse(
+        JSON.stringify({ 
+          error: 'Too many requests', 
+          message: 'Please slow down your requests'
+        }), 
+        { 
+          status: 429,
+          headers: {
+            'Content-Type': 'application/json',
+            'Retry-After': '900' // 15 minutes
+          }
+        }
+      );
+    }
+
+    // Add rate limit headers
+    response.headers.set('X-RateLimit-Limit', rateLimitResult.limit.toString());
+    response.headers.set('X-RateLimit-Remaining', rateLimitResult.remaining.toString());
   }
 
-  // Block suspicious patterns
+  // Block suspicious requests
   const userAgent = request.headers.get('user-agent') || '';
-  const suspiciousPatterns = [
-    'bot', 'crawler', 'spider', 'scraper', 'wget', 'curl'
-  ];
-  
-  // Allow known good bots but block suspicious ones
-  const isKnownBot = /googlebot|bingbot|slurp|duckduckbot|baiduspider|yandexbot|facebookexternalhit|twitterbot|linkedinbot/i.test(userAgent);
-  const isSuspicious = suspiciousPatterns.some(pattern => 
-    userAgent.toLowerCase().includes(pattern)
-  ) && !isKnownBot;
-
-  if (isSuspicious && pathname.startsWith('/api/')) {
-    console.log(`🚨 Blocked suspicious request from: ${userAgent} (IP: ${ip})`);
+  if (pathname.startsWith('/api/') && isSuspiciousRequest(userAgent)) {
+    console.log(`🚨 Blocked suspicious request from ${ip}: ${userAgent}`);
     return new NextResponse('Forbidden', { status: 403 });
   }
 
-  // Log security events for monitoring
+  // Add basic security headers
+  response.headers.set('X-Content-Type-Options', 'nosniff');
+  response.headers.set('X-Frame-Options', 'DENY');
+  response.headers.set('X-XSS-Protection', '1; mode=block');
+  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+
+  // Log security-sensitive requests
   if (pathname.startsWith('/api/auth') || pathname.startsWith('/api/sessions')) {
-    console.log(`🔐 Security-sensitive request: ${request.method} ${pathname} from ${ip}`);
+    console.log(`🔐 Security request: ${request.method} ${pathname} from ${ip}`);
   }
 
   return response;
 }
 
+function applyRateLimit(ip: string, pathname: string): { 
+  allowed: boolean; 
+  limit: number; 
+  remaining: number; 
+} {
+  const now = Date.now();
+  const windowMs = 15 * 60 * 1000; // 15 minutes
+  
+  // Different limits for different endpoints
+  let maxRequests = 100; // Default
+  
+  if (pathname.startsWith('/api/ai-chat')) {
+    maxRequests = 30;
+  } else if (pathname.startsWith('/api/auth')) {
+    maxRequests = 10;
+  } else if (pathname.startsWith('/api/sessions')) {
+    maxRequests = 50;
+  } else if (pathname.startsWith('/api/analyze-conversation')) {
+    maxRequests = 20;
+  }
+
+  const key = `${ip}-${getApiCategory(pathname)}`;
+  
+  if (!rateLimitMap[key]) {
+    rateLimitMap[key] = { count: 1, resetTime: now + windowMs };
+    return { 
+      allowed: true, 
+      limit: maxRequests, 
+      remaining: maxRequests - 1 
+    };
+  }
+
+  const userData = rateLimitMap[key];
+  
+  if (now > userData.resetTime) {
+    rateLimitMap[key] = { count: 1, resetTime: now + windowMs };
+    return { 
+      allowed: true, 
+      limit: maxRequests, 
+      remaining: maxRequests - 1 
+    };
+  }
+
+  if (userData.count >= maxRequests) {
+    return { 
+      allowed: false, 
+      limit: maxRequests,
+      remaining: 0
+    };
+  }
+
+  userData.count += 1;
+  return { 
+    allowed: true, 
+    limit: maxRequests, 
+    remaining: maxRequests - userData.count 
+  };
+}
+
+function getApiCategory(pathname: string): string {
+  const parts = pathname.split('/');
+  return parts[2] || 'unknown'; // Get API category like 'auth', 'sessions', etc.
+}
+
+function isSuspiciousRequest(userAgent: string): boolean {
+  const ua = userAgent.toLowerCase();
+  
+  // Block obvious attack tools
+  const maliciousPatterns = [
+    'sqlmap',
+    'nmap',
+    'nikto',
+    'gobuster',
+    'dirb',
+    'wfuzz',
+    'burpsuite',
+    'havij',
+    'acunetix'
+  ];
+  
+  // Allow legitimate bots
+  const legitimateBots = [
+    'googlebot',
+    'bingbot',
+    'slurp',
+    'duckduckbot'
+  ];
+
+  const isMalicious = maliciousPatterns.some(pattern => ua.includes(pattern));
+  const isLegitimate = legitimateBots.some(pattern => ua.includes(pattern));
+  
+  return isMalicious && !isLegitimate;
+}
+
+function cleanupOldEntries(): void {
+  const now = Date.now();
+  const keys = Object.keys(rateLimitMap);
+  
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    const data = rateLimitMap[key];
+    if (data && now > data.resetTime) {
+      delete rateLimitMap[key];
+    }
+  }
+}
+
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public folder
-     */
     '/((?!_next/static|_next/image|favicon.ico|public/).*)',
   ],
 };
