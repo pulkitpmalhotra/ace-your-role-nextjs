@@ -195,33 +195,35 @@ export default function DashboardPage() {
     }, 1000);
   };
 
-  const getRoleEmoji = (role: string) => {
-    const emojiMap: Record<string, string> = {
-      'sales': '💼',
-      'product-manager': '📱',
-      'project-manager': '📋', 
-      'engineer': '👩‍💻',
-      'technical-program-manager': '🔧',
-      'strategy-lead': '🎯',
-      'manager': '👥',
-      'leader': '👥'
-    };
-    return emojiMap[role] || '💬';
+ const getRoleEmoji = (role: string) => {
+  const emojiMap: Record<string, string> = {
+    'sales': '💼',
+    'project-manager': '📋',
+    'product-manager': '📱', 
+    'leader': '👑',
+    'manager': '👥',
+    'strategy-lead': '🎯',
+    'support-agent': '🎧',
+    'data-analyst': '📊',
+    'engineer': '👩‍💻'
   };
+  return emojiMap[role] || '💬';
+};
 
   const getRoleDescription = (role: string) => {
-    const descriptions: Record<string, string> = {
-      'sales': 'Practice consultative selling and customer relationship building',
-      'product-manager': 'Develop product strategy and stakeholder management skills',
-      'project-manager': 'Master project coordination and team leadership',
-      'engineer': 'Practice technical communication and problem-solving',
-      'technical-program-manager': 'Develop cross-team coordination and technical strategy',
-      'strategy-lead': 'Practice strategic thinking and executive communication',
-      'manager': 'Develop team management and performance coaching skills',
-      'leader': 'Practice vision communication and organizational influence'
-    };
-    return descriptions[role] || 'Professional communication practice';
+  const descriptions: Record<string, string> = {
+    'sales': 'Practice consultative selling and customer relationship building',
+    'project-manager': 'Master project coordination, timeline management, and stakeholder communication',
+    'product-manager': 'Develop product strategy, roadmap planning, and cross-functional leadership',
+    'leader': 'Practice vision communication, strategic thinking, and organizational influence',
+    'manager': 'Develop team management, performance coaching, and people leadership skills',
+    'strategy-lead': 'Practice strategic planning, market analysis, and executive communication',
+    'support-agent': 'Master customer service, problem resolution, and technical support skills',
+    'data-analyst': 'Practice data presentation, insights communication, and analytical thinking',
+    'engineer': 'Develop technical communication, code reviews, and solution architecture discussions'
   };
+  return descriptions[role] || 'Professional communication practice';
+};
 
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
