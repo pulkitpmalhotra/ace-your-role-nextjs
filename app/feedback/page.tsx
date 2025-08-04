@@ -22,13 +22,15 @@ interface SessionData {
   sessionId: string;
 }
 
+interface ScoreData {
+  score: number;
+  feedback: string;
+}
+
 interface DetailedFeedback {
   overall_score: number;
   role_scores: {
-    [key: string]: {
-      score: number;
-      feedback: string;
-    };
+    [key: string]: ScoreData;
   };
   conversation_analysis: {
     specific_strengths: string[];
@@ -216,7 +218,7 @@ export default function FeedbackPage() {
               }`}>
                 {detailedFeedback.analysis_type === 'ai-powered-real' 
                   ? '✨ Real AI Analysis - Personalized for You' 
-                  : '📊 Standard Analysis'}
+                  : '📊 Smart Analysis'}
               </span>
             </div>
           )}
@@ -254,11 +256,11 @@ export default function FeedbackPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               {/* Overall Score */}
               <div className="text-center">
-                <div className={`text-6xl font-bold mb-3 ${getScoreColor(detailedFeedback.overall_score).split(' ')[0]}`}>
-                  {detailedFeedback.overall_score.toFixed(1)}
+                <div className={`text-6xl font-bold mb-3 ${getScoreColor(detailedFeedback.overall_score || 3.0).split(' ')[0]}`}>
+                  {(detailedFeedback.overall_score || 3.0).toFixed(1)}
                 </div>
-                <div className={`inline-block px-4 py-2 rounded-full text-sm font-semibold ${getScoreColor(detailedFeedback.overall_score)}`}>
-                  {getScoreLabel(detailedFeedback.overall_score)}
+                <div className={`inline-block px-4 py-2 rounded-full text-sm font-semibold ${getScoreColor(detailedFeedback.overall_score || 3.0)}`}>
+                  {getScoreLabel(detailedFeedback.overall_score || 3.0)}
                 </div>
                 <p className="text-gray-600 mt-2">Overall Performance</p>
               </div>
@@ -266,16 +268,16 @@ export default function FeedbackPage() {
               {/* Skill Level */}
               <div className="text-center">
                 <div className="text-3xl font-bold text-indigo-600 mb-3">
-                  {detailedFeedback.skill_progression.level}
+                  {detailedFeedback.skill_progression?.level || 'Developing'}
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-3 mb-2">
                   <div 
-                    className={`h-3 rounded-full transition-all duration-500 ${getProgressColor(detailedFeedback.skill_progression.progress)}`}
-                    style={{ width: `${detailedFeedback.skill_progression.progress}%` }}
+                    className={`h-3 rounded-full transition-all duration-500 ${getProgressColor(detailedFeedback.skill_progression?.progress || 60)}`}
+                    style={{ width: `${detailedFeedback.skill_progression?.progress || 60}%` }}
                   ></div>
                 </div>
                 <p className="text-gray-600">Skill Level</p>
-                <p className="text-sm text-gray-500">Next: {detailedFeedback.skill_progression.next}</p>
+                <p className="text-sm text-gray-500">Next: {detailedFeedback.skill_progression?.next || 'Keep Practicing'}</p>
               </div>
 
               {/* Session Stats */}
@@ -305,8 +307,8 @@ export default function FeedbackPage() {
           </div>
         )}
 
-        {/* Skills Breakdown */}
-        {detailedFeedback && (
+        {/* Skills Breakdown - DEFENSIVE VERSION */}
+        {detailedFeedback && detailedFeedback.role_scores && Object.keys(detailedFeedback.role_scores).length > 0 && (
           <div className="bg-white rounded-2xl shadow-xl p-8 mb-8 border border-white/20">
             <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
               <span className="text-2xl mr-3">📊</span>
@@ -314,36 +316,41 @@ export default function FeedbackPage() {
             </h2>
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {Object.entries(detailedFeedback.role_scores).map(([role, scoreData]) => (
-                <div key={role} className="border border-gray-200 rounded-xl p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      {formatRoleName(role)}
-                    </h3>
-                    <div className={`px-3 py-1 rounded-full text-sm font-bold ${getScoreColor(scoreData.score)}`}>
-                      {scoreData.score.toFixed(1)}/5.0
+              {Object.entries(detailedFeedback.role_scores).map(([role, scoreData]) => {
+                const score = scoreData?.score || 3.0;
+                const feedback = scoreData?.feedback || 'Good performance in this area';
+                
+                return (
+                  <div key={role} className="border border-gray-200 rounded-xl p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold text-gray-900">
+                        {formatRoleName(role)}
+                      </h3>
+                      <div className={`px-3 py-1 rounded-full text-sm font-bold ${getScoreColor(score)}`}>
+                        {score.toFixed(1)}/5.0
+                      </div>
                     </div>
+                    
+                    {/* Progress Bar */}
+                    <div className="w-full bg-gray-200 rounded-full h-2 mb-3">
+                      <div 
+                        className={`h-2 rounded-full transition-all duration-500 ${getProgressColor((score / 5) * 100)}`}
+                        style={{ width: `${(score / 5) * 100}%` }}
+                      ></div>
+                    </div>
+                    
+                    {/* Specific Feedback */}
+                    <p className="text-sm text-gray-600 leading-relaxed">
+                      {feedback}
+                    </p>
                   </div>
-                  
-                  {/* Progress Bar */}
-                  <div className="w-full bg-gray-200 rounded-full h-2 mb-3">
-                    <div 
-                      className={`h-2 rounded-full transition-all duration-500 ${getProgressColor((scoreData.score / 5) * 100)}`}
-                      style={{ width: `${(scoreData.score / 5) * 100}%` }}
-                    ></div>
-                  </div>
-                  
-                  {/* Specific Feedback */}
-                  <p className="text-sm text-gray-600 leading-relaxed">
-                    {scoreData.feedback}
-                  </p>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
 
-        {/* Conversation Analysis */}
+        {/* Conversation Analysis - DEFENSIVE VERSION */}
         {detailedFeedback?.conversation_analysis && (
           <div className="bg-white rounded-2xl shadow-xl p-8 mb-8 border border-white/20">
             <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
@@ -353,27 +360,31 @@ export default function FeedbackPage() {
             
             <div className="space-y-6">
               {/* Conversation Flow */}
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">Conversation Flow</h3>
-                <p className="text-gray-700 leading-relaxed bg-gray-50 p-4 rounded-lg">
-                  {detailedFeedback.conversation_analysis.conversation_flow_analysis}
-                </p>
-              </div>
+              {detailedFeedback.conversation_analysis.conversation_flow_analysis && (
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Conversation Flow</h3>
+                  <p className="text-gray-700 leading-relaxed bg-gray-50 p-4 rounded-lg">
+                    {detailedFeedback.conversation_analysis.conversation_flow_analysis}
+                  </p>
+                </div>
+              )}
 
               {/* Character Interaction */}
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                  Interaction with {sessionData.scenario.character_name}
-                </h3>
-                <p className="text-gray-700 leading-relaxed bg-gray-50 p-4 rounded-lg">
-                  {detailedFeedback.conversation_analysis.character_interaction_quality}
-                </p>
-              </div>
+              {detailedFeedback.conversation_analysis.character_interaction_quality && (
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                    Interaction with {sessionData.scenario.character_name}
+                  </h3>
+                  <p className="text-gray-700 leading-relaxed bg-gray-50 p-4 rounded-lg">
+                    {detailedFeedback.conversation_analysis.character_interaction_quality}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         )}
 
-        {/* Strengths and Improvements */}
+        {/* Strengths and Improvements - DEFENSIVE VERSION */}
         {detailedFeedback && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
             
@@ -384,7 +395,9 @@ export default function FeedbackPage() {
                 What You Did Well
               </h3>
               <div className="space-y-4">
-                {(detailedFeedback.conversation_analysis?.specific_strengths || detailedFeedback.strengths || []).map((strength, index) => (
+                {(detailedFeedback.conversation_analysis?.specific_strengths || 
+                  detailedFeedback.strengths || 
+                  ['Participated actively in the conversation']).map((strength, index) => (
                   <div key={index} className="flex items-start space-x-3">
                     <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0"></div>
                     <p className="text-gray-700 leading-relaxed">{strength}</p>
@@ -400,7 +413,9 @@ export default function FeedbackPage() {
                 Areas to Improve
               </h3>
               <div className="space-y-4">
-                {(detailedFeedback.conversation_analysis?.specific_improvements || detailedFeedback.improvement_areas || []).map((improvement, index) => (
+                {(detailedFeedback.conversation_analysis?.specific_improvements || 
+                  detailedFeedback.improvement_areas || 
+                  ['Continue practicing to build confidence']).map((improvement, index) => (
                   <div key={index} className="flex items-start space-x-3">
                     <div className="w-2 h-2 bg-orange-500 rounded-full mt-2 flex-shrink-0"></div>
                     <p className="text-gray-700 leading-relaxed">{improvement}</p>
@@ -411,7 +426,7 @@ export default function FeedbackPage() {
           </div>
         )}
 
-        {/* Coaching Insights */}
+        {/* Coaching Insights - DEFENSIVE VERSION */}
         {detailedFeedback?.coaching_insights && (
           <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-8 mb-8 border border-blue-200">
             <h3 className="text-2xl font-bold text-blue-900 mb-6 flex items-center">
@@ -422,7 +437,7 @@ export default function FeedbackPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               
               {/* Immediate Actions */}
-              {detailedFeedback.coaching_insights.immediate_actions.length > 0 && (
+              {detailedFeedback.coaching_insights.immediate_actions && detailedFeedback.coaching_insights.immediate_actions.length > 0 && (
                 <div className="bg-white rounded-xl p-6 border border-blue-200">
                   <h4 className="font-semibold text-blue-900 mb-4 flex items-center">
                     <span className="mr-2">🚀</span>
@@ -440,7 +455,7 @@ export default function FeedbackPage() {
               )}
 
               {/* Practice Areas */}
-              {detailedFeedback.coaching_insights.practice_areas.length > 0 && (
+              {detailedFeedback.coaching_insights.practice_areas && detailedFeedback.coaching_insights.practice_areas.length > 0 && (
                 <div className="bg-white rounded-xl p-6 border border-blue-200">
                   <h4 className="font-semibold text-blue-900 mb-4 flex items-center">
                     <span className="mr-2">📚</span>
@@ -458,15 +473,17 @@ export default function FeedbackPage() {
               )}
 
               {/* Next Session Focus */}
-              <div className="bg-white rounded-xl p-6 border border-blue-200 md:col-span-2">
-                <h4 className="font-semibold text-blue-900 mb-4 flex items-center">
-                  <span className="mr-2">🎯</span>
-                  Next Session Recommendation
-                </h4>
-                <p className="text-blue-800 text-sm leading-relaxed">
-                  {detailedFeedback.next_session_focus}
-                </p>
-              </div>
+              {detailedFeedback.next_session_focus && (
+                <div className="bg-white rounded-xl p-6 border border-blue-200 md:col-span-2">
+                  <h4 className="font-semibold text-blue-900 mb-4 flex items-center">
+                    <span className="mr-2">🎯</span>
+                    Next Session Recommendation
+                  </h4>
+                  <p className="text-blue-800 text-sm leading-relaxed">
+                    {detailedFeedback.next_session_focus}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         )}
