@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     }
 
     console.log('🧠 Starting conversation analysis for session:', session_id);
-    console.log('📊 Analyzing', conversation.length, 'messages in', scenario.category);
+    console.log('📊 Analyzing', conversation.length, 'messages in', scenario.role);
 
     // Try AI analysis first, fall back to rule-based analysis if it fails
     let analysisResult;
@@ -252,7 +252,7 @@ function generateCoachingInsights(scores: any, scenario: any) {
     ],
     advanced_techniques: [],
     next_scenarios: [
-      `Try another ${scenario.category} scenario at ${scenario.difficulty} level`
+      `Try another ${scenario.role} scenario at ${scenario.difficulty} level`
     ]
   };
 }
@@ -274,7 +274,7 @@ function generateStrengths(scores: any): string[] {
 }
 
 function generateNextFocus(scores: any, scenario: any): string {
-  return `Continue practicing ${scenario.category} scenarios and focus on extending conversation length and depth.`;
+  return `Continue practicing ${scenario.role} scenarios and focus on extending conversation length and depth.`;
 }
 
 function calculateProgression(overallScore: number) {
@@ -325,7 +325,7 @@ function buildAnalysisPrompt(conversation: any[], scenario: any) {
     `${i + 1}. ${msg.speaker === 'user' ? 'TRAINEE' : scenario.character_name}: "${msg.message}"`
   ).join('\n');
 
-  return `Analyze this ${scenario.category} roleplay conversation and provide specific feedback.
+  return `Analyze this ${scenario.role} roleplay conversation and provide specific feedback.
 
 SCENARIO: ${scenario.title}
 CHARACTER: ${scenario.character_name} (${scenario.character_role})
@@ -422,7 +422,7 @@ function parseAIAnalysis(aiResponse: string, conversation: any[], scenario: any)
       immediate_actions: ['Continue regular practice'],
       practice_areas: ['Building conversation depth'],
       advanced_techniques: [],
-      next_scenarios: [`Try more ${scenario.category} scenarios`]
+      next_scenarios: [`Try more ${scenario.role} scenarios`]
     },
     improvement_areas: improvements.slice(0, 3),
     strengths: strengths.slice(0, 3),
