@@ -992,9 +992,9 @@ export class PerformanceMonitor {
 
   getAllMetrics(): any {
     const summary: Record<string, any> = {};
-    for (const [name] of this.metrics) {
+    this.metrics.forEach((_, name) => {
       summary[name] = this.getMetricSummary(name);
-    }
+    });
     return summary;
   }
 
