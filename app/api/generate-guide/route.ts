@@ -94,15 +94,15 @@ export async function POST(request: Request) {
 
 // Build scenario-specific prompt for AI
 function buildGuidePrompt(scenario: any) {
-  const categoryContext = getCategoryContext(scenario.category);
+  const roleContext = getRoleContext(scenario.role);
   const difficultyContext = getDifficultyContext(scenario.difficulty);
   
-  return `You are an expert ${scenario.category} communication coach. Generate specific, actionable practice guidance for this exact roleplay scenario.
+  return `You are an expert ${scenario.role.replace('-', ' ')} communication coach. Generate specific, actionable practice guidance for this exact roleplay scenario.
 
 SCENARIO DETAILS:
 - Title: ${scenario.title}
 - Description: ${scenario.description || 'Standard practice scenario'}
-- Category: ${scenario.category}
+- Role: ${scenario.role}
 - Difficulty: ${scenario.difficulty}
 
 CHARACTER DETAILS:
@@ -111,7 +111,7 @@ CHARACTER DETAILS:
 - Personality: ${scenario.character_personality || 'Professional with realistic concerns'}
 
 CONTEXT:
-${categoryContext}
+${roleContext}
 
 DIFFICULTY LEVEL:
 ${difficultyContext}
@@ -122,7 +122,7 @@ Generate a practice guide with the following structure:
 
 **OBJECTIVES:** (4-5 specific bullet points tailored to this exact scenario and character)
 
-**SUCCESS TIPS:** (4-5 actionable tips specific to dealing with ${scenario.character_name} in this ${scenario.category} situation)
+**SUCCESS TIPS:** (4-5 actionable tips specific to dealing with ${scenario.character_name} in this ${scenario.role} situation)
 
 **CHARACTER INSIGHTS:** (2-3 insights about how to specifically interact with ${scenario.character_name} based on their role and personality)
 
@@ -148,35 +148,24 @@ INSIGHTS:
 • [character insight 3]`;
 }
 
-// Get category-specific context
+// Get role-specific context
 function getRoleContext(role: string): string {
   const contexts: Record<string, string> = {
     'sales': 'This is a sales conversation where the learner needs to understand prospect needs, present value, handle objections, and move toward a decision. Success is measured by relationship building and advancement of the sales process.',
-    
     'project-manager': 'This is a project management conversation where the learner needs to coordinate stakeholders, manage timelines, communicate requirements, and ensure project success. Focus on leadership, organization, and clear communication.',
-    
     'product-manager': 'This is a product management conversation where the learner needs to gather requirements, prioritize features, communicate product vision, and make data-driven decisions about product direction.',
-    
     'leader': 'This is a leadership conversation where the learner needs to communicate vision, inspire teams, make strategic decisions, and guide organizational direction. Focus on influence, inspiration, and strategic thinking.',
-    
     'manager': 'This is a people management conversation where the learner needs to provide feedback, coach team members, address performance issues, and develop others professionally.',
-    
     'strategy-lead': 'This is a strategic planning conversation where the learner needs to analyze markets, develop strategic initiatives, communicate complex concepts, and drive organizational change.',
-    
     'support-agent': 'This is a customer service interaction where the learner needs to resolve issues efficiently, maintain customer satisfaction, and turn potentially negative experiences into positive ones.',
-    
     'data-analyst': 'This is a data analysis conversation where the learner needs to communicate insights clearly, ask relevant questions about data requirements, and translate complex analytics into actionable business recommendations.',
-    
     'engineer': 'This is a technical conversation where the learner needs to discuss system architecture, explain technical concepts clearly, collaborate on solutions, and communicate with both technical and non-technical stakeholders.',
-    
     'nurse': 'This is a healthcare conversation where the learner needs to provide patient care, coordinate with medical teams, explain procedures clearly, and ensure patient comfort and understanding.',
-    
     'doctor': 'This is a medical consultation where the learner must show empathy, gather accurate information, explain complex medical concepts clearly, and ensure patient understanding and comfort.'
   };
   
   return contexts[role] || contexts['sales'];
 }
-
 
 // Get difficulty-specific context
 function getDifficultyContext(difficulty: string): string {
@@ -227,9 +216,9 @@ function parseAIGuide(aiResponse: string, scenario: any) {
   }
   
   return {
-    goal: goal || `Master effective communication with ${scenario.character_name} in this ${scenario.category} scenario`,
-    objectives: objectives.length > 0 ? objectives : getFallbackObjectives(scenario.category),
-    tips: tips.length > 0 ? tips : getFallbackTips(scenario.category),
+    goal: goal || `Master effective communication with ${scenario.character_name} in this ${scenario.role.replace('-', ' ')} scenario`,
+    objectives: objectives.length > 0 ? objectives : getFallbackObjectives(scenario.role),
+    tips: tips.length > 0 ? tips : getFallbackTips(scenario.role),
     insights: insights.length > 0 ? insights : [
       `${scenario.character_name} will respond based on their ${scenario.character_role} perspective`,
       `Adapt your communication style to match their professional needs and concerns`
@@ -240,9 +229,9 @@ function parseAIGuide(aiResponse: string, scenario: any) {
 // Generate fallback guide when AI is unavailable
 function generateFallbackGuide(scenario: any) {
   return {
-    goal: `Practice effective ${scenario.category} communication with ${scenario.character_name}`,
-    objectives: getFallbackObjectives(scenario.category),
-    tips: getFallbackTips(scenario.category),
+    goal: `Practice effective ${scenario.role.replace('-', ' ')} communication with ${scenario.character_name}`,
+    objectives: getFallbackObjectives(scenario.role),
+    tips: getFallbackTips(scenario.role),
     insights: [
       `${scenario.character_name} represents a typical ${scenario.character_role}`,
       `Focus on their professional needs and communication preferences`,
@@ -251,7 +240,7 @@ function generateFallbackGuide(scenario: any) {
   };
 }
 
-// Fallback objectives by category
+// Fallback objectives by role
 function getFallbackObjectives(role: string): string[] {
   const objectives: Record<string, string[]> = {
     'sales': [
@@ -261,7 +250,6 @@ function getFallbackObjectives(role: string): string[] {
       'Handle any objections or concerns professionally',
       'Guide the conversation toward next steps'
     ],
-    
     'project-manager': [
       'Establish clear project scope and objectives',
       'Identify key stakeholders and their requirements',
@@ -269,7 +257,6 @@ function getFallbackObjectives(role: string): string[] {
       'Address potential risks and mitigation strategies',
       'Ensure alignment on project deliverables'
     ],
-    
     'product-manager': [
       'Gather comprehensive user requirements and needs',
       'Prioritize features based on business value and user impact',
@@ -277,7 +264,6 @@ function getFallbackObjectives(role: string): string[] {
       'Validate assumptions with data and user feedback',
       'Align stakeholders on product roadmap and priorities'
     ],
-    
     'leader': [
       'Communicate organizational vision and strategic direction',
       'Inspire and motivate team members toward common goals',
@@ -285,7 +271,6 @@ function getFallbackObjectives(role: string): string[] {
       'Build consensus and alignment across diverse stakeholders',
       'Foster innovation and drive positive organizational change'
     ],
-    
     'manager': [
       'Provide specific, constructive feedback on performance',
       'Listen actively to team member concerns and perspectives',
@@ -293,7 +278,6 @@ function getFallbackObjectives(role: string): string[] {
       'Support professional development and career growth',
       'Create accountability while maintaining positive relationships'
     ],
-    
     'strategy-lead': [
       'Analyze market trends and competitive landscape thoroughly',
       'Develop comprehensive strategic initiatives and plans',
@@ -301,7 +285,6 @@ function getFallbackObjectives(role: string): string[] {
       'Build buy-in for strategic changes across the organization',
       'Establish metrics and success criteria for strategic initiatives'
     ],
-    
     'support-agent': [
       'Quickly understand and diagnose the customer issue',
       'Show empathy for customer frustration and concerns',
@@ -309,7 +292,6 @@ function getFallbackObjectives(role: string): string[] {
       'Ensure complete issue resolution and customer satisfaction',
       'Document issues and follow up on resolution effectiveness'
     ],
-    
     'data-analyst': [
       'Understand business questions and analytical requirements',
       'Identify appropriate data sources and analysis methods',
@@ -317,7 +299,6 @@ function getFallbackObjectives(role: string): string[] {
       'Provide actionable insights and recommendations',
       'Validate results and ensure analytical accuracy'
     ],
-    
     'engineer': [
       'Understand technical requirements and system constraints',
       'Design scalable and maintainable technical solutions',
@@ -325,7 +306,6 @@ function getFallbackObjectives(role: string): string[] {
       'Collaborate effectively with cross-functional teams',
       'Consider security, performance, and maintainability in solutions'
     ],
-    
     'nurse': [
       'Provide compassionate and professional patient care',
       'Communicate clearly with patients and family members',
@@ -333,7 +313,6 @@ function getFallbackObjectives(role: string): string[] {
       'Follow proper protocols and safety procedures',
       'Document patient care accurately and thoroughly'
     ],
-    
     'doctor': [
       'Gather comprehensive patient history and symptoms',
       'Explain medical conditions and treatment options clearly',
@@ -346,8 +325,7 @@ function getFallbackObjectives(role: string): string[] {
   return objectives[role] || objectives['sales'];
 }
 
-
-// Fallback tips by category
+// Fallback tips by role
 function getFallbackTips(role: string): string[] {
   const tips: Record<string, string[]> = {
     'sales': [
@@ -356,70 +334,60 @@ function getFallbackTips(role: string): string[] {
       'Connect features to specific benefits for their situation',
       'Be prepared to discuss ROI and implementation details'
     ],
-    
     'project-manager': [
       'Ask clarifying questions about scope, timeline, and resources',
       'Identify potential risks early and discuss mitigation strategies',
       'Ensure all stakeholders understand their roles and responsibilities',
       'Communicate progress regularly and proactively address issues'
     ],
-    
     'product-manager': [
       'Ask about user needs, pain points, and desired outcomes',
       'Prioritize features based on impact and feasibility',
       'Use data and user feedback to validate product decisions',
       'Communicate product vision clearly to align stakeholders'
     ],
-    
     'leader': [
       'Connect daily work to the broader organizational mission',
       'Ask for input and ideas from team members',
       'Be transparent about challenges and decision-making rationale',
       'Recognize and celebrate team achievements and progress'
     ],
-    
     'manager': [
       'Start with positive observations before discussing improvements',
       'Be specific about behaviors and their impact on the team',
       'Ask for their perspective and input on solutions',
       'Create collaborative development plans with clear next steps'
     ],
-    
     'strategy-lead': [
       'Ask probing questions about market trends and competitive threats',
       'Use data and analysis to support strategic recommendations',
       'Consider multiple scenarios and contingency plans',
       'Communicate strategy in terms of business impact and outcomes'
     ],
-    
     'support-agent': [
       'Acknowledge their frustration before diving into solutions',
       'Ask specific questions to diagnose the problem accurately',
       'Explain each solution step clearly and confirm understanding',
       'Follow up to ensure the solution worked effectively'
     ],
-    
     'data-analyst': [
       'Ask clarifying questions about business objectives and success metrics',
       'Explain analytical methods and limitations clearly',
       'Focus on actionable insights rather than just data points',
       'Validate findings and consider alternative explanations'
     ],
-    
     'engineer': [
       'Ask detailed questions about technical requirements and constraints',
       'Consider scalability, maintainability, and security from the start',
       'Explain technical concepts using analogies and clear examples',
       'Collaborate with stakeholders to balance technical and business needs'
     ],
-    
     'nurse': [
       'Use empathetic language and active listening with patients',
       'Explain procedures and care plans in understandable terms',
       'Coordinate communication between patients and medical team',
       'Follow proper protocols while maintaining patient comfort'
     ],
-    
     'doctor': [
       'Ask open-ended questions about symptoms and patient concerns',
       'Explain medical concepts using clear, non-technical language',
