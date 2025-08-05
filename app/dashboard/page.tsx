@@ -57,7 +57,37 @@ export default function DashboardPage() {
   useEffect(() => {
     initializeDashboard();
   }, [router]);
+const handleRoleSelection = (role: string) => {
+    setPreferredRole(role);
+    localStorage.setItem('preferredRole', role);
+    localStorage.setItem('isNewUser', 'false');
+    setShowRoleSelectionModal(false);
+    setIsFirstTimeUser(false);
+    
+    // Optionally reload data to show role-specific content immediately
+    loadData(userEmail);
+  };
 
+  const openRoleSelectionModal = () => {
+    setShowRoleSelectionModal(true);
+  };
+
+  const startChat = (scenario: Scenario) => {
+    const sessionToken = localStorage.getItem('sessionToken');
+    const authProvider = localStorage.getItem('authProvider');
+    
+    if (!userEmail || !sessionToken || authProvider !== 'google') {
+      alert('Please sign in with Google to start practicing.');
+      localStorage.clear();
+      router.push('/');
+      return;
+    }
+    
+    console.log('🎯 Starting session with scenario:', scenario.title);
+    localStorage.setItem('currentScenario', JSON.stringify(scenario));
+    router.push(`/session/${scenario.id}`);
+  };
+  
   // Filter scenarios based on user's preferred role and other filters
   const filteredScenarios = scenarios.filter(scenario => {
     const roleMatch = scenario.role === preferredRole;
@@ -305,14 +335,15 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
               {availableRoles.map((role) => (
                 <button
-                  key={role.id}
-                  onClick={() => setSelectedRole(role.id)}
-                  className={`p-6 rounded-xl border-2 transition-all duration-200 text-left ${
-                    selectedRole === role.id
-                      ? 'border-blue-500 bg-blue-50 shadow-lg transform scale-105'
-                      : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
-                  }`}
-                >
+  key={role.id}
+  onClick={() => handleRoleChange(role.id)}  // Use the handler function
+  disabled={saving}
+  className={`p-4 rounded-xl border-2 transition-all duration-200 text-left ${
+    preferredRole === role.id
+      ? 'border-blue-500 bg-blue-50 shadow-lg'
+      : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
+  } ${saving ? 'opacity-50 cursor-not-allowed' : ''}`}
+>
                   <div className="text-3xl mb-3">{role.emoji}</div>
                   <h3 className="font-semibold text-gray-900 mb-2">{role.name}</h3>
                   <p className="text-sm text-gray-600">{role.description}</p>
@@ -322,12 +353,12 @@ export default function DashboardPage() {
 
             <div className="flex flex-col sm:flex-row gap-4">
               <button
-                onClick={() => selectedRole && handleRoleSelection(selectedRole)}
-                disabled={!selectedRole}
-                className="flex-1 bg-blue-500 text-white py-4 px-6 rounded-xl font-semibold text-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {selectedRole ? `Start ${availableRoles.find(r => r.id === selectedRole)?.name} Practice` : 'Select a Role'}
-              </button>
+  onClick={() => selectedRole && handleRoleSelection(selectedRole)}  // Use the handler
+  disabled={!selectedRole}
+  className="flex-1 bg-blue-500 text-white py-4 px-6 rounded-xl font-semibold text-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+>
+  {selectedRole ? `Start ${availableRoles.find(r => r.id === selectedRole)?.name} Practice` : 'Select a Role'}
+</button>
               <button
                 onClick={() => {
                   setShowRoleSelectionModal(false);
@@ -536,15 +567,15 @@ export default function DashboardPage() {
                   </select>
                 </div>
                 
-                <div className="flex items-center space-x-6 text-sm text-blue-800">
-                  <span>📊 {sortedFilteredScenarios.length} scenarios available</span>
-                  <button
-                    onClick={() => setShowRoleSelectionModal(true)}
-                    className="text-blue-600 hover:text-blue-800 font-medium underline"
-                  >
-                    Change Role
-                  </button>
-                </div>
+              <div className="flex items-center space-x-6 text-sm text-blue-800">
+  <span>📊 {sortedFilteredScenarios.length} scenarios available</span>
+  <button
+    onClick={openRoleSelectionModal}  // Use the handler function
+    className="text-blue-600 hover:text-blue-800 font-medium underline"
+  >
+    Change Role
+  </button>
+</div>
               </div>
             </div>
 
