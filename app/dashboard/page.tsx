@@ -71,22 +71,6 @@ const handleRoleSelection = (role: string) => {
   const openRoleSelectionModal = () => {
     setShowRoleSelectionModal(true);
   };
-
-  const startChat = (scenario: Scenario) => {
-    const sessionToken = localStorage.getItem('sessionToken');
-    const authProvider = localStorage.getItem('authProvider');
-    
-    if (!userEmail || !sessionToken || authProvider !== 'google') {
-      alert('Please sign in with Google to start practicing.');
-      localStorage.clear();
-      router.push('/');
-      return;
-    }
-    
-    console.log('🎯 Starting session with scenario:', scenario.title);
-    localStorage.setItem('currentScenario', JSON.stringify(scenario));
-    router.push(`/session/${scenario.id}`);
-  };
   
   // Filter scenarios based on user's preferred role and other filters
   const filteredScenarios = scenarios.filter(scenario => {
@@ -353,7 +337,7 @@ const handleRoleSelection = (role: string) => {
 
             <div className="flex flex-col sm:flex-row gap-4">
               <button
-  onClick={() => selectedRole && handleRoleSelection(selectedRole)}  // Use the handler
+  onClick={() => selectedRole && handleRoleSelection(selectedRole)}  // ← Use the new handler
   disabled={!selectedRole}
   className="flex-1 bg-blue-500 text-white py-4 px-6 rounded-xl font-semibold text-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
 >
@@ -567,10 +551,10 @@ const handleRoleSelection = (role: string) => {
                   </select>
                 </div>
                 
-              <div className="flex items-center space-x-6 text-sm text-blue-800">
+           <div className="flex items-center space-x-6 text-sm text-blue-800">
   <span>📊 {sortedFilteredScenarios.length} scenarios available</span>
   <button
-    onClick={openRoleSelectionModal}  // Use the handler function
+    onClick={openRoleSelectionModal}  // ← Use the new handler
     className="text-blue-600 hover:text-blue-800 font-medium underline"
   >
     Change Role
