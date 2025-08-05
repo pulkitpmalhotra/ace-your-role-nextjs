@@ -1,7 +1,12 @@
 // app/api/analyze-conversation/route.ts - Human-like AI Analysis
 export async function POST(request: Request) {
+  let conversation, scenario, session_id;
+  
   try {
-    const { conversation, scenario, session_id } = await request.json();
+    const requestData = await request.json();
+    conversation = requestData.conversation;
+    scenario = requestData.scenario;
+    session_id = requestData.session_id;
     
     if (!conversation || !scenario) {
       return Response.json(
@@ -39,8 +44,11 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('💥 Analysis API error:', error);
     
-    // Provide meaningful feedback even on error
-    const fallbackResult = createMeaningfulFallback(conversation, scenario);
+    // Provide meaningful feedback even on error - with safe fallback
+    const fallbackResult = createMeaningfulFallback(
+      conversation || [], 
+      scenario || { role: 'unknown', character_name: 'Character', title: 'Practice Session' }
+    );
     
     return Response.json({
       success: true,
@@ -286,12 +294,15 @@ function performIntelligentFallback(conversation: any[], scenario: any, session_
 
 // Meaningful fallback for errors
 function createMeaningfulFallback(conversation: any[], scenario: any) {
-  const exchanges = Math.floor(conversation.length / 2);
+  const exchanges = conversation && conversation.length ? Math.floor(conversation.length / 2) : 0;
+  const characterName = scenario?.character_name || 'Character';
+  const scenarioTitle = scenario?.title || 'Practice Session';
+  const roleType = scenario?.role || 'communication';
   
   return {
     overall_score: 3.0,
     human_feedback: {
-      overall_impression: `You completed a practice session with ${scenario.character_name}. Every practice session helps build your ${scenario.role.replace('-', ' ')} skills.`,
+      overall_impression: `You completed a practice session with ${characterName}. Every practice session helps build your ${roleType.replace('-', ' ')} skills.`,
       what_worked_well: [
         'You took the initiative to practice',
         'You engaged with the AI character',
@@ -306,10 +317,10 @@ function createMeaningfulFallback(conversation: any[], scenario: any) {
     },
     conversation_stats: {
       total_exchanges: exchanges,
-      user_messages: conversation.filter(msg => msg.speaker === 'user').length,
-      character_name: scenario.character_name,
-      scenario_title: scenario.title,
-      role_type: scenario.role
+      user_messages: conversation ? conversation.filter(msg => msg.speaker === 'user').length : 0,
+      character_name: characterName,
+      scenario_title: scenarioTitle,
+      role_type: roleType
     },
     timestamp: new Date().toISOString(),
     analysis_type: 'minimal-fallback'
