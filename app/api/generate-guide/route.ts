@@ -149,17 +149,34 @@ INSIGHTS:
 }
 
 // Get category-specific context
-function getCategoryContext(category: string): string {
+function getRoleContext(role: string): string {
   const contexts: Record<string, string> = {
     'sales': 'This is a sales conversation where the learner needs to understand prospect needs, present value, handle objections, and move toward a decision. Success is measured by relationship building and advancement of the sales process.',
-    'healthcare': 'This is a medical consultation where the learner must show empathy, gather accurate information, explain complex concepts clearly, and ensure patient understanding and comfort.',
-    'support': 'This is a customer service interaction where the learner needs to resolve issues efficiently, maintain customer satisfaction, and turn potentially negative experiences into positive ones.',
-    'legal': 'This is a legal consultation where the learner must gather case details, explain legal options clearly, manage client expectations, and provide professional guidance.',
-    'leadership': 'This is a management conversation where the learner needs to provide effective feedback, motivate team members, address performance issues, and develop others.'
+    
+    'project-manager': 'This is a project management conversation where the learner needs to coordinate stakeholders, manage timelines, communicate requirements, and ensure project success. Focus on leadership, organization, and clear communication.',
+    
+    'product-manager': 'This is a product management conversation where the learner needs to gather requirements, prioritize features, communicate product vision, and make data-driven decisions about product direction.',
+    
+    'leader': 'This is a leadership conversation where the learner needs to communicate vision, inspire teams, make strategic decisions, and guide organizational direction. Focus on influence, inspiration, and strategic thinking.',
+    
+    'manager': 'This is a people management conversation where the learner needs to provide feedback, coach team members, address performance issues, and develop others professionally.',
+    
+    'strategy-lead': 'This is a strategic planning conversation where the learner needs to analyze markets, develop strategic initiatives, communicate complex concepts, and drive organizational change.',
+    
+    'support-agent': 'This is a customer service interaction where the learner needs to resolve issues efficiently, maintain customer satisfaction, and turn potentially negative experiences into positive ones.',
+    
+    'data-analyst': 'This is a data analysis conversation where the learner needs to communicate insights clearly, ask relevant questions about data requirements, and translate complex analytics into actionable business recommendations.',
+    
+    'engineer': 'This is a technical conversation where the learner needs to discuss system architecture, explain technical concepts clearly, collaborate on solutions, and communicate with both technical and non-technical stakeholders.',
+    
+    'nurse': 'This is a healthcare conversation where the learner needs to provide patient care, coordinate with medical teams, explain procedures clearly, and ensure patient comfort and understanding.',
+    
+    'doctor': 'This is a medical consultation where the learner must show empathy, gather accurate information, explain complex medical concepts clearly, and ensure patient understanding and comfort.'
   };
   
-  return contexts[category] || contexts['sales'];
+  return contexts[role] || contexts['sales'];
 }
+
 
 // Get difficulty-specific context
 function getDifficultyContext(difficulty: string): string {
@@ -235,7 +252,7 @@ function generateFallbackGuide(scenario: any) {
 }
 
 // Fallback objectives by category
-function getFallbackObjectives(category: string): string[] {
+function getFallbackObjectives(role: string): string[] {
   const objectives: Record<string, string[]> = {
     'sales': [
       'Build rapport and establish credibility early',
@@ -244,73 +261,172 @@ function getFallbackObjectives(category: string): string[] {
       'Handle any objections or concerns professionally',
       'Guide the conversation toward next steps'
     ],
-    'healthcare': [
-      'Show empathy and build patient trust',
-      'Gather comprehensive health information',
-      'Explain medical concepts in understandable terms',
-      'Address patient concerns and questions',
-      'Provide clear guidance for next steps'
+    
+    'project-manager': [
+      'Establish clear project scope and objectives',
+      'Identify key stakeholders and their requirements',
+      'Communicate timeline and resource expectations',
+      'Address potential risks and mitigation strategies',
+      'Ensure alignment on project deliverables'
     ],
-    'support': [
-      'Quickly understand the customer issue',
-      'Show empathy for their frustration',
-      'Provide clear troubleshooting guidance',
-      'Ensure complete issue resolution',
-      'Confirm customer satisfaction'
+    
+    'product-manager': [
+      'Gather comprehensive user requirements and needs',
+      'Prioritize features based on business value and user impact',
+      'Communicate product vision and strategy clearly',
+      'Validate assumptions with data and user feedback',
+      'Align stakeholders on product roadmap and priorities'
     ],
-    'legal': [
-      'Gather detailed information about their situation',
-      'Explain legal options in clear terms',
-      'Discuss potential risks and outcomes',
-      'Address their concerns about costs and timeline',
-      'Provide actionable next steps'
+    
+    'leader': [
+      'Communicate organizational vision and strategic direction',
+      'Inspire and motivate team members toward common goals',
+      'Make difficult decisions with limited information',
+      'Build consensus and alignment across diverse stakeholders',
+      'Foster innovation and drive positive organizational change'
     ],
-    'leadership': [
-      'Provide specific, constructive feedback',
-      'Listen actively to their perspective',
-      'Set clear expectations and goals',
-      'Support their professional development',
-      'Create accountability and follow-up plans'
+    
+    'manager': [
+      'Provide specific, constructive feedback on performance',
+      'Listen actively to team member concerns and perspectives',
+      'Set clear expectations and measurable goals',
+      'Support professional development and career growth',
+      'Create accountability while maintaining positive relationships'
+    ],
+    
+    'strategy-lead': [
+      'Analyze market trends and competitive landscape thoroughly',
+      'Develop comprehensive strategic initiatives and plans',
+      'Communicate complex strategic concepts to diverse audiences',
+      'Build buy-in for strategic changes across the organization',
+      'Establish metrics and success criteria for strategic initiatives'
+    ],
+    
+    'support-agent': [
+      'Quickly understand and diagnose the customer issue',
+      'Show empathy for customer frustration and concerns',
+      'Provide clear, step-by-step troubleshooting guidance',
+      'Ensure complete issue resolution and customer satisfaction',
+      'Document issues and follow up on resolution effectiveness'
+    ],
+    
+    'data-analyst': [
+      'Understand business questions and analytical requirements',
+      'Identify appropriate data sources and analysis methods',
+      'Communicate findings clearly to non-technical stakeholders',
+      'Provide actionable insights and recommendations',
+      'Validate results and ensure analytical accuracy'
+    ],
+    
+    'engineer': [
+      'Understand technical requirements and system constraints',
+      'Design scalable and maintainable technical solutions',
+      'Communicate technical concepts to non-technical stakeholders',
+      'Collaborate effectively with cross-functional teams',
+      'Consider security, performance, and maintainability in solutions'
+    ],
+    
+    'nurse': [
+      'Provide compassionate and professional patient care',
+      'Communicate clearly with patients and family members',
+      'Coordinate effectively with medical team members',
+      'Follow proper protocols and safety procedures',
+      'Document patient care accurately and thoroughly'
+    ],
+    
+    'doctor': [
+      'Gather comprehensive patient history and symptoms',
+      'Explain medical conditions and treatment options clearly',
+      'Show empathy while maintaining professional boundaries',
+      'Make evidence-based diagnostic and treatment decisions',
+      'Ensure patient understanding and informed consent'
     ]
   };
   
-  return objectives[category] || objectives['sales'];
+  return objectives[role] || objectives['sales'];
 }
 
+
 // Fallback tips by category
-function getFallbackTips(category: string): string[] {
+function getFallbackTips(role: string): string[] {
   const tips: Record<string, string[]> = {
     'sales': [
-      'Ask open-ended questions to understand their business',
-      'Listen actively and acknowledge their concerns',
+      'Ask open-ended questions to understand their business needs',
+      'Listen actively and acknowledge their concerns and priorities',
       'Connect features to specific benefits for their situation',
       'Be prepared to discuss ROI and implementation details'
     ],
-    'healthcare': [
-      'Use empathetic language and active listening',
-      'Ask follow-up questions about symptoms and concerns',
-      'Explain medical terms in simple language',
-      'Provide reassurance while being honest about next steps'
+    
+    'project-manager': [
+      'Ask clarifying questions about scope, timeline, and resources',
+      'Identify potential risks early and discuss mitigation strategies',
+      'Ensure all stakeholders understand their roles and responsibilities',
+      'Communicate progress regularly and proactively address issues'
     ],
-    'support': [
+    
+    'product-manager': [
+      'Ask about user needs, pain points, and desired outcomes',
+      'Prioritize features based on impact and feasibility',
+      'Use data and user feedback to validate product decisions',
+      'Communicate product vision clearly to align stakeholders'
+    ],
+    
+    'leader': [
+      'Connect daily work to the broader organizational mission',
+      'Ask for input and ideas from team members',
+      'Be transparent about challenges and decision-making rationale',
+      'Recognize and celebrate team achievements and progress'
+    ],
+    
+    'manager': [
+      'Start with positive observations before discussing improvements',
+      'Be specific about behaviors and their impact on the team',
+      'Ask for their perspective and input on solutions',
+      'Create collaborative development plans with clear next steps'
+    ],
+    
+    'strategy-lead': [
+      'Ask probing questions about market trends and competitive threats',
+      'Use data and analysis to support strategic recommendations',
+      'Consider multiple scenarios and contingency plans',
+      'Communicate strategy in terms of business impact and outcomes'
+    ],
+    
+    'support-agent': [
       'Acknowledge their frustration before diving into solutions',
       'Ask specific questions to diagnose the problem accurately',
-      'Explain each solution step clearly and simply',
-      'Confirm their understanding before moving to the next step'
+      'Explain each solution step clearly and confirm understanding',
+      'Follow up to ensure the solution worked effectively'
     ],
-    'legal': [
-      'Ask detailed questions about their specific situation',
-      'Explain legal concepts in everyday language',
-      'Be transparent about potential outcomes and timelines',
-      'Discuss fees and process expectations upfront'
+    
+    'data-analyst': [
+      'Ask clarifying questions about business objectives and success metrics',
+      'Explain analytical methods and limitations clearly',
+      'Focus on actionable insights rather than just data points',
+      'Validate findings and consider alternative explanations'
     ],
-    'leadership': [
-      'Start with positive observations before areas for improvement',
-      'Be specific about behaviors and their impact',
-      'Ask for their perspective and input on solutions',
-      'Create collaborative development plans together'
+    
+    'engineer': [
+      'Ask detailed questions about technical requirements and constraints',
+      'Consider scalability, maintainability, and security from the start',
+      'Explain technical concepts using analogies and clear examples',
+      'Collaborate with stakeholders to balance technical and business needs'
+    ],
+    
+    'nurse': [
+      'Use empathetic language and active listening with patients',
+      'Explain procedures and care plans in understandable terms',
+      'Coordinate communication between patients and medical team',
+      'Follow proper protocols while maintaining patient comfort'
+    ],
+    
+    'doctor': [
+      'Ask open-ended questions about symptoms and patient concerns',
+      'Explain medical concepts using clear, non-technical language',
+      'Show empathy while maintaining professional clinical judgment',
+      'Involve patients in treatment decisions and ensure informed consent'
     ]
   };
   
-  return tips[category] || tips['sales'];
+  return tips[role] || tips['sales'];
 }
