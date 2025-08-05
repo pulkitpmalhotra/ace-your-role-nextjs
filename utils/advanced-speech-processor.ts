@@ -184,7 +184,7 @@ export class AdvancedAIPromptingSystem {
     
     if (this.responseCache.has(cacheKey)) {
       const cached = this.responseCache.get(cacheKey);
-      if (Date.now() - cached.timestamp < 300000) { // 5 minutes
+      if (cached && Date.now() - cached.timestamp < 300000) { // 5 minutes
         return cached.response;
       }
     }
@@ -632,18 +632,22 @@ export class PerformanceOptimizer {
     const maxSize = 100;
     const now = Date.now();
 
-    for (const [key, value] of this.responseCache.entries()) {
+    // Clean expired entries
+    const entriesToDelete: string[] = [];
+    this.responseCache.forEach((value, key) => {
       if (now - value.timestamp > maxAge) {
-        this.responseCache.delete(key);
+        entriesToDelete.push(key);
       }
-    }
+    });
+    entriesToDelete.forEach(key => this.responseCache.delete(key));
 
+    // Clean oldest entries if cache is too large
     if (this.responseCache.size > maxSize) {
       const entries = Array.from(this.responseCache.entries())
         .sort((a, b) => a[1].accessCount - b[1].accessCount);
       
       const toRemove = entries.slice(0, entries.length - maxSize);
-      toRemove.forEach(([key]) => this.responseCache.delete(key));
+      toRemove.forEach((entry) => this.responseCache.delete(entry[0]));
     }
   }
 
