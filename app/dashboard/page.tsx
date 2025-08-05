@@ -310,8 +310,8 @@ export default function DashboardPage() {
           <div className="p-8">
             <div className="text-center mb-8">
               <div className="text-6xl mb-4">🎯</div>
-              <h2 className="text-3xl font-bold text-gray-900 mb-2">Welcome to AI Practice!</h2>
-              <p className="text-lg text-gray-600">Choose your primary role to get personalized training scenarios</p>
+              <h2 className="text-3xl font-bold text-gray-900 mb-2">Welcome to Ace Your Role - AI-Powered Professional Training!</h2>
+              <p className="text-lg text-gray-600">Choose your primary role to get professional training scenarios</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
@@ -417,7 +417,7 @@ export default function DashboardPage() {
                 <span className="text-xl">🎯</span>
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Practice Dashboard</h1>
+                <h1 className="text-2xl font-bold text-gray-900">Scenario Dashboard</h1>
                 <p className="text-sm text-gray-600">
                   {preferredRole ? `${getRoleEmoji(preferredRole)} ${preferredRole.replace('-', ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')} Training` : 'AI-powered conversation training'}
                 </p>
@@ -491,7 +491,7 @@ export default function DashboardPage() {
                 : 'bg-white/80 text-gray-700 hover:bg-white'
             }`}
           >
-            🎯 Practice Scenarios ({filteredScenarios.length})
+            🎯 List of Scenarios ({filteredScenarios.length})
           </button>
           <button
             onClick={() => setSelectedView('progress')}
@@ -514,7 +514,7 @@ export default function DashboardPage() {
                 <div>
                   <h2 className="text-2xl font-semibold text-gray-900 mb-2 flex items-center">
                     <span className="text-3xl mr-3">{getRoleEmoji(preferredRole)}</span>
-                    {preferredRole.replace('-', ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')} Practice
+                    {preferredRole.replace('-', ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')} Scenarios
                   </h2>
                   <p className="text-gray-600">{getRoleDescription(preferredRole)}</p>
                 </div>
