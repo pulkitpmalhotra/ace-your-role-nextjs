@@ -1,4 +1,5 @@
-// app/api/scenarios/route.ts - Real Supabase Integration
+// app/api/scenarios/route.ts - Updated to use role instead of category
+
 import { createClient } from '@supabase/supabase-js';
 
 export async function GET(request: Request) {
@@ -30,7 +31,7 @@ export async function GET(request: Request) {
       .select('*')
       .eq('is_active', true);
       
-    // Apply filters
+    // Apply filters - Changed from category to role
     if (role !== 'all') {
       query = query.eq('role', role);
     }
@@ -58,7 +59,7 @@ export async function GET(request: Request) {
 
     console.log(`✅ Retrieved ${scenarios?.length || 0} scenarios from Supabase`);
 
-    // Get role and difficulty stats for metadata
+    // Get role and difficulty stats for metadata - Changed from category to role
     const { data: roleStats } = await supabase
       .from('scenarios')
       .select('role')
@@ -77,8 +78,8 @@ export async function GET(request: Request) {
       data: scenarios || [],
       meta: {
         total: scenarios?.length || 0,
-        filters: { role, difficulty, search },
-        available_roles: roles,
+        filters: { role, difficulty, search }, // Changed from category to role
+        available_roles: roles, // Changed from available_categories to available_roles
         available_difficulties: difficulties,
         timestamp: new Date().toISOString(),
         source: 'supabase'
