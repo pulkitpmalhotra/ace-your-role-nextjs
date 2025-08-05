@@ -1,4 +1,4 @@
-// app/api/analyze-conversation/route.ts - Human-like AI Analysis
+// app/api/analyze-conversation/route.ts - FIXED: Focus on User Performance
 export async function POST(request: Request) {
   let conversation, scenario, session_id;
   
@@ -22,18 +22,18 @@ export async function POST(request: Request) {
       );
     }
 
-    console.log('🧠 Starting human-like conversation analysis for session:', session_id);
-    console.log('📊 Analyzing', conversation.length, 'messages in', scenario.role, 'scenario');
+    console.log('🧠 Starting USER PERFORMANCE analysis for session:', session_id);
+    console.log('📊 Analyzing USER behavior in', conversation.length, 'messages in', scenario.role, 'scenario');
 
-    // Try AI analysis first
+    // Try AI analysis first - FOCUSED ON USER
     let analysisResult;
     
     try {
-      analysisResult = await performHumanLikeAIAnalysis(conversation, scenario, session_id);
-      console.log('✅ Human-like AI analysis completed successfully');
+      analysisResult = await performUserFocusedAIAnalysis(conversation, scenario, session_id);
+      console.log('✅ User-focused AI analysis completed successfully');
     } catch (aiError) {
       console.warn('⚠️ AI analysis failed, using intelligent fallback:', aiError);
-      analysisResult = performIntelligentFallback(conversation, scenario, session_id);
+      analysisResult = performUserFocusedFallback(conversation, scenario, session_id);
     }
 
     return Response.json({
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
     console.error('💥 Analysis API error:', error);
     
     // Provide meaningful feedback even on error - with safe fallback
-    const fallbackResult = createMeaningfulFallback(
+    const fallbackResult = createUserFocusedFallback(
       conversation || [], 
       scenario || { role: 'unknown', character_name: 'Character', title: 'Practice Session' }
     );
@@ -57,18 +57,18 @@ export async function POST(request: Request) {
   }
 }
 
-// Human-like AI analysis using Gemini
-async function performHumanLikeAIAnalysis(conversation: any[], scenario: any, session_id: string) {
+// USER-FOCUSED AI analysis using Gemini
+async function performUserFocusedAIAnalysis(conversation: any[], scenario: any, session_id: string) {
   const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
   
   if (!GEMINI_API_KEY) {
     throw new Error('GEMINI_API_KEY not configured');
   }
 
-  // Build human-like analysis prompt
-  const analysisPrompt = buildHumanCoachPrompt(conversation, scenario);
+  // Build USER-FOCUSED analysis prompt
+  const analysisPrompt = buildUserPerformancePrompt(conversation, scenario);
   
-  console.log('🤖 Calling Gemini for human-like conversation analysis...');
+  console.log('🤖 Calling Gemini for USER PERFORMANCE analysis...');
   
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`,
@@ -102,52 +102,88 @@ async function performHumanLikeAIAnalysis(conversation: any[], scenario: any, se
     throw new Error('No analysis content from Gemini');
   }
 
-  // Parse the human-like AI response
-  const parsedAnalysis = parseHumanLikeAnalysis(aiAnalysis, conversation, scenario);
+  // Parse the USER-FOCUSED AI response
+  const parsedAnalysis = parseUserFocusedAnalysis(aiAnalysis, conversation, scenario);
   
   return {
     ...parsedAnalysis,
     session_id,
     timestamp: new Date().toISOString(),
-    analysis_type: 'human-like-ai'
+    analysis_type: 'user-performance-focused'
   };
 }
 
-// Build a prompt that makes AI respond like a human coach
-function buildHumanCoachPrompt(conversation: any[], scenario: any) {
+// Build a prompt that CLEARLY focuses on analyzing the USER's performance
+function buildUserPerformancePrompt(conversation: any[], scenario: any) {
+  // Extract only USER messages for analysis
+  const userMessages = conversation.filter(msg => msg.speaker === 'user');
+  const userRole = getRoleForUser(scenario.role); // What role the USER is practicing
+  
   const conversationText = conversation.map((msg, i) => 
-    `${msg.speaker === 'user' ? 'You' : scenario.character_name}: "${msg.message}"`
+    `${msg.speaker === 'user' ? `PRACTITIONER (${userRole})` : scenario.character_name}: "${msg.message}"`
   ).join('\n');
 
-  const userMessages = conversation.filter(msg => msg.speaker === 'user');
   const exchanges = Math.floor(conversation.length / 2);
 
-  return `You are an experienced ${scenario.role.replace('-', ' ')} coach who just observed a practice conversation. 
+  return `You are an expert ${scenario.role.replace('-', ' ')} communication coach. You just observed someone PRACTICING their ${userRole} skills in a roleplay scenario.
 
-I watched you practice with ${scenario.character_name} in this ${scenario.role} scenario: "${scenario.title}"
+CRITICAL: You are analyzing the PRACTITIONER's performance, NOT the AI character's responses.
 
-Here's what happened in your conversation:
+SCENARIO DETAILS:
+- Practice Session: "${scenario.title}"
+- Character: ${scenario.character_name} (${scenario.character_role})
+- Role Being Practiced: ${userRole}
+- Difficulty: ${scenario.difficulty}
+
+THE PERSON PRACTICING WAS THE ${userRole.toUpperCase()} - analyze THEIR performance only.
+
+CONVERSATION TRANSCRIPT:
 ${conversationText}
 
-As your coach, I want to give you honest, helpful feedback that feels personal and actionable. Write your response as if you're talking directly to the person, like a real coach would.
+ANALYSIS FOCUS:
+- Analyze how well the PRACTITIONER performed as a ${userRole}
+- Evaluate THEIR communication skills, not the character's responses
+- Focus on what the PRACTITIONER said and how they said it
+- Ignore the AI character's performance entirely
 
-Please provide feedback in this EXACT format:
+USER MESSAGES TO ANALYZE:
+${userMessages.map((msg, i) => `${i+1}. "${msg.message}"`).join('\n')}
 
-OVERALL_IMPRESSION: [Write 2-3 sentences about your overall impression of how they did, mentioning specific things you noticed from their actual conversation]
+Provide feedback in this EXACT format:
 
-WHAT_WORKED_WELL: [List 2-3 specific things they did well, referencing actual parts of their conversation]
+OVERALL_IMPRESSION: [Write 2-3 sentences about how the PRACTITIONER performed as a ${userRole}, mentioning specific things from THEIR messages]
 
-AREAS_TO_IMPROVE: [List 2-3 specific areas for improvement, based on what you observed]
+WHAT_WORKED_WELL: [List 2-3 specific things the PRACTITIONER did well in their ${userRole} performance]
 
-COACHING_ADVICE: [Give practical, actionable advice for their next practice session, specific to their role and what you saw]
+AREAS_TO_IMPROVE: [List 2-3 specific areas where the PRACTITIONER can improve their ${userRole} skills]
 
-SCORE: [Give a score from 1-5 based on their actual performance]
+COACHING_ADVICE: [Give practical advice for the PRACTITIONER to improve their ${userRole} performance in future sessions]
 
-Make it feel like you actually listened to their conversation and are giving personalized advice, not generic feedback.`;
+SCORE: [Rate the PRACTITIONER's ${userRole} performance from 1-5]
+
+Focus ONLY on the person practicing the ${userRole} role. Ignore the AI character completely.`;
 }
 
-// Parse the human-like AI response
-function parseHumanLikeAnalysis(aiResponse: string, conversation: any[], scenario: any) {
+// Get the role the USER is practicing (not the character they're talking to)
+function getRoleForUser(scenarioRole: string): string {
+  const roleMap: Record<string, string> = {
+    'sales': 'salesperson',
+    'project-manager': 'project manager',
+    'product-manager': 'product manager', 
+    'leader': 'leader',
+    'manager': 'manager',
+    'strategy-lead': 'strategy lead',
+    'support-agent': 'customer service representative',
+    'data-analyst': 'data analyst',
+    'engineer': 'engineer',
+    'nurse': 'healthcare provider',
+    'doctor': 'healthcare provider'
+  };
+  return roleMap[scenarioRole] || 'professional';
+}
+
+// Parse the USER-FOCUSED AI response
+function parseUserFocusedAnalysis(aiResponse: string, conversation: any[], scenario: any) {
   const lines = aiResponse.split('\n').filter(line => line.trim());
   
   let overall_impression = '';
@@ -179,7 +215,6 @@ function parseHumanLikeAnalysis(aiResponse: string, conversation: any[], scenari
     } else if (trimmed && currentSection === 'impression' && !overall_impression) {
       overall_impression = trimmed;
     } else if (trimmed && currentSection === 'strengths') {
-      // Handle both bullet points and plain text
       const content = trimmed.replace(/^[-•*]\s*/, '').trim();
       if (content && content.length > 5) {
         what_worked_well.push(content);
@@ -198,78 +233,83 @@ function parseHumanLikeAnalysis(aiResponse: string, conversation: any[], scenari
     }
   }
 
+  const userRole = getRoleForUser(scenario.role);
+
   return {
     overall_score: score,
     human_feedback: {
-      overall_impression: overall_impression || `You had a good conversation with ${scenario.character_name}. I can see you engaged thoughtfully with the scenario.`,
+      overall_impression: overall_impression || `You practiced your ${userRole} skills with ${scenario.character_name}. Your communication showed good engagement with the scenario.`,
       what_worked_well: what_worked_well.length > 0 ? what_worked_well : [
-        'You participated actively in the conversation',
-        'You maintained a professional tone throughout'
+        `You actively participated in the ${userRole} conversation`,
+        'You maintained a professional tone throughout your responses'
       ],
       areas_to_improve: areas_to_improve.length > 0 ? areas_to_improve : [
-        'Try to ask more questions to deepen the conversation',
-        'Consider expanding on your responses for more detail'
+        `Try asking more probing questions to deepen your ${userRole} approach`,
+        'Consider expanding on your responses to build stronger rapport'
       ],
-      coaching_advice: coaching_advice || `Keep practicing ${scenario.role} scenarios to build your confidence and skills.`
+      coaching_advice: coaching_advice || `Continue practicing ${userRole} scenarios to build your confidence and refine your communication techniques.`
     },
     conversation_stats: {
       total_exchanges: Math.floor(conversation.length / 2),
       user_messages: conversation.filter(msg => msg.speaker === 'user').length,
       character_name: scenario.character_name,
       scenario_title: scenario.title,
-      role_type: scenario.role
+      role_type: scenario.role,
+      user_role_practiced: userRole // Add this to be clear
     }
   };
 }
 
-// Intelligent fallback that's still personalized
-function performIntelligentFallback(conversation: any[], scenario: any, session_id: string) {
-  console.log('📊 Creating intelligent personalized fallback...');
+// USER-FOCUSED fallback that's still personalized
+function performUserFocusedFallback(conversation: any[], scenario: any, session_id: string) {
+  console.log('📊 Creating USER-FOCUSED personalized fallback...');
   
   const userMessages = conversation.filter(msg => msg.speaker === 'user');
   const exchanges = Math.floor(conversation.length / 2);
   const avgMessageLength = userMessages.reduce((sum, msg) => sum + msg.message.length, 0) / userMessages.length;
   
-  // Analyze conversation content for real insights
-  const hasQuestions = userMessages.some(msg => msg.message.includes('?'));
-  const hasDetailedResponses = avgMessageLength > 30;
-  const goodLength = exchanges >= 3;
+  // Analyze USER conversation content for real insights
+  const userAskedQuestions = userMessages.some(msg => msg.message.includes('?'));
+  const userGaveDetailedResponses = avgMessageLength > 30;
+  const goodEngagement = exchanges >= 3;
   
   let score = 2.5; // Base score
-  if (goodLength) score += 0.5;
-  if (hasQuestions) score += 0.3;
-  if (hasDetailedResponses) score += 0.4;
+  if (goodEngagement) score += 0.5;
+  if (userAskedQuestions) score += 0.3;
+  if (userGaveDetailedResponses) score += 0.4;
   if (exchanges >= 5) score += 0.3;
   score = Math.min(5.0, score);
 
-  // Create personalized feedback based on actual conversation
+  const userRole = getRoleForUser(scenario.role);
+
+  // Create personalized feedback based on USER's actual performance
   const impressions = [
-    goodLength ? 
-      `I noticed you kept the conversation going for ${exchanges} exchanges with ${scenario.character_name}, which shows good engagement.` :
-      `Your conversation with ${scenario.character_name} was brief with ${exchanges} exchanges. Consider extending it longer next time.`,
+    goodEngagement ? 
+      `I noticed you maintained ${exchanges} exchanges as a ${userRole} with ${scenario.character_name}, which shows good conversation management.` :
+      `Your ${userRole} conversation with ${scenario.character_name} was brief with ${exchanges} exchanges. Consider extending it longer next time.`,
     
-    hasDetailedResponses ? 
-      'You provided thoughtful, detailed responses which helped build rapport.' :
-      'Your responses were concise. Try adding more detail to build stronger connections.',
+    userGaveDetailedResponses ? 
+      `You provided thoughtful, detailed responses as a ${userRole}, which helped build the professional relationship.` :
+      `Your ${userRole} responses were concise. Try adding more detail to strengthen your professional communication.`,
       
-    hasQuestions ?
-      'I saw you asking questions, which is great for keeping the conversation flowing.' :
-      'Consider asking more questions to show interest and gather information.'
+    userAskedQuestions ?
+      `I saw you asking questions as a ${userRole}, which is excellent for gathering information and maintaining engagement.` :
+      `As a ${userRole}, consider asking more questions to show interest and gather important information.`
   ];
 
   const strengths = [];
   const improvements = [];
 
-  if (goodLength) strengths.push(`You maintained ${exchanges} conversation exchanges, showing persistence`);
-  if (hasQuestions) strengths.push('You asked questions to engage with the character');
-  if (hasDetailedResponses) strengths.push('Your responses were detailed and thoughtful');
-  if (!goodLength) improvements.push('Try to extend conversations longer for more practice');
-  if (!hasQuestions) improvements.push('Ask more questions to gather information and show interest');
-  if (!hasDetailedResponses) improvements.push('Provide more detailed responses to build better rapport');
+  if (goodEngagement) strengths.push(`You sustained ${exchanges} conversation exchanges as a ${userRole}, showing good persistence`);
+  if (userAskedQuestions) strengths.push(`You asked questions to engage effectively in your ${userRole} role`);
+  if (userGaveDetailedResponses) strengths.push(`Your ${userRole} responses were detailed and thoughtful`);
+  if (!goodEngagement) improvements.push(`Try to extend your ${userRole} conversations longer for more practice`);
+  if (!userAskedQuestions) improvements.push(`Ask more questions to demonstrate your ${userRole} skills and gather information`);
+  if (!userGaveDetailedResponses) improvements.push(`Provide more detailed responses to build stronger professional rapport as a ${userRole}`);
 
   // Default fallbacks if nothing specific found
-  if (strengths.length === 0) strengths.push('You participated actively in the practice session');
-  if (improvements.length === 0) improvements.push('Continue practicing to build confidence');
+  if (strengths.length === 0) strengths.push(`You actively participated as a ${userRole} in the practice session`);
+  if (improvements.length === 0) improvements.push(`Continue practicing to build confidence in your ${userRole} skills`);
 
   return {
     overall_score: score,
@@ -277,52 +317,55 @@ function performIntelligentFallback(conversation: any[], scenario: any, session_
       overall_impression: impressions[0],
       what_worked_well: strengths.slice(0, 3),
       areas_to_improve: improvements.slice(0, 3),
-      coaching_advice: `For your next ${scenario.role.replace('-', ' ')} practice, focus on ${improvements[0]?.toLowerCase() || 'building conversation depth and engagement'}.`
+      coaching_advice: `For your next ${userRole} practice session, focus on ${improvements[0]?.toLowerCase() || 'building conversation depth and professional engagement'}.`
     },
     conversation_stats: {
       total_exchanges: exchanges,
       user_messages: userMessages.length,
       character_name: scenario.character_name,
       scenario_title: scenario.title,
-      role_type: scenario.role
+      role_type: scenario.role,
+      user_role_practiced: userRole
     },
     session_id,
     timestamp: new Date().toISOString(),
-    analysis_type: 'intelligent-fallback'
+    analysis_type: 'user-focused-fallback'
   };
 }
 
-// Meaningful fallback for errors
-function createMeaningfulFallback(conversation: any[], scenario: any) {
+// USER-FOCUSED fallback for errors
+function createUserFocusedFallback(conversation: any[], scenario: any) {
   const exchanges = conversation && conversation.length ? Math.floor(conversation.length / 2) : 0;
   const characterName = scenario?.character_name || 'Character';
   const scenarioTitle = scenario?.title || 'Practice Session';
   const roleType = scenario?.role || 'communication';
+  const userRole = getRoleForUser(roleType);
   
   return {
     overall_score: 3.0,
     human_feedback: {
-      overall_impression: `You completed a practice session with ${characterName}. Every practice session helps build your ${roleType.replace('-', ' ')} skills.`,
+      overall_impression: `You completed a ${userRole} practice session with ${characterName}. Every practice session helps build your professional communication skills.`,
       what_worked_well: [
-        'You took the initiative to practice',
-        'You engaged with the AI character',
-        'You completed the conversation'
+        `You took the initiative to practice your ${userRole} skills`,
+        'You engaged with the AI character in a professional scenario',
+        'You completed the conversation exercise'
       ],
       areas_to_improve: [
-        'Continue practicing regularly to build skills',
-        'Try different scenarios to expand experience',
-        'Focus on active listening and engagement'
+        `Continue practicing regularly to build stronger ${userRole} skills`,
+        `Try different ${roleType.replace('-', ' ')} scenarios to expand your experience`,
+        'Focus on active listening and professional engagement techniques'
       ],
-      coaching_advice: 'Keep practicing different scenarios to build confidence and improve your communication skills.'
+      coaching_advice: `Keep practicing different ${userRole} scenarios to build confidence and improve your professional communication abilities.`
     },
     conversation_stats: {
       total_exchanges: exchanges,
       user_messages: conversation ? conversation.filter(msg => msg.speaker === 'user').length : 0,
       character_name: characterName,
       scenario_title: scenarioTitle,
-      role_type: roleType
+      role_type: roleType,
+      user_role_practiced: userRole
     },
     timestamp: new Date().toISOString(),
-    analysis_type: 'minimal-fallback'
+    analysis_type: 'user-focused-minimal-fallback'
   };
 }
