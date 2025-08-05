@@ -316,39 +316,46 @@ export default function ProfilePage() {
         </div>
 
         {/* Role Preference */}
-        <div className="bg-white rounded-2xl shadow-lg border border-white/20 p-8 mb-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
-            <span className="text-xl mr-3">🎯</span>
-            Training Preference
-          </h2>
-          
-          <p className="text-gray-600 mb-6">
-            Choose your primary role to personalize your dashboard experience. You can change this anytime.
-          </p>
+       <div className="bg-white rounded-2xl shadow-lg border border-white/20 p-8 mb-8">
+  <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
+    <span className="text-xl mr-3">🎯</span>
+    Training Preference
+  </h2>
+  
+  <p className="text-gray-600 mb-6">
+    Choose your primary role to personalize your dashboard experience. You can change this anytime.
+  </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {availableRoles.map((role) => (
-              <button
-                key={role.id}
-                onClick={() => handleRoleChange(role.id)}
-                disabled={saving}
-                className={`p-4 rounded-xl border-2 transition-all duration-200 text-left ${
-                  preferredRole === role.id
-                    ? 'border-blue-500 bg-blue-50 shadow-lg'
-                    : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
-                } ${saving ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                <div className="text-2xl mb-2">{role.emoji}</div>
-                <h3 className="font-semibold text-gray-900 mb-1">{role.name}</h3>
-                <p className="text-xs text-gray-600">{role.description}</p>
-                {preferredRole === role.id && (
-                  <div className="mt-2 flex items-center text-blue-600">
-                    <span className="text-sm font-medium">✓ Currently Selected</span>
-                  </div>
-                )}
-              </button>
-            ))}
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    {availableRoles.map((role) => (
+      <button
+        key={role.id}
+        onClick={() => handleRoleChange(role.id)}
+        disabled={saving}
+        className={`p-4 rounded-xl border-2 transition-all duration-200 text-left ${
+          preferredRole === role.id
+            ? 'border-blue-500 bg-blue-50 shadow-lg'
+            : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
+        } ${saving ? 'opacity-50 cursor-not-allowed' : ''}`}
+      >
+        <div className="text-2xl mb-2">{role.emoji}</div>
+        <h3 className="font-semibold text-gray-900 mb-1">{role.name}</h3>
+        <p className="text-xs text-gray-600">{role.description}</p>
+        {preferredRole === role.id && (
+          <div className="mt-2 flex items-center text-blue-600">
+            <span className="text-sm font-medium">✓ Currently Selected</span>
           </div>
+        )}
+      </button>
+    ))}
+  </div>
+
+  {saving && (
+    <div className="mt-4 text-center">
+      <span className="text-blue-600">Saving preference...</span>
+    </div>
+  )}
+</div>
 
           {saving && (
             <div className="mt-4 text-center">
