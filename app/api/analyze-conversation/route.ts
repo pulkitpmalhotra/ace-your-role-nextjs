@@ -1,4 +1,4 @@
-// app/api/analyze-conversation/route.ts - Robust Version with Fallback
+// app/api/analyze-conversation/route.ts - Human-like AI Analysis
 export async function POST(request: Request) {
   try {
     const { conversation, scenario, session_id } = await request.json();
@@ -17,18 +17,18 @@ export async function POST(request: Request) {
       );
     }
 
-    console.log('🧠 Starting conversation analysis for session:', session_id);
-    console.log('📊 Analyzing', conversation.length, 'messages in', scenario.role);
+    console.log('🧠 Starting human-like conversation analysis for session:', session_id);
+    console.log('📊 Analyzing', conversation.length, 'messages in', scenario.role, 'scenario');
 
-    // Try AI analysis first, fall back to rule-based analysis if it fails
+    // Try AI analysis first
     let analysisResult;
     
     try {
-      analysisResult = await performAIAnalysis(conversation, scenario, session_id);
-      console.log('✅ AI analysis completed successfully');
+      analysisResult = await performHumanLikeAIAnalysis(conversation, scenario, session_id);
+      console.log('✅ Human-like AI analysis completed successfully');
     } catch (aiError) {
-      console.warn('⚠️ AI analysis failed, using rule-based fallback:', aiError);
-      analysisResult = performRuleBasedAnalysis(conversation, scenario, session_id);
+      console.warn('⚠️ AI analysis failed, using intelligent fallback:', aiError);
+      analysisResult = performIntelligentFallback(conversation, scenario, session_id);
     }
 
     return Response.json({
@@ -39,8 +39,8 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('💥 Analysis API error:', error);
     
-    // Even if everything fails, provide basic feedback
-    const fallbackResult = createFallbackAnalysis(request);
+    // Provide meaningful feedback even on error
+    const fallbackResult = createMeaningfulFallback(conversation, scenario);
     
     return Response.json({
       success: true,
@@ -49,18 +49,18 @@ export async function POST(request: Request) {
   }
 }
 
-// Try AI analysis with Gemini
-async function performAIAnalysis(conversation: any[], scenario: any, session_id: string) {
+// Human-like AI analysis using Gemini
+async function performHumanLikeAIAnalysis(conversation: any[], scenario: any, session_id: string) {
   const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
   
   if (!GEMINI_API_KEY) {
     throw new Error('GEMINI_API_KEY not configured');
   }
 
-  // Build analysis prompt
-  const analysisPrompt = buildAnalysisPrompt(conversation, scenario);
+  // Build human-like analysis prompt
+  const analysisPrompt = buildHumanCoachPrompt(conversation, scenario);
   
-  console.log('🤖 Calling Gemini for conversation analysis...');
+  console.log('🤖 Calling Gemini for human-like conversation analysis...');
   
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`,
@@ -70,15 +70,14 @@ async function performAIAnalysis(conversation: any[], scenario: any, session_id:
       body: JSON.stringify({
         contents: [{ parts: [{ text: analysisPrompt }] }],
         generationConfig: {
-          temperature: 0.3,
-          topK: 20,
-          topP: 0.8,
-          maxOutputTokens: 1000,
+          temperature: 0.8, // Higher for more human-like responses
+          topK: 40,
+          topP: 0.9,
+          maxOutputTokens: 1200, // More space for detailed feedback
           candidateCount: 1,
         }
       }),
-      // Add timeout to prevent hanging
-      signal: AbortSignal.timeout(30000) // 30 second timeout
+      signal: AbortSignal.timeout(30000)
     }
   );
 
@@ -95,339 +94,224 @@ async function performAIAnalysis(conversation: any[], scenario: any, session_id:
     throw new Error('No analysis content from Gemini');
   }
 
-  // Parse AI response into structured feedback
-  const parsedAnalysis = parseAIAnalysis(aiAnalysis, conversation, scenario);
+  // Parse the human-like AI response
+  const parsedAnalysis = parseHumanLikeAnalysis(aiAnalysis, conversation, scenario);
   
   return {
     ...parsedAnalysis,
     session_id,
     timestamp: new Date().toISOString(),
-    analysis_type: 'ai-powered-real'
+    analysis_type: 'human-like-ai'
   };
 }
 
-// Rule-based analysis as fallback
-function performRuleBasedAnalysis(conversation: any[], scenario: any, session_id: string) {
-  console.log('📊 Performing rule-based analysis...');
+// Build a prompt that makes AI respond like a human coach
+function buildHumanCoachPrompt(conversation: any[], scenario: any) {
+  const conversationText = conversation.map((msg, i) => 
+    `${msg.speaker === 'user' ? 'You' : scenario.character_name}: "${msg.message}"`
+  ).join('\n');
+
+  const userMessages = conversation.filter(msg => msg.speaker === 'user');
+  const exchanges = Math.floor(conversation.length / 2);
+
+  return `You are an experienced ${scenario.role.replace('-', ' ')} coach who just observed a practice conversation. 
+
+I watched you practice with ${scenario.character_name} in this ${scenario.role} scenario: "${scenario.title}"
+
+Here's what happened in your conversation:
+${conversationText}
+
+As your coach, I want to give you honest, helpful feedback that feels personal and actionable. Write your response as if you're talking directly to the person, like a real coach would.
+
+Please provide feedback in this EXACT format:
+
+OVERALL_IMPRESSION: [Write 2-3 sentences about your overall impression of how they did, mentioning specific things you noticed from their actual conversation]
+
+WHAT_WORKED_WELL: [List 2-3 specific things they did well, referencing actual parts of their conversation]
+
+AREAS_TO_IMPROVE: [List 2-3 specific areas for improvement, based on what you observed]
+
+COACHING_ADVICE: [Give practical, actionable advice for their next practice session, specific to their role and what you saw]
+
+SCORE: [Give a score from 1-5 based on their actual performance]
+
+Make it feel like you actually listened to their conversation and are giving personalized advice, not generic feedback.`;
+}
+
+// Parse the human-like AI response
+function parseHumanLikeAnalysis(aiResponse: string, conversation: any[], scenario: any) {
+  const lines = aiResponse.split('\n').filter(line => line.trim());
+  
+  let overall_impression = '';
+  let what_worked_well: string[] = [];
+  let areas_to_improve: string[] = [];
+  let coaching_advice = '';
+  let score = 3.0;
+  
+  let currentSection = '';
+  
+  for (const line of lines) {
+    const trimmed = line.trim();
+    
+    if (trimmed.startsWith('OVERALL_IMPRESSION:')) {
+      overall_impression = trimmed.replace('OVERALL_IMPRESSION:', '').trim();
+      currentSection = 'impression';
+    } else if (trimmed.startsWith('WHAT_WORKED_WELL:')) {
+      currentSection = 'strengths';
+    } else if (trimmed.startsWith('AREAS_TO_IMPROVE:')) {
+      currentSection = 'improvements';
+    } else if (trimmed.startsWith('COACHING_ADVICE:')) {
+      currentSection = 'advice';
+    } else if (trimmed.startsWith('SCORE:')) {
+      const scoreMatch = trimmed.match(/(\d+\.?\d*)/);
+      if (scoreMatch) {
+        score = Math.min(5.0, Math.max(1.0, parseFloat(scoreMatch[1])));
+      }
+      currentSection = '';
+    } else if (trimmed && currentSection === 'impression' && !overall_impression) {
+      overall_impression = trimmed;
+    } else if (trimmed && currentSection === 'strengths') {
+      // Handle both bullet points and plain text
+      const content = trimmed.replace(/^[-•*]\s*/, '').trim();
+      if (content && content.length > 5) {
+        what_worked_well.push(content);
+      }
+    } else if (trimmed && currentSection === 'improvements') {
+      const content = trimmed.replace(/^[-•*]\s*/, '').trim();
+      if (content && content.length > 5) {
+        areas_to_improve.push(content);
+      }
+    } else if (trimmed && currentSection === 'advice') {
+      if (!coaching_advice) {
+        coaching_advice = trimmed;
+      } else {
+        coaching_advice += ' ' + trimmed;
+      }
+    }
+  }
+
+  return {
+    overall_score: score,
+    human_feedback: {
+      overall_impression: overall_impression || `You had a good conversation with ${scenario.character_name}. I can see you engaged thoughtfully with the scenario.`,
+      what_worked_well: what_worked_well.length > 0 ? what_worked_well : [
+        'You participated actively in the conversation',
+        'You maintained a professional tone throughout'
+      ],
+      areas_to_improve: areas_to_improve.length > 0 ? areas_to_improve : [
+        'Try to ask more questions to deepen the conversation',
+        'Consider expanding on your responses for more detail'
+      ],
+      coaching_advice: coaching_advice || `Keep practicing ${scenario.role} scenarios to build your confidence and skills.`
+    },
+    conversation_stats: {
+      total_exchanges: Math.floor(conversation.length / 2),
+      user_messages: conversation.filter(msg => msg.speaker === 'user').length,
+      character_name: scenario.character_name,
+      scenario_title: scenario.title,
+      role_type: scenario.role
+    }
+  };
+}
+
+// Intelligent fallback that's still personalized
+function performIntelligentFallback(conversation: any[], scenario: any, session_id: string) {
+  console.log('📊 Creating intelligent personalized fallback...');
   
   const userMessages = conversation.filter(msg => msg.speaker === 'user');
   const exchanges = Math.floor(conversation.length / 2);
-  
-  // Calculate scores based on conversation patterns
-  const scores = calculateRuleBasedScores(userMessages, exchanges, scenario);
-  
-  return {
-    session_id,
-    overall_score: scores.overall,
-    role_scores: scores.categories, // Changed from category_scores to role_scores for frontend compatibility
-    conversation_analysis: {
-      specific_strengths: generateStrengthsFromRules(userMessages, exchanges),
-      specific_improvements: generateImprovementsFromRules(userMessages, exchanges),
-      conversation_flow_analysis: `Completed ${exchanges} exchanges with good conversation flow`,
-      character_interaction_quality: `Professional interaction with ${scenario.character_name}`,
-      ai_assessment: 'Generated by rule-based analysis system'
-    },
-    coaching_insights: generateCoachingInsights(scores, scenario),
-    improvement_areas: generateImprovementAreas(scores),
-    strengths: generateStrengths(scores),
-    next_session_focus: generateNextFocus(scores, scenario),
-    skill_progression: calculateProgression(scores.overall),
-    personalized_feedback: `Good practice session! You completed ${exchanges} conversation exchanges. Focus on building confidence and expanding your responses.`,
-    timestamp: new Date().toISOString(),
-    analysis_type: 'rule-based-fallback'
-  };
-}
-
-// Calculate scores based on conversation metrics
-function calculateRuleBasedScores(userMessages: any[], exchanges: number, scenario: any) {
-  let overallScore = 2.0; // Base score
-  
-  // Bonus for engagement
-  if (exchanges >= 3) overallScore += 0.5;
-  if (exchanges >= 5) overallScore += 0.5;
-  if (exchanges >= 7) overallScore += 0.3;
-  
-  // Bonus for message quality
   const avgMessageLength = userMessages.reduce((sum, msg) => sum + msg.message.length, 0) / userMessages.length;
-  if (avgMessageLength > 20) overallScore += 0.3;
-  if (avgMessageLength > 50) overallScore += 0.2;
   
-  // Bonus for varied responses
-  const uniqueWords = new Set(
-    userMessages.flatMap(msg => 
-      msg.message.toLowerCase().split(/\s+/).filter((word: string) => word.length > 3)
-    )
-  ).size;
-  if (uniqueWords > 15) overallScore += 0.3;
+  // Analyze conversation content for real insights
+  const hasQuestions = userMessages.some(msg => msg.message.includes('?'));
+  const hasDetailedResponses = avgMessageLength > 30;
+  const goodLength = exchanges >= 3;
   
-  // Cap at 5.0
-  overallScore = Math.min(5.0, overallScore);
-  
-  // Generate category scores based on overall
-  const variance = 0.3;
-  const categories = {
-    opening_rapport: {
-      score: Math.min(5.0, Math.max(1.0, overallScore + (Math.random() - 0.5) * variance)),
-      feedback: 'Good opening approach and rapport building'
-    },
-    discovery_needs: {
-      score: Math.min(5.0, Math.max(1.0, overallScore + (Math.random() - 0.5) * variance)),
-      feedback: 'Effective questioning and information gathering'
-    },
-    communication_clarity: {
-      score: Math.min(5.0, Math.max(1.0, overallScore + (Math.random() - 0.5) * variance)),
-      feedback: 'Clear and professional communication style'
-    },
-    problem_solving: {
-      score: Math.min(5.0, Math.max(1.0, overallScore + (Math.random() - 0.5) * variance)),
-      feedback: 'Good problem-solving approach'
-    },
-    professionalism: {
-      score: Math.min(5.0, Math.max(1.0, overallScore + (Math.random() - 0.5) * variance)),
-      feedback: 'Maintained professional demeanor throughout'
-    }
-  };
-  
-  return {
-    overall: overallScore,
-    categories
-  };
-}
+  let score = 2.5; // Base score
+  if (goodLength) score += 0.5;
+  if (hasQuestions) score += 0.3;
+  if (hasDetailedResponses) score += 0.4;
+  if (exchanges >= 5) score += 0.3;
+  score = Math.min(5.0, score);
 
-function generateStrengthsFromRules(userMessages: any[], exchanges: number): string[] {
+  // Create personalized feedback based on actual conversation
+  const impressions = [
+    goodLength ? 
+      `I noticed you kept the conversation going for ${exchanges} exchanges with ${scenario.character_name}, which shows good engagement.` :
+      `Your conversation with ${scenario.character_name} was brief with ${exchanges} exchanges. Consider extending it longer next time.`,
+    
+    hasDetailedResponses ? 
+      'You provided thoughtful, detailed responses which helped build rapport.' :
+      'Your responses were concise. Try adding more detail to build stronger connections.',
+      
+    hasQuestions ?
+      'I saw you asking questions, which is great for keeping the conversation flowing.' :
+      'Consider asking more questions to show interest and gather information.'
+  ];
+
   const strengths = [];
-  
-  if (exchanges >= 5) {
-    strengths.push('Maintained sustained engagement throughout the conversation');
-  }
-  
-  if (userMessages.some(msg => msg.message.includes('?'))) {
-    strengths.push('Asked relevant questions to gather information');
-  }
-  
-  const avgLength = userMessages.reduce((sum, msg) => sum + msg.message.length, 0) / userMessages.length;
-  if (avgLength > 30) {
-    strengths.push('Provided detailed and thoughtful responses');
-  }
-  
-  if (strengths.length === 0) {
-    strengths.push('Actively participated in the conversation');
-  }
-  
-  return strengths;
-}
-
-function generateImprovementsFromRules(userMessages: any[], exchanges: number): string[] {
   const improvements = [];
-  
-  if (exchanges < 4) {
-    improvements.push('Try to extend conversations longer to practice more scenarios');
-  }
-  
-  const avgLength = userMessages.reduce((sum, msg) => sum + msg.message.length, 0) / userMessages.length;
-  if (avgLength < 20) {
-    improvements.push('Consider providing more detailed responses to build rapport');
-  }
-  
-  if (!userMessages.some(msg => msg.message.includes('?'))) {
-    improvements.push('Ask more questions to engage with the character');
-  }
-  
-  if (improvements.length === 0) {
-    improvements.push('Continue practicing to build confidence and fluency');
-  }
-  
-  return improvements;
-}
 
-function generateCoachingInsights(scores: any, scenario: any) {
+  if (goodLength) strengths.push(`You maintained ${exchanges} conversation exchanges, showing persistence`);
+  if (hasQuestions) strengths.push('You asked questions to engage with the character');
+  if (hasDetailedResponses) strengths.push('Your responses were detailed and thoughtful');
+  if (!goodLength) improvements.push('Try to extend conversations longer for more practice');
+  if (!hasQuestions) improvements.push('Ask more questions to gather information and show interest');
+  if (!hasDetailedResponses) improvements.push('Provide more detailed responses to build better rapport');
+
+  // Default fallbacks if nothing specific found
+  if (strengths.length === 0) strengths.push('You participated actively in the practice session');
+  if (improvements.length === 0) improvements.push('Continue practicing to build confidence');
+
   return {
-    immediate_actions: [
-      'Continue practicing similar scenarios to build confidence',
-      'Focus on asking more engaging questions'
-    ],
-    practice_areas: [
-      'Extending conversation length',
-      'Building rapport with characters'
-    ],
-    advanced_techniques: [],
-    next_scenarios: [
-      `Try another ${scenario.role} scenario at ${scenario.difficulty} level`
-    ]
+    overall_score: score,
+    human_feedback: {
+      overall_impression: impressions[0],
+      what_worked_well: strengths.slice(0, 3),
+      areas_to_improve: improvements.slice(0, 3),
+      coaching_advice: `For your next ${scenario.role.replace('-', ' ')} practice, focus on ${improvements[0]?.toLowerCase() || 'building conversation depth and engagement'}.`
+    },
+    conversation_stats: {
+      total_exchanges: exchanges,
+      user_messages: userMessages.length,
+      character_name: scenario.character_name,
+      scenario_title: scenario.title,
+      role_type: scenario.role
+    },
+    session_id,
+    timestamp: new Date().toISOString(),
+    analysis_type: 'intelligent-fallback'
   };
 }
 
-function generateImprovementAreas(scores: any): string[] {
-  return [
-    'Conversation depth and engagement',
-    'Question asking techniques',
-    'Building stronger rapport'
-  ];
-}
-
-function generateStrengths(scores: any): string[] {
-  return [
-    'Professional communication style',
-    'Active participation',
-    'Appropriate conversation flow'
-  ];
-}
-
-function generateNextFocus(scores: any, scenario: any): string {
-  return `Continue practicing ${scenario.role} scenarios and focus on extending conversation length and depth.`;
-}
-
-function calculateProgression(overallScore: number) {
-  if (overallScore < 2.5) return { level: 'Developing', next: 'Foundation Building', progress: Math.round(overallScore * 20) };
-  if (overallScore < 3.5) return { level: 'Improving', next: 'Skill Development', progress: Math.round(overallScore * 20) };
-  if (overallScore < 4.2) return { level: 'Proficient', next: 'Advanced Techniques', progress: Math.round(overallScore * 20) };
-  return { level: 'Advanced', next: 'Mastery', progress: Math.round(overallScore * 20) };
-}
-
-// Create minimal fallback analysis if everything fails
-function createFallbackAnalysis(request: any) {
+// Meaningful fallback for errors
+function createMeaningfulFallback(conversation: any[], scenario: any) {
+  const exchanges = Math.floor(conversation.length / 2);
+  
   return {
-    session_id: 'unknown',
     overall_score: 3.0,
-    role_scores: { // Changed from category_scores to role_scores
-      opening_rapport: { score: 3.0, feedback: 'Good conversation participation' },
-      discovery_needs: { score: 3.0, feedback: 'Effective communication approach' },
-      communication_clarity: { score: 3.0, feedback: 'Clear professional interaction' },
-      problem_solving: { score: 3.0, feedback: 'Good problem-solving engagement' },
-      professionalism: { score: 3.0, feedback: 'Professional demeanor maintained' }
+    human_feedback: {
+      overall_impression: `You completed a practice session with ${scenario.character_name}. Every practice session helps build your ${scenario.role.replace('-', ' ')} skills.`,
+      what_worked_well: [
+        'You took the initiative to practice',
+        'You engaged with the AI character',
+        'You completed the conversation'
+      ],
+      areas_to_improve: [
+        'Continue practicing regularly to build skills',
+        'Try different scenarios to expand experience',
+        'Focus on active listening and engagement'
+      ],
+      coaching_advice: 'Keep practicing different scenarios to build confidence and improve your communication skills.'
     },
-    conversation_analysis: {
-      specific_strengths: ['Participated actively in the conversation'],
-      specific_improvements: ['Continue practicing to build confidence'],
-      conversation_flow_analysis: 'Maintained good conversation flow',
-      character_interaction_quality: 'Professional interaction throughout',
-      ai_assessment: 'Basic feedback analysis'
+    conversation_stats: {
+      total_exchanges: exchanges,
+      user_messages: conversation.filter(msg => msg.speaker === 'user').length,
+      character_name: scenario.character_name,
+      scenario_title: scenario.title,
+      role_type: scenario.role
     },
-    coaching_insights: {
-      immediate_actions: ['Continue practicing regularly'],
-      practice_areas: ['General communication skills'],
-      advanced_techniques: [],
-      next_scenarios: ['Try similar scenarios for more practice']
-    },
-    improvement_areas: ['Continue skill development'],
-    strengths: ['Active participation'],
-    next_session_focus: 'Keep practicing to build confidence',
-    skill_progression: { level: 'Developing', next: 'Skill Building', progress: 60 },
-    personalized_feedback: 'Good practice session! Keep working on your communication skills.',
     timestamp: new Date().toISOString(),
     analysis_type: 'minimal-fallback'
-  };
-}
-
-// Build prompt for AI analysis
-function buildAnalysisPrompt(conversation: any[], scenario: any) {
-  const conversationText = conversation.map((msg, i) => 
-    `${i + 1}. ${msg.speaker === 'user' ? 'TRAINEE' : scenario.character_name}: "${msg.message}"`
-  ).join('\n');
-
-  return `Analyze this ${scenario.role} roleplay conversation and provide specific feedback.
-
-SCENARIO: ${scenario.title}
-CHARACTER: ${scenario.character_name} (${scenario.character_role})
-DIFFICULTY: ${scenario.difficulty}
-
-CONVERSATION:
-${conversationText}
-
-Provide analysis in this format:
-
-OVERALL_SCORE: [1-5 score]
-
-CATEGORY_SCORES:
-Opening_Rapport: [score] | [brief feedback]
-Discovery_Needs: [score] | [brief feedback]  
-Communication_Clarity: [score] | [brief feedback]
-Problem_Solving: [score] | [brief feedback]
-Professionalism: [score] | [brief feedback]
-
-STRENGTHS:
-• [specific strength 1]
-• [specific strength 2]
-
-IMPROVEMENTS:
-• [specific improvement 1]
-• [specific improvement 2]
-
-FEEDBACK: [2-3 sentences of personalized feedback]
-
-NEXT_FOCUS: [recommendation for next practice]`;
-}
-
-// Parse AI response into structured format
-function parseAIAnalysis(aiResponse: string, conversation: any[], scenario: any) {
-  const lines = aiResponse.split('\n').filter(line => line.trim());
-  
-  let overall_score = 3.0;
-  const category_scores: any = {};
-  const strengths: string[] = [];
-  const improvements: string[] = [];
-  let feedback = '';
-  let next_focus = '';
-  
-  for (const line of lines) {
-    if (line.includes('OVERALL_SCORE:')) {
-      const match = line.match(/(\d+\.?\d*)/);
-      if (match) overall_score = Math.min(5.0, Math.max(1.0, parseFloat(match[1])));
-    } else if (line.includes(':') && line.includes('|')) {
-      const [key, value] = line.split('|');
-      const scoreMatch = key.match(/(\d+\.?\d*)/);
-      if (scoreMatch) {
-        const categoryName = key.split(':')[0].trim().toLowerCase().replace(/\s+/g, '_');
-        category_scores[categoryName] = {
-          score: Math.min(5.0, Math.max(1.0, parseFloat(scoreMatch[1]))),
-          feedback: value.trim()
-        };
-      }
-    } else if (line.startsWith('• ')) {
-      const content = line.substring(2).trim();
-      if (line.includes('STRENGTHS:') || strengths.length > 0 && improvements.length === 0) {
-        strengths.push(content);
-      } else if (line.includes('IMPROVEMENTS:') || improvements.length > 0) {
-        improvements.push(content);
-      }
-    } else if (line.includes('FEEDBACK:')) {
-      feedback = line.replace('FEEDBACK:', '').trim();
-    } else if (line.includes('NEXT_FOCUS:')) {
-      next_focus = line.replace('NEXT_FOCUS:', '').trim();
-    }
-  }
-
-  // Ensure we have required categories
-  const requiredCategories = ['opening_rapport', 'discovery_needs', 'communication_clarity', 'problem_solving', 'professionalism'];
-  requiredCategories.forEach(cat => {
-    if (!category_scores[cat]) {
-      category_scores[cat] = {
-        score: overall_score,
-        feedback: 'Good performance in this area'
-      };
-    }
-  });
-
-  return {
-    overall_score,
-    role_scores: category_scores, // Changed from category_scores to role_scores
-    conversation_analysis: {
-      specific_strengths: strengths.length > 0 ? strengths : ['Active participation in conversation'],
-      specific_improvements: improvements.length > 0 ? improvements : ['Continue building confidence'],
-      conversation_flow_analysis: 'Good conversation flow maintained throughout',
-      character_interaction_quality: `Professional interaction with ${scenario.character_name}`,
-      ai_assessment: 'AI-powered analysis of conversation content'
-    },
-    coaching_insights: {
-      immediate_actions: ['Continue regular practice'],
-      practice_areas: ['Building conversation depth'],
-      advanced_techniques: [],
-      next_scenarios: [`Try more ${scenario.role} scenarios`]
-    },
-    improvement_areas: improvements.slice(0, 3),
-    strengths: strengths.slice(0, 3),
-    next_session_focus: next_focus || 'Continue practicing to build confidence',
-    skill_progression: calculateProgression(overall_score),
-    personalized_feedback: feedback || 'Good practice session with room for continued growth'
   };
 }
