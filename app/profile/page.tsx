@@ -79,48 +79,55 @@ export default function ProfilePage() {
     }
   }; // ← MAKE SURE THIS SEMICOLON IS HERE
 
-  const exportUserData = async () => {
+const exportUserData = async () => {
+  try {
+    const userData: {
+      email: string;
+      name: string;
+      preferredRole: string;
+      exportDate: string;
+      accountCreated: string;
+      progressData?: any; // Add this optional property
+    } = {
+      email: userEmail,
+      name: userName,
+      preferredRole,
+      exportDate: new Date().toISOString(),
+      accountCreated: localStorage.getItem('accountCreated') || 'Unknown'
+    };
+
+    // Try to get progress data
     try {
-      const userData = {
-        email: userEmail,
-        name: userName,
-        preferredRole,
-        exportDate: new Date().toISOString(),
-        accountCreated: localStorage.getItem('accountCreated') || 'Unknown'
-      };
-
-      // Try to get progress data
-      try {
-        const progressResponse = await fetch(`/api/progress?user_email=${encodeURIComponent(userEmail)}`);
-        if (progressResponse.ok) {
-          const progressData = await progressResponse.json();
-          if (progressData.success) {
-            userData.progressData = progressData.data;
-          }
+      const progressResponse = await fetch(`/api/progress?user_email=${encodeURIComponent(userEmail)}`);
+      if (progressResponse.ok) {
+        const progressData = await progressResponse.json();
+        if (progressData.success) {
+          userData.progressData = progressData.data; // Now this works
         }
-      } catch (err) {
-        console.log('Could not fetch progress data for export');
       }
-
-      // Create and download file
-      const dataStr = JSON.stringify(userData, null, 2);
-      const dataBlob = new Blob([dataStr], { type: 'application/json' });
-      const url = URL.createObjectURL(dataBlob);
-      
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `ace-your-role-data-${userEmail.replace('@', '-')}-${new Date().toISOString().split('T')[0]}.json`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-
-      alert('Your data has been exported successfully!');
-    } catch (error) {
-      console.error('Error exporting data:', error);
-      alert('Failed to export data. Please try again.');
+    } catch (err) {
+      console.log('Could not fetch progress data for export');
     }
-  }; // ← MAKE SURE THIS SEMICOLON IS HERE
+
+    // Create and download file
+    const dataStr = JSON.stringify(userData, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `ace-your-role-data-${userEmail.replace('@', '-')}-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    alert('Your data has been exported successfully!');
+  } catch (error) {
+    console.error('Error exporting data:', error);
+    alert('Failed to export data. Please try again.');
+  }
+};
 
   const handleDeleteAccount = async () => {
     if (deleteConfirmationText !== 'DELETE MY ACCOUNT') {
