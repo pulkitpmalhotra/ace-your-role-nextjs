@@ -1,4 +1,5 @@
 // app/api/analyze-conversation/route.ts - FIXED: Focus on User Performance
+import { NextRequest } from 'next/server';
 export async function POST(request: Request) {
   let conversation, scenario, session_id;
   
