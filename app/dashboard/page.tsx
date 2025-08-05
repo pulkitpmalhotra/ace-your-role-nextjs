@@ -54,21 +54,20 @@ export default function DashboardPage() {
   
   const router = useRouter();
 
-  useEffect(() => {
-    initializeDashboard();
-  }, [router]);
-const handleRoleSelection = (role: string) => {
-  setPreferredRole(role);
-  localStorage.setItem('preferredRole', role);
-  localStorage.setItem('isNewUser', 'false'); // Add this line if missing
-  setShowRoleSelectionModal(false);
-  setIsFirstTimeUser(false);
-};
+  const availableRoles = [
+    { id: 'sales', name: 'Sales', emoji: '💼', description: 'Master consultative selling and customer relationships' },
+    { id: 'project-manager', name: 'Project Manager', emoji: '📋', description: 'Lead projects and coordinate stakeholders' },
+    { id: 'product-manager', name: 'Product Manager', emoji: '📱', description: 'Drive product strategy and roadmap planning' },
+    { id: 'leader', name: 'Leadership', emoji: '👑', description: 'Develop vision communication and team influence' },
+    { id: 'manager', name: 'People Manager', emoji: '👥', description: 'Build team management and coaching skills' },
+    { id: 'strategy-lead', name: 'Strategy Lead', emoji: '🎯', description: 'Practice strategic planning and analysis' },
+    { id: 'support-agent', name: 'Customer Support', emoji: '🎧', description: 'Excel at customer service and problem solving' },
+    { id: 'data-analyst', name: 'Data Analyst', emoji: '📊', description: 'Communicate insights and analytical thinking' },
+    { id: 'engineer', name: 'Engineering', emoji: '👩‍💻', description: 'Technical communication and collaboration' },
+    { id: 'nurse', name: 'Healthcare - Nursing', emoji: '👩‍⚕️', description: 'Patient care and medical team coordination' },
+    { id: 'doctor', name: 'Healthcare - Doctor', emoji: '🩺', description: 'Patient consultation and medical communication' }
+  ];
 
-  const openRoleSelectionModal = () => {
-    setShowRoleSelectionModal(true);
-  };
-  
   // Filter scenarios based on user's preferred role and other filters
   const filteredScenarios = scenarios.filter(scenario => {
     const roleMatch = scenario.role === preferredRole;
@@ -88,40 +87,61 @@ const handleRoleSelection = (role: string) => {
            (difficultyOrder[b.difficulty as keyof typeof difficultyOrder] || 4);
   });
 
-  const getRoleEmoji = (role: string) => {
-    const emojiMap: Record<string, string> = {
-      'sales': '💼',
-      'project-manager': '📋',
-      'product-manager': '📱', 
-      'leader': '👑',
-      'manager': '👥',
-      'strategy-lead': '🎯',
-      'support-agent': '🎧',
-      'data-analyst': '📊',
-      'engineer': '👩‍💻',
-      'nurse': '👩‍⚕️',
-      'doctor': '🩺'
-    };
-    return emojiMap[role] || '💬';
+  // Load dashboard data function
+  const loadData = async (email?: string) => {
+    try {
+      setLoading(true);
+      setError('');
+      
+      const emailToUse = email || userEmail;
+      
+      if (!emailToUse || !emailToUse.includes('@')) {
+        console.error('❌ Invalid email for API calls:', emailToUse);
+        setError('Invalid Google OAuth session. Please sign in again.');
+        setLoading(false);
+        localStorage.clear();
+        setTimeout(() => router.push('/'), 2000);
+        return;
+      }
+      
+      console.log('📊 Loading dashboard data for:', emailToUse);
+      
+      // Load scenarios
+      const scenariosResponse = await fetch('/api/scenarios');
+      if (scenariosResponse.ok) {
+        const scenariosData = await scenariosResponse.json();
+        if (scenariosData.success) {
+          setScenarios(scenariosData.data || []);
+          console.log('✅ Loaded', scenariosData.data?.length || 0, 'scenarios');
+        }
+      }
+      
+      // Load user progress
+      const progressUrl = `/api/progress?user_email=${encodeURIComponent(emailToUse)}`;
+      const progressResponse = await fetch(progressUrl);
+      if (progressResponse.ok) {
+        const progressData = await progressResponse.json();
+        if (progressData.success) {
+          setUserProgress(progressData.data.progress || []);
+          setProgressSummary(progressData.data.summary);
+        } else {
+          setUserProgress([]);
+          setProgressSummary(null);
+        }
+      } else {
+        setUserProgress([]);
+        setProgressSummary(null);
+      }
+      
+    } catch (error) {
+      console.error('❌ Error loading dashboard data:', error);
+      setError('Failed to load some data. The app should still work for starting new sessions.');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const getRoleDescription = (role: string) => {
-    const descriptions: Record<string, string> = {
-      'sales': 'Practice consultative selling and customer relationship building',
-      'project-manager': 'Master project coordination, timeline management, and stakeholder communication',
-      'product-manager': 'Develop product strategy, roadmap planning, and cross-functional leadership',
-      'leader': 'Practice vision communication, strategic thinking, and organizational influence',
-      'manager': 'Develop team management, performance coaching, and people leadership skills',
-      'strategy-lead': 'Practice strategic planning, market analysis, and executive communication',
-      'support-agent': 'Master customer service, problem resolution, and technical support skills',
-      'data-analyst': 'Practice data presentation, insights communication, and analytical thinking',
-      'engineer': 'Develop technical communication, code reviews, and solution architecture discussions',
-      'nurse': 'Practice patient care communication, medical team coordination, and healthcare protocols',
-      'doctor': 'Develop patient consultation skills, diagnosis communication, and medical decision-making'
-    };
-    return descriptions[role] || 'Professional communication practice';
-  };
-
+  // Initialize dashboard
   const initializeDashboard = async () => {
     try {
       // Check if user is logged in with Google OAuth
@@ -167,6 +187,21 @@ const handleRoleSelection = (role: string) => {
     }
   };
 
+  // Handle role selection
+  const handleRoleSelection = (role: string) => {
+    setPreferredRole(role);
+    localStorage.setItem('preferredRole', role);
+    localStorage.setItem('isNewUser', 'false');
+    setShowRoleSelectionModal(false);
+    setIsFirstTimeUser(false);
+  };
+
+  // Open role selection modal
+  const openRoleSelectionModal = () => {
+    setShowRoleSelectionModal(true);
+  };
+
+  // Start chat session
   const startChat = (scenario: Scenario) => {
     const sessionToken = localStorage.getItem('sessionToken');
     const authProvider = localStorage.getItem('authProvider');
@@ -183,6 +218,7 @@ const handleRoleSelection = (role: string) => {
     router.push(`/session/${scenario.id}`);
   };
 
+  // Navigation functions
   const viewAnalyticsDashboard = () => {
     router.push('/analytics');
   };
@@ -202,6 +238,41 @@ const handleRoleSelection = (role: string) => {
       if (popup) popup.close();
       router.push('/');
     }, 1000);
+  };
+
+  // Utility functions
+  const getRoleEmoji = (role: string) => {
+    const emojiMap: Record<string, string> = {
+      'sales': '💼',
+      'project-manager': '📋',
+      'product-manager': '📱', 
+      'leader': '👑',
+      'manager': '👥',
+      'strategy-lead': '🎯',
+      'support-agent': '🎧',
+      'data-analyst': '📊',
+      'engineer': '👩‍💻',
+      'nurse': '👩‍⚕️',
+      'doctor': '🩺'
+    };
+    return emojiMap[role] || '💬';
+  };
+
+  const getRoleDescription = (role: string) => {
+    const descriptions: Record<string, string> = {
+      'sales': 'Practice consultative selling and customer relationship building',
+      'project-manager': 'Master project coordination, timeline management, and stakeholder communication',
+      'product-manager': 'Develop product strategy, roadmap planning, and cross-functional leadership',
+      'leader': 'Practice vision communication, strategic thinking, and organizational influence',
+      'manager': 'Develop team management, performance coaching, and people leadership skills',
+      'strategy-lead': 'Practice strategic planning, market analysis, and executive communication',
+      'support-agent': 'Master customer service, problem resolution, and technical support skills',
+      'data-analyst': 'Practice data presentation, insights communication, and analytical thinking',
+      'engineer': 'Develop technical communication, code reviews, and solution architecture discussions',
+      'nurse': 'Practice patient care communication, medical team coordination, and healthcare protocols',
+      'doctor': 'Develop patient consultation skills, diagnosis communication, and medical decision-making'
+    };
+    return descriptions[role] || 'Professional communication practice';
   };
 
   const getDifficultyColor = (difficulty: string) => {
@@ -224,24 +295,15 @@ const handleRoleSelection = (role: string) => {
     return new Date(dateString).toLocaleDateString();
   };
 
+  // Initialize on mount
+  useEffect(() => {
+    initializeDashboard();
+  }, [router]);
+
   // Role Selection Modal Component
   const RoleSelectionModal = () => {
     const [selectedRole, setSelectedRole] = useState('');
     
-    const availableRoles = [
-      { id: 'sales', name: 'Sales', emoji: '💼', description: 'Master consultative selling and customer relationships' },
-      { id: 'project-manager', name: 'Project Manager', emoji: '📋', description: 'Lead projects and coordinate stakeholders' },
-      { id: 'product-manager', name: 'Product Manager', emoji: '📱', description: 'Drive product strategy and roadmap planning' },
-      { id: 'leader', name: 'Leadership', emoji: '👑', description: 'Develop vision communication and team influence' },
-      { id: 'manager', name: 'People Manager', emoji: '👥', description: 'Build team management and coaching skills' },
-      { id: 'strategy-lead', name: 'Strategy Lead', emoji: '🎯', description: 'Practice strategic planning and analysis' },
-      { id: 'support-agent', name: 'Customer Support', emoji: '🎧', description: 'Excel at customer service and problem solving' },
-      { id: 'data-analyst', name: 'Data Analyst', emoji: '📊', description: 'Communicate insights and analytical thinking' },
-      { id: 'engineer', name: 'Engineering', emoji: '👩‍💻', description: 'Technical communication and collaboration' },
-      { id: 'nurse', name: 'Healthcare - Nursing', emoji: '👩‍⚕️', description: 'Patient care and medical team coordination' },
-      { id: 'doctor', name: 'Healthcare - Doctor', emoji: '🩺', description: 'Patient consultation and medical communication' }
-    ];
-
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
         <div className="bg-white rounded-2xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
@@ -255,15 +317,14 @@ const handleRoleSelection = (role: string) => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
               {availableRoles.map((role) => (
                 <button
-  key={role.id}
-  onClick={() => handleRoleChange(role.id)}  // Use the handler function
-  disabled={saving}
-  className={`p-4 rounded-xl border-2 transition-all duration-200 text-left ${
-    preferredRole === role.id
-      ? 'border-blue-500 bg-blue-50 shadow-lg'
-      : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
-  } ${saving ? 'opacity-50 cursor-not-allowed' : ''}`}
->
+                  key={role.id}
+                  onClick={() => setSelectedRole(role.id)}
+                  className={`p-6 rounded-xl border-2 transition-all duration-200 text-left ${
+                    selectedRole === role.id
+                      ? 'border-blue-500 bg-blue-50 shadow-lg transform scale-105'
+                      : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
+                  }`}
+                >
                   <div className="text-3xl mb-3">{role.emoji}</div>
                   <h3 className="font-semibold text-gray-900 mb-2">{role.name}</h3>
                   <p className="text-sm text-gray-600">{role.description}</p>
@@ -273,12 +334,12 @@ const handleRoleSelection = (role: string) => {
 
             <div className="flex flex-col sm:flex-row gap-4">
               <button
-  onClick={() => selectedRole && handleRoleSelection(selectedRole)}  // ← Use the new handler
-  disabled={!selectedRole}
-  className="flex-1 bg-blue-500 text-white py-4 px-6 rounded-xl font-semibold text-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
->
-  {selectedRole ? `Start ${availableRoles.find(r => r.id === selectedRole)?.name} Practice` : 'Select a Role'}
-</button>
+                onClick={() => selectedRole && handleRoleSelection(selectedRole)}
+                disabled={!selectedRole}
+                className="flex-1 bg-blue-500 text-white py-4 px-6 rounded-xl font-semibold text-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {selectedRole ? `Start ${availableRoles.find(r => r.id === selectedRole)?.name} Practice` : 'Select a Role'}
+              </button>
               <button
                 onClick={() => {
                   setShowRoleSelectionModal(false);
@@ -487,15 +548,15 @@ const handleRoleSelection = (role: string) => {
                   </select>
                 </div>
                 
-           <div className="flex items-center space-x-6 text-sm text-blue-800">
-  <span>📊 {sortedFilteredScenarios.length} scenarios available</span>
-  <button
-    onClick={openRoleSelectionModal}  // ← Use the new handler
-    className="text-blue-600 hover:text-blue-800 font-medium underline"
-  >
-    Change Role
-  </button>
-</div>
+                <div className="flex items-center space-x-6 text-sm text-blue-800">
+                  <span>📊 {sortedFilteredScenarios.length} scenarios available</span>
+                  <button
+                    onClick={openRoleSelectionModal}
+                    className="text-blue-600 hover:text-blue-800 font-medium underline"
+                  >
+                    Change Role
+                  </button>
+                </div>
               </div>
             </div>
 
