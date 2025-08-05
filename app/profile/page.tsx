@@ -58,13 +58,8 @@ export default function ProfilePage() {
     }
   };
 
+  // ADD HANDLER FUNCTIONS HERE - MAKE SURE EACH FUNCTION HAS PROPER CLOSING BRACES
   const handleRoleChange = async (newRole: string) => {
-    setSaving(true);
-    try {
-      // Update localStorage
-      localStorage.setItem('preferredRole', newRole);
-      setPreferredRole(newRole);
-      const handleRoleChange = async (newRole: string) => {
     setSaving(true);
     try {
       // Update localStorage
@@ -82,7 +77,7 @@ export default function ProfilePage() {
     } finally {
       setSaving(false);
     }
-  };
+  }; // ← MAKE SURE THIS SEMICOLON IS HERE
 
   const exportUserData = async () => {
     try {
@@ -125,7 +120,7 @@ export default function ProfilePage() {
       console.error('Error exporting data:', error);
       alert('Failed to export data. Please try again.');
     }
-  };
+  }; // ← MAKE SURE THIS SEMICOLON IS HERE
 
   const handleDeleteAccount = async () => {
     if (deleteConfirmationText !== 'DELETE MY ACCOUNT') {
@@ -148,85 +143,9 @@ export default function ProfilePage() {
     } finally {
       setIsDeleting(false);
     }
-  };
+  }; // ← MAKE SURE THIS SEMICOLON IS HERE
 
-      // Show success message
-      setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 3000);
-    } catch (error) {
-      console.error('Error saving role preference:', error);
-      alert('Failed to save role preference. Please try again.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const exportUserData = async () => {
-    try {
-      const userData = {
-        email: userEmail,
-        name: userName,
-        preferredRole,
-        exportDate: new Date().toISOString(),
-        accountCreated: localStorage.getItem('accountCreated') || 'Unknown'
-      };
-
-      // Try to get progress data
-      try {
-        const progressResponse = await fetch(`/api/progress?user_email=${encodeURIComponent(userEmail)}`);
-        if (progressResponse.ok) {
-          const progressData = await progressResponse.json();
-          if (progressData.success) {
-            userData.progressData = progressData.data;
-          }
-        }
-      } catch (err) {
-        console.log('Could not fetch progress data for export');
-      }
-
-      // Create and download file
-      const dataStr = JSON.stringify(userData, null, 2);
-      const dataBlob = new Blob([dataStr], { type: 'application/json' });
-      const url = URL.createObjectURL(dataBlob);
-      
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `ace-your-role-data-${userEmail.replace('@', '-')}-${new Date().toISOString().split('T')[0]}.json`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-
-      alert('Your data has been exported successfully!');
-    } catch (error) {
-      console.error('Error exporting data:', error);
-      alert('Failed to export data. Please try again.');
-    }
-  };
-
-  const handleDeleteAccount = async () => {
-    if (deleteConfirmationText !== 'DELETE MY ACCOUNT') {
-      alert('Please type "DELETE MY ACCOUNT" exactly to confirm deletion.');
-      return;
-    }
-
-    setIsDeleting(true);
-    try {
-      // Clear all local storage
-      localStorage.clear();
-      
-      // In a real app, you'd call an API to delete the account
-      // For now, we'll just redirect to login
-      alert('Account deleted successfully. You will be redirected to the login page.');
-      router.push('/');
-    } catch (error) {
-      console.error('Error deleting account:', error);
-      alert('Failed to delete account. Please try again or contact support.');
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
+  // Loading state
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
@@ -238,6 +157,7 @@ export default function ProfilePage() {
     );
   }
 
+  // MAIN RETURN STATEMENT - MAKE SURE THERE'S NO EXTRA CODE BEFORE THIS
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
       
@@ -316,46 +236,39 @@ export default function ProfilePage() {
         </div>
 
         {/* Role Preference */}
-       <div className="bg-white rounded-2xl shadow-lg border border-white/20 p-8 mb-8">
-  <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
-    <span className="text-xl mr-3">🎯</span>
-    Training Preference
-  </h2>
-  
-  <p className="text-gray-600 mb-6">
-    Choose your primary role to personalize your dashboard experience. You can change this anytime.
-  </p>
+        <div className="bg-white rounded-2xl shadow-lg border border-white/20 p-8 mb-8">
+          <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
+            <span className="text-xl mr-3">🎯</span>
+            Training Preference
+          </h2>
+          
+          <p className="text-gray-600 mb-6">
+            Choose your primary role to personalize your dashboard experience. You can change this anytime.
+          </p>
 
-  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-    {availableRoles.map((role) => (
-      <button
-        key={role.id}
-        onClick={() => handleRoleChange(role.id)}
-        disabled={saving}
-        className={`p-4 rounded-xl border-2 transition-all duration-200 text-left ${
-          preferredRole === role.id
-            ? 'border-blue-500 bg-blue-50 shadow-lg'
-            : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
-        } ${saving ? 'opacity-50 cursor-not-allowed' : ''}`}
-      >
-        <div className="text-2xl mb-2">{role.emoji}</div>
-        <h3 className="font-semibold text-gray-900 mb-1">{role.name}</h3>
-        <p className="text-xs text-gray-600">{role.description}</p>
-        {preferredRole === role.id && (
-          <div className="mt-2 flex items-center text-blue-600">
-            <span className="text-sm font-medium">✓ Currently Selected</span>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {availableRoles.map((role) => (
+              <button
+                key={role.id}
+                onClick={() => handleRoleChange(role.id)}
+                disabled={saving}
+                className={`p-4 rounded-xl border-2 transition-all duration-200 text-left ${
+                  preferredRole === role.id
+                    ? 'border-blue-500 bg-blue-50 shadow-lg'
+                    : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
+                } ${saving ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                <div className="text-2xl mb-2">{role.emoji}</div>
+                <h3 className="font-semibold text-gray-900 mb-1">{role.name}</h3>
+                <p className="text-xs text-gray-600">{role.description}</p>
+                {preferredRole === role.id && (
+                  <div className="mt-2 flex items-center text-blue-600">
+                    <span className="text-sm font-medium">✓ Currently Selected</span>
+                  </div>
+                )}
+              </button>
+            ))}
           </div>
-        )}
-      </button>
-    ))}
-  </div>
-
-  {saving && (
-    <div className="mt-4 text-center">
-      <span className="text-blue-600">Saving preference...</span>
-    </div>
-  )}
-</div>
 
           {saving && (
             <div className="mt-4 text-center">
@@ -466,4 +379,4 @@ export default function ProfilePage() {
       </main>
     </div>
   );
-}
+} // ← MAKE SURE THIS CLOSING BRACE IS HERE
