@@ -540,15 +540,18 @@ export class PerformanceOptimizer {
 
   async optimizeResponse(response: any): Promise<any> {
     const startTime = performance.now();
+    const originalContent = response.content || response.response;
 
     let optimized = {
-      content: response.content || response.response,
+      content: originalContent,
       emotion: response.emotion,
       context: response.context,
       metadata: {
         optimized: true,
-        originalLength: (response.content || response.response).length,
-        processingTime: 0
+        originalLength: originalContent.length,
+        processingTime: 0,
+        finalLength: 0,
+        compressionRatio: 1.0
       }
     };
 
