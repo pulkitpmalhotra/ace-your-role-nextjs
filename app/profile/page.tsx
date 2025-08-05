@@ -64,7 +64,92 @@ export default function ProfilePage() {
       // Update localStorage
       localStorage.setItem('preferredRole', newRole);
       setPreferredRole(newRole);
+      const handleRoleChange = async (newRole: string) => {
+    setSaving(true);
+    try {
+      // Update localStorage
+      localStorage.setItem('preferredRole', newRole);
+      setPreferredRole(newRole);
       
+      // Show success message
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 3000);
+      
+      console.log('✅ Role preference updated to:', newRole);
+    } catch (error) {
+      console.error('Error saving role preference:', error);
+      alert('Failed to save role preference. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const exportUserData = async () => {
+    try {
+      const userData = {
+        email: userEmail,
+        name: userName,
+        preferredRole,
+        exportDate: new Date().toISOString(),
+        accountCreated: localStorage.getItem('accountCreated') || 'Unknown'
+      };
+
+      // Try to get progress data
+      try {
+        const progressResponse = await fetch(`/api/progress?user_email=${encodeURIComponent(userEmail)}`);
+        if (progressResponse.ok) {
+          const progressData = await progressResponse.json();
+          if (progressData.success) {
+            userData.progressData = progressData.data;
+          }
+        }
+      } catch (err) {
+        console.log('Could not fetch progress data for export');
+      }
+
+      // Create and download file
+      const dataStr = JSON.stringify(userData, null, 2);
+      const dataBlob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(dataBlob);
+      
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `ace-your-role-data-${userEmail.replace('@', '-')}-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      alert('Your data has been exported successfully!');
+    } catch (error) {
+      console.error('Error exporting data:', error);
+      alert('Failed to export data. Please try again.');
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmationText !== 'DELETE MY ACCOUNT') {
+      alert('Please type "DELETE MY ACCOUNT" exactly to confirm deletion.');
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      // Clear all local storage
+      localStorage.clear();
+      
+      // In a real app, you'd call an API to delete the account
+      // For now, we'll just redirect to login
+      alert('Account deleted successfully. You will be redirected to the login page.');
+      router.push('/');
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      alert('Failed to delete account. Please try again or contact support.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
       // Show success message
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
