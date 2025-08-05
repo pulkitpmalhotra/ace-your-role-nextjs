@@ -43,12 +43,71 @@ export default function DashboardPage() {
   const [userPicture, setUserPicture] = useState('');
   const [authProvider, setAuthProvider] = useState('email');
   const [selectedView, setSelectedView] = useState<'scenarios' | 'progress'>('scenarios');
+  const [selectedRole, setSelectedRole] = useState<string>('sales'); // Default to sales
+  const [selectedDifficulty, setSelectedDifficulty] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const [error, setError] = useState('');
   const router = useRouter();
 
   useEffect(() => {
     initializeDashboard();
   }, [router]);
+
+  // Get available roles from scenarios
+  const availableRoles = Array.from(new Set(scenarios.map(s => s.role)));
+  
+  // Filter scenarios based on selected filters
+  const filteredScenarios = scenarios.filter(scenario => {
+    const roleMatch = selectedRole === 'all' || scenario.role === selectedRole;
+    const difficultyMatch = selectedDifficulty === 'all' || scenario.difficulty === selectedDifficulty;
+    const searchMatch = searchQuery === '' || 
+      scenario.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      scenario.character_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      scenario.description?.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    return roleMatch && difficultyMatch && searchMatch;
+  });
+
+  // Sort filtered scenarios by difficulty
+  const sortedFilteredScenarios = [...filteredScenarios].sort((a, b) => {
+    const difficultyOrder = { beginner: 1, intermediate: 2, advanced: 3 };
+    return (difficultyOrder[a.difficulty as keyof typeof difficultyOrder] || 4) - 
+           (difficultyOrder[b.difficulty as keyof typeof difficultyOrder] || 4);
+  });
+
+  const getRoleEmoji = (role: string) => {
+    const emojiMap: Record<string, string> = {
+      'sales': '💼',
+      'project-manager': '📋',
+      'product-manager': '📱', 
+      'leader': '👑',
+      'manager': '👥',
+      'strategy-lead': '🎯',
+      'support-agent': '🎧',
+      'data-analyst': '📊',
+      'engineer': '👩‍💻',
+      'nurse': '👩‍⚕️',
+      'doctor': '🩺'
+    };
+    return emojiMap[role] || '💬';
+  };
+
+  const getRoleDescription = (role: string) => {
+    const descriptions: Record<string, string> = {
+      'sales': 'Practice consultative selling and customer relationship building',
+      'project-manager': 'Master project coordination, timeline management, and stakeholder communication',
+      'product-manager': 'Develop product strategy, roadmap planning, and cross-functional leadership',
+      'leader': 'Practice vision communication, strategic thinking, and organizational influence',
+      'manager': 'Develop team management, performance coaching, and people leadership skills',
+      'strategy-lead': 'Practice strategic planning, market analysis, and executive communication',
+      'support-agent': 'Master customer service, problem resolution, and technical support skills',
+      'data-analyst': 'Practice data presentation, insights communication, and analytical thinking',
+      'engineer': 'Develop technical communication, code reviews, and solution architecture discussions',
+      'nurse': 'Practice patient care communication, medical team coordination, and healthcare protocols',
+      'doctor': 'Develop patient consultation skills, diagnosis communication, and medical decision-making'
+    };
+    return descriptions[role] || 'Professional communication practice';
+  };
 
   const initializeDashboard = async () => {
     try {
@@ -195,36 +254,6 @@ export default function DashboardPage() {
     }, 1000);
   };
 
- const getRoleEmoji = (role: string) => {
-  const emojiMap: Record<string, string> = {
-    'sales': '💼',
-    'project-manager': '📋',
-    'product-manager': '📱', 
-    'leader': '👑',
-    'manager': '👥',
-    'strategy-lead': '🎯',
-    'support-agent': '🎧',
-    'data-analyst': '📊',
-    'engineer': '👩‍💻'
-  };
-  return emojiMap[role] || '💬';
-};
-
-  const getRoleDescription = (role: string) => {
-  const descriptions: Record<string, string> = {
-    'sales': 'Practice consultative selling and customer relationship building',
-    'project-manager': 'Master project coordination, timeline management, and stakeholder communication',
-    'product-manager': 'Develop product strategy, roadmap planning, and cross-functional leadership',
-    'leader': 'Practice vision communication, strategic thinking, and organizational influence',
-    'manager': 'Develop team management, performance coaching, and people leadership skills',
-    'strategy-lead': 'Practice strategic planning, market analysis, and executive communication',
-    'support-agent': 'Master customer service, problem resolution, and technical support skills',
-    'data-analyst': 'Practice data presentation, insights communication, and analytical thinking',
-    'engineer': 'Develop technical communication, code reviews, and solution architecture discussions'
-  };
-  return descriptions[role] || 'Professional communication practice';
-};
-
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
       case 'beginner': return 'bg-green-100 text-green-800';
@@ -243,192 +272,6 @@ export default function DashboardPage() {
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString();
-  };
-
-  // Scenario Card Component
-  const ScenarioCard = ({ scenario, onStartChat, getDifficultyColor }: {
-    scenario: Scenario;
-    onStartChat: (scenario: Scenario) => void;
-    getDifficultyColor: (difficulty: string) => string;
-  }) => (
-    <div className="bg-white/80 backdrop-blur-sm rounded-lg p-6 shadow-sm hover:shadow-md transition-all duration-200 border border-white/20 hover:border-blue-200 flex-shrink-0 w-full h-80 flex flex-col">
-      {/* Difficulty Badge */}
-      <div className="flex justify-end mb-4">
-        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getDifficultyColor(scenario.difficulty)}`}>
-          {scenario.difficulty}
-        </span>
-      </div>
-      
-      {/* Title */}
-      <h4 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">
-        {scenario.title}
-      </h4>
-      
-      {/* Description */}
-      <div className="flex-grow mb-4">
-        {scenario.description && (
-          <p className="text-gray-600 text-sm line-clamp-3">
-            {scenario.description}
-          </p>
-        )}
-      </div>
-      
-      {/* Character */}
-      <div className="mb-6">
-        <p className="text-sm text-gray-700">
-          <span className="font-medium">Talk with:</span> {scenario.character_name}
-        </p>
-        <p className="text-xs text-gray-600 line-clamp-1">{scenario.character_role}</p>
-      </div>
-      
-      {/* Start Button - Always at bottom */}
-      <div className="mt-auto">
-        <button
-          onClick={() => onStartChat(scenario)}
-          className="w-full bg-blue-500 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-600 transition-colors"
-        >
-          Start Scenario
-        </button>
-      </div>
-    </div>
-  );
-
-  // Scenario Carousel Component
-  const ScenarioCarousel = ({ scenarios, onStartChat, getDifficultyColor }: {
-    scenarios: Scenario[];
-    onStartChat: (scenario: Scenario) => void;
-    getDifficultyColor: (difficulty: string) => string;
-  }) => {
-    const [currentIndex, setCurrentIndex] = useState(0);
-    const [itemsPerView, setItemsPerView] = useState(3);
-    const carouselRef = useRef<HTMLDivElement>(null);
-    
-    // Update items per view based on screen size
-    useEffect(() => {
-      const updateItemsPerView = () => {
-        if (window.innerWidth < 768) {
-          setItemsPerView(1); // Mobile: 1 item
-        } else if (window.innerWidth < 1024) {
-          setItemsPerView(2); // Tablet: 2 items
-        } else {
-          setItemsPerView(3); // Desktop: 3 items
-        }
-      };
-
-      updateItemsPerView();
-      window.addEventListener('resize', updateItemsPerView);
-      return () => window.removeEventListener('resize', updateItemsPerView);
-    }, []);
-    
-    const maxIndex = Math.max(0, scenarios.length - itemsPerView);
-    
-    const scrollToIndex = (index: number) => {
-      if (carouselRef.current) {
-        const cardWidth = carouselRef.current.scrollWidth / scenarios.length;
-        carouselRef.current.scrollTo({
-          left: cardWidth * index,
-          behavior: 'smooth'
-        });
-      }
-    };
-
-    const goToPrevious = () => {
-      const newIndex = Math.max(0, currentIndex - 1);
-      setCurrentIndex(newIndex);
-      scrollToIndex(newIndex);
-    };
-
-    const goToNext = () => {
-      const newIndex = Math.min(maxIndex, currentIndex + 1);
-      setCurrentIndex(newIndex);
-      scrollToIndex(newIndex);
-    };
-
-    // Get responsive width classes
-    const getItemWidth = () => {
-      if (itemsPerView === 1) return 'w-full';
-      if (itemsPerView === 2) return 'w-1/2';
-      return 'w-1/3';
-    };
-
-    return (
-      <div className="relative">
-        {/* Navigation Buttons */}
-        <div className="flex justify-between items-center mb-4">
-          <div className="flex items-center space-x-2 text-sm text-gray-600">
-            <span>🎯</span>
-            <span className="hidden sm:inline">Ordered by difficulty: Beginner → Intermediate → Advanced</span>
-            <span className="sm:hidden">By difficulty level</span>
-          </div>
-          
-          <div className="flex items-center space-x-3">
-            <span className="text-sm text-gray-500 hidden sm:inline">
-              {currentIndex + 1}-{Math.min(currentIndex + itemsPerView, scenarios.length)} of {scenarios.length}
-            </span>
-            <div className="flex space-x-2">
-              <button
-                onClick={goToPrevious}
-                disabled={currentIndex === 0}
-                className="p-2 rounded-lg bg-white border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                title="Previous scenarios"
-              >
-                ←
-              </button>
-              <button
-                onClick={goToNext}
-                disabled={currentIndex >= maxIndex}
-                className="p-2 rounded-lg bg-white border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                title="Next scenarios"
-              >
-                →
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Carousel Container */}
-        <div 
-          ref={carouselRef}
-          className="carousel-container flex gap-4 overflow-x-auto scroll-smooth items-stretch"
-          style={{ scrollSnapType: 'x mandatory' }}
-        >
-          {scenarios.map((scenario) => (
-            <div 
-              key={scenario.id} 
-              className={`min-w-0 flex-shrink-0 ${getItemWidth()}`}
-              style={{ 
-                scrollSnapAlign: 'start',
-                paddingRight: '1rem'
-              }}
-            >
-              <ScenarioCard 
-                scenario={scenario}
-                onStartChat={onStartChat}
-                getDifficultyColor={getDifficultyColor}
-              />
-            </div>
-          ))}
-        </div>
-
-        {/* Progress Indicator */}
-        {maxIndex > 0 && (
-          <div className="flex justify-center mt-4 space-x-1">
-            {Array.from({ length: maxIndex + 1 }).map((_, index) => (
-              <button
-                key={index}
-                onClick={() => {
-                  setCurrentIndex(index);
-                  scrollToIndex(index);
-                }}
-                className={`w-2 h-2 rounded-full transition-colors ${
-                  index === currentIndex ? 'bg-blue-500' : 'bg-gray-300'
-                }`}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-    );
   };
 
   // Show error screen
@@ -573,77 +416,304 @@ export default function DashboardPage() {
         {/* Scenarios View */}
         {selectedView === 'scenarios' && (
           <div>
-            <div className="mb-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-3">Choose a Conversation</h2>
-              <p className="text-gray-600">Select a scenario below and start practicing with AI characters</p>
-            </div>
+            {/* Header with Role Selection */}
+            <div className="mb-8">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+                <div>
+                  <h2 className="text-2xl font-semibold text-gray-900 mb-2">Choose Your Practice Scenario</h2>
+                  <p className="text-gray-600">Select a role and difficulty to start your AI-powered conversation training</p>
+                </div>
+                
+                {/* Search Bar */}
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Search scenarios..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full lg:w-80 pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  <span className="absolute left-3 top-2.5 text-gray-400">🔍</span>
+                </div>
+              </div>
 
-            {scenarios.length > 0 ? (
-              <div className="space-y-8">
-                {/* Group scenarios by role and sort by difficulty */}
-                {Object.entries(
-                  scenarios.reduce((acc, scenario) => {
-                    if (!acc[scenario.role]) {
-                      acc[scenario.role] = [];
-                    }
-                    acc[scenario.role].push(scenario);
-                    return acc;
-                  }, {} as Record<string, Scenario[]>)
-                ).map(([role, roleScenarios]) => {
-                  // Sort scenarios by difficulty: beginner → intermediate → advanced
-                  const sortedScenarios = [...roleScenarios].sort((a, b) => {
-                    const difficultyOrder = { beginner: 1, intermediate: 2, advanced: 3 };
-                    return (difficultyOrder[a.difficulty as keyof typeof difficultyOrder] || 4) - 
-                           (difficultyOrder[b.difficulty as keyof typeof difficultyOrder] || 4);
-                  });
-
+              {/* Role Filter Tabs */}
+              <div className="flex flex-wrap gap-2 mb-4">
+                <button
+                  onClick={() => setSelectedRole('all')}
+                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                    selectedRole === 'all' 
+                      ? 'bg-blue-500 text-white shadow-lg' 
+                      : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
+                  }`}
+                >
+                  All Roles ({scenarios.length})
+                </button>
+                {availableRoles.map((role) => {
+                  const roleScenarios = scenarios.filter(s => s.role === role);
+                  const userProgressForRole = userProgress.find(p => p.role === role);
+                  
                   return (
-                    <div key={role} className="space-y-4">
-                      {/* Role Header */}
-                      <div className="flex items-center space-x-3 pb-3 border-b border-gray-200">
-                        <div className="text-3xl">{getRoleEmoji(role)}</div>
-                        <div>
-                          <h3 className="text-xl font-semibold text-gray-900 capitalize">{role}</h3>
-                          <p className="text-sm text-gray-600">
-                            {getRoleDescription(role)} • {sortedScenarios.length} scenario{sortedScenarios.length !== 1 ? 's' : ''}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Role Scenarios - Carousel if more than display limit, Grid if within limit */}
-                      {sortedScenarios.length > 3 ? (
-                        <ScenarioCarousel 
-                          scenarios={sortedScenarios} 
-                          onStartChat={startChat}
-                          getDifficultyColor={getDifficultyColor}
-                        />
-                      ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                          {sortedScenarios.map((scenario) => (
-                            <ScenarioCard 
-                              key={scenario.id}
-                              scenario={scenario}
-                              onStartChat={startChat}
-                              getDifficultyColor={getDifficultyColor}
-                            />
-                          ))}
-                        </div>
+                    <button
+                      key={role}
+                      onClick={() => setSelectedRole(role)}
+                      className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center space-x-2 ${
+                        selectedRole === role 
+                          ? 'bg-blue-500 text-white shadow-lg' 
+                          : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
+                      }`}
+                    >
+                      <span className="text-lg">{getRoleEmoji(role)}</span>
+                      <span className="capitalize">{role.replace('-', ' ')}</span>
+                      <span className="text-sm opacity-75">({roleScenarios.length})</span>
+                      {userProgressForRole && (
+                        <span className={`w-2 h-2 rounded-full ${
+                          userProgressForRole.average_score >= 4 ? 'bg-green-400' :
+                          userProgressForRole.average_score >= 3 ? 'bg-yellow-400' : 'bg-red-400'
+                        }`}></span>
                       )}
-                    </div>
+                    </button>
                   );
                 })}
               </div>
+
+              {/* Difficulty and Stats Bar */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 bg-gray-50 rounded-lg">
+                <div className="flex items-center space-x-4">
+                  <label className="text-sm font-medium text-gray-700">Difficulty:</label>
+                  <select
+                    value={selectedDifficulty}
+                    onChange={(e) => setSelectedDifficulty(e.target.value)}
+                    className="px-3 py-1 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="all">All Levels</option>
+                    <option value="beginner">Beginner</option>
+                    <option value="intermediate">Intermediate</option>
+                    <option value="advanced">Advanced</option>
+                  </select>
+                </div>
+                
+                <div className="flex items-center space-x-6 text-sm text-gray-600">
+                  <span>📊 {filteredScenarios.length} scenarios found</span>
+                  {selectedRole !== 'all' && (
+                    <span>🎯 {getRoleDescription(selectedRole).split(' ').slice(0, 4).join(' ')}...</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Scenarios Grid */}
+            {filteredScenarios.length > 0 ? (
+              <>
+                {selectedRole !== 'all' && (
+                  <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <div className="flex items-center space-x-3 mb-2">
+                      <div className="text-2xl">{getRoleEmoji(selectedRole)}</div>
+                      <h3 className="text-lg font-semibold text-blue-900 capitalize">
+                        {selectedRole.replace('-', ' ')} Practice
+                      </h3>
+                    </div>
+                    <p className="text-blue-800 text-sm">
+                      {getRoleDescription(selectedRole)}
+                    </p>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {sortedFilteredScenarios.map((scenario) => (
+                    <div key={scenario.id} className="bg-white/80 backdrop-blur-sm rounded-lg p-6 shadow-sm hover:shadow-md transition-all duration-200 border border-white/20 hover:border-blue-200">
+                      {/* Difficulty Badge */}
+                      <div className="flex justify-between items-start mb-4">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getDifficultyColor(scenario.difficulty)}`}>
+                          {scenario.difficulty}
+                        </span>
+                        {selectedRole === 'all' && (
+                          <span className="text-lg">{getRoleEmoji(scenario.role)}</span>
+                        )}
+                      </div>
+                      
+                      {/* Title */}
+                      <h4 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">
+                        {scenario.title}
+                      </h4>
+                      
+                      {/* Description */}
+                      <div className="flex-grow mb-4">
+                        {scenario.description && (
+                          <p className="text-gray-600 text-sm line-clamp-3">
+                            {scenario.description}
+                          </p>
+                        )}
+                      </div>
+                      
+                      {/* Character Info */}
+                      <div className="mb-4">
+                        <p className="text-sm text-gray-700">
+                          <span className="font-medium">Character:</span> {scenario.character_name}
+                        </p>
+                        <p className="text-xs text-gray-600 line-clamp-1">{scenario.character_role}</p>
+                        {selectedRole === 'all' && (
+                          <p className="text-xs text-blue-600 capitalize mt-1">
+                            {scenario.role.replace('-', ' ')} scenario
+                          </p>
+                        )}
+                      </div>
+                      
+                      {/* Progress Indicator */}
+                      {(() => {
+                        const roleProgress = userProgress.find(p => p.role === scenario.role);
+                        return roleProgress ? (
+                          <div className="mb-4 p-2 bg-gray-50 rounded">
+                            <div className="flex justify-between text-xs text-gray-600 mb-1">
+                              <span>Your {scenario.role} progress</span>
+                              <span>{roleProgress.average_score.toFixed(1)}/5.0</span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-1">
+                              <div 
+                                className={`h-1 rounded-full ${
+                                  roleProgress.average_score >= 4 ? 'bg-green-500' :
+                                  roleProgress.average_score >= 3 ? 'bg-blue-500' :
+                                  roleProgress.average_score >= 2 ? 'bg-yellow-500' : 'bg-red-500'
+                                }`}
+                                style={{ width: `${(roleProgress.average_score / 5) * 100}%` }}
+                              ></div>
+                            </div>
+                          </div>
+                        ) : null;
+                      })()}
+                      
+                      {/* Start Button */}
+                      <button
+                        onClick={() => startChat(scenario)}
+                        className="w-full bg-blue-500 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-600 transition-colors"
+                      >
+                        Start Practice
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Practice Tips */}
+                {selectedRole !== 'all' && sortedFilteredScenarios.length > 0 && (
+                  <div className="mt-8 p-6 bg-gradient-to-r from-green-50 to-blue-50 rounded-lg border border-green-200">
+                    <h4 className="font-semibold text-green-900 mb-3 flex items-center">
+                      <span className="text-lg mr-2">💡</span>
+                      {selectedRole.charAt(0).toUpperCase() + selectedRole.slice(1).replace('-', ' ')} Practice Tips
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-green-800">
+                      {(() => {
+                        const tips: Record<string, string[]> = {
+                          'sales': [
+                            '🎯 Focus on understanding customer needs before presenting solutions',
+                            '🤝 Build rapport and trust through active listening and empathy',
+                            '💡 Ask open-ended questions to uncover pain points',
+                            '📈 Always connect features to specific customer benefits'
+                          ],
+                          'project-manager': [
+                            '📋 Clearly define project scope, timeline, and deliverables',
+                            '👥 Identify and manage stakeholder expectations early',
+                            '⚠️ Proactively address risks and dependencies',
+                            '📊 Communicate progress and blockers transparently'
+                          ],
+                          'product-manager': [
+                            '👤 Start with user needs and validate with data',
+                            '🎯 Prioritize features based on impact and feasibility',
+                            '🔄 Gather feedback from engineering, design, and business teams',
+                            '📈 Define success metrics and measure outcomes'
+                          ],
+                          'leader': [
+                            '🎯 Communicate vision clearly and inspire action',
+                            '👂 Listen actively and show genuine care for team members',
+                            '🤝 Build consensus while making decisive choices',
+                            '🌱 Focus on developing others and building trust'
+                          ],
+                          'manager': [
+                            '🎯 Set clear expectations and provide regular feedback',
+                            '👂 Listen to understand, not just to respond',
+                            '🌱 Focus on development and growth opportunities',
+                            '⚖️ Balance support with accountability'
+                          ],
+                          'strategy-lead': [
+                            '📊 Use data and market insights to support recommendations',
+                            '🎯 Connect tactical decisions to strategic objectives',
+                            '🔮 Consider long-term implications and scenarios',
+                            '🤝 Build buy-in through clear communication and collaboration'
+                          ],
+                          'support-agent': [
+                            '👂 Listen carefully and acknowledge customer frustration',
+                            '🔍 Ask clarifying questions to understand the real issue',
+                            '✅ Provide step-by-step solutions and confirm understanding',
+                            '🤝 Follow up to ensure complete resolution'
+                          ],
+                          'data-analyst': [
+                            '❓ Ask clarifying questions about business objectives',
+                            '📊 Present insights clearly with visual aids',
+                            '🎯 Focus on actionable recommendations, not just data',
+                            '✅ Validate findings and consider alternative explanations'
+                          ],
+                          'engineer': [
+                            '🎯 Understand requirements fully before proposing solutions',
+                            '⚖️ Balance technical excellence with practical constraints',
+                            '💬 Explain technical concepts in business terms',
+                            '🤝 Collaborate effectively with non-technical stakeholders'
+                          ],
+                          'nurse': [
+                            '❤️ Show empathy and maintain patient dignity',
+                            '💬 Communicate clearly about procedures and care plans',
+                            '👥 Coordinate effectively with the medical team',
+                            '📋 Document thoroughly and follow safety protocols'
+                          ],
+                          'doctor': [
+                            '👂 Listen actively to patient concerns and symptoms',
+                            '💬 Explain conditions and treatments in understandable terms',
+                            '🤝 Involve patients in treatment decisions',
+                            '❤️ Show empathy while maintaining professional boundaries'
+                          ]
+                        };
+                        
+                        const roleTips = tips[selectedRole] || tips['sales'];
+                        return roleTips.map((tip, index) => (
+                          <div key={index} className="flex items-start">
+                            <span className="mr-2 text-green-600">{tip.split(' ')[0]}</span>
+                            <span>{tip.split(' ').slice(1).join(' ')}</span>
+                          </div>
+                        ));
+                      })()}
+                    </div>
+                  </div>
+                )}
+              </>
             ) : (
               <div className="text-center py-16">
-                <div className="text-6xl mb-4">🤔</div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">No scenarios available</h3>
-                <p className="text-gray-600 mb-4">We're loading conversation scenarios...</p>
-                <button
-                  onClick={() => loadData(userEmail)}
-                  className="bg-blue-500 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-600 transition-colors"
-                >
-                  Retry Loading
-                </button>
+                <div className="text-6xl mb-4">🔍</div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">No scenarios found</h3>
+                <p className="text-gray-600 mb-6">
+                  {searchQuery ? (
+                    <>No scenarios match your search "{searchQuery}". Try different keywords or filters.</>
+                  ) : (
+                    <>No scenarios available for the selected filters. Try adjusting your filters.</>
+                  )}
+                </p>
+                <div className="space-x-4">
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery('')}
+                      className="bg-blue-500 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-600 transition-colors"
+                    >
+                      Clear Search
+                    </button>
+                  )}
+                  <button
+                    onClick={() => {
+                      setSelectedRole('all');
+                      setSelectedDifficulty('all');
+                      setSearchQuery('');
+                    }}
+                    className="bg-gray-500 text-white px-6 py-3 rounded-lg font-medium hover:bg-gray-600 transition-colors"
+                  >
+                    Reset Filters
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -677,7 +747,7 @@ export default function DashboardPage() {
                       <div className="flex items-center space-x-3">
                         <div className="text-2xl">{getRoleEmoji(progress.role)}</div>
                         <div>
-                          <h3 className="font-semibold text-gray-900 capitalize">{progress.role}</h3>
+                          <h3 className="font-semibold text-gray-900 capitalize">{progress.role.replace('-', ' ')}</h3>
                           <p className="text-sm text-gray-600">Last practiced: {formatDate(progress.last_session_date)}</p>
                         </div>
                       </div>
