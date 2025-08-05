@@ -63,9 +63,6 @@ const handleRoleSelection = (role: string) => {
   localStorage.setItem('isNewUser', 'false'); // Add this line if missing
   setShowRoleSelectionModal(false);
   setIsFirstTimeUser(false);
-  if (userEmail) {
-    loadData(userEmail);
-  }
 };
 
   const openRoleSelectionModal = () => {
