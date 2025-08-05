@@ -58,15 +58,15 @@ export default function DashboardPage() {
     initializeDashboard();
   }, [router]);
 const handleRoleSelection = (role: string) => {
-    setPreferredRole(role);
-    localStorage.setItem('preferredRole', role);
-    localStorage.setItem('isNewUser', 'false');
-    setShowRoleSelectionModal(false);
-    setIsFirstTimeUser(false);
-    
-    // Optionally reload data to show role-specific content immediately
+  setPreferredRole(role);
+  localStorage.setItem('preferredRole', role);
+  localStorage.setItem('isNewUser', 'false'); // Add this line if missing
+  setShowRoleSelectionModal(false);
+  setIsFirstTimeUser(false);
+  if (userEmail) {
     loadData(userEmail);
-  };
+  }
+};
 
   const openRoleSelectionModal = () => {
     setShowRoleSelectionModal(true);
@@ -167,67 +167,6 @@ const handleRoleSelection = (role: string) => {
       setLoading(false);
       localStorage.clear();
       setTimeout(() => router.push('/'), 2000);
-    }
-  };
-
-  const handleRoleSelection = (role: string) => {
-    setPreferredRole(role);
-    localStorage.setItem('preferredRole', role);
-    localStorage.setItem('isNewUser', 'false');
-    setShowRoleSelectionModal(false);
-    setIsFirstTimeUser(false);
-  };
-
-  const loadData = async (email?: string) => {
-    try {
-      setLoading(true);
-      setError('');
-      
-      const emailToUse = email || userEmail;
-      
-      if (!emailToUse || !emailToUse.includes('@')) {
-        console.error('❌ Invalid email for API calls:', emailToUse);
-        setError('Invalid Google OAuth session. Please sign in again.');
-        setLoading(false);
-        localStorage.clear();
-        setTimeout(() => router.push('/'), 2000);
-        return;
-      }
-      
-      console.log('📊 Loading dashboard data for:', emailToUse);
-      
-      // Load scenarios
-      const scenariosResponse = await fetch('/api/scenarios');
-      if (scenariosResponse.ok) {
-        const scenariosData = await scenariosResponse.json();
-        if (scenariosData.success) {
-          setScenarios(scenariosData.data || []);
-          console.log('✅ Loaded', scenariosData.data?.length || 0, 'scenarios');
-        }
-      }
-      
-      // Load user progress
-      const progressUrl = `/api/progress?user_email=${encodeURIComponent(emailToUse)}`;
-      const progressResponse = await fetch(progressUrl);
-      if (progressResponse.ok) {
-        const progressData = await progressResponse.json();
-        if (progressData.success) {
-          setUserProgress(progressData.data.progress || []);
-          setProgressSummary(progressData.data.summary);
-        } else {
-          setUserProgress([]);
-          setProgressSummary(null);
-        }
-      } else {
-        setUserProgress([]);
-        setProgressSummary(null);
-      }
-      
-    } catch (error) {
-      console.error('❌ Error loading dashboard data:', error);
-      setError('Failed to load some data. The app should still work for starting new sessions.');
-    } finally {
-      setLoading(false);
     }
   };
 
