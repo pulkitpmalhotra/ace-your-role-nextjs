@@ -629,11 +629,11 @@ export default function DashboardPage() {
                   ))}
                 </div>
 
-                {/* Practice Tips */}
+                {/* Scenario Tips */}
                 <div className="mt-8 p-6 bg-gradient-to-r from-green-50 to-blue-50 rounded-lg border border-green-200">
                   <h4 className="font-semibold text-green-900 mb-3 flex items-center">
                     <span className="text-lg mr-2">💡</span>
-                    {preferredRole.charAt(0).toUpperCase() + preferredRole.slice(1).replace('-', ' ')} Practice Tips
+                    {preferredRole.charAt(0).toUpperCase() + preferredRole.slice(1).replace('-', ' ')} Scenario Tips
                   </h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-green-800">
                     {(() => {
