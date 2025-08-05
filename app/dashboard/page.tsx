@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 interface Scenario {
@@ -43,22 +43,24 @@ export default function DashboardPage() {
   const [userPicture, setUserPicture] = useState('');
   const [authProvider, setAuthProvider] = useState('email');
   const [selectedView, setSelectedView] = useState<'scenarios' | 'progress'>('scenarios');
-  const [selectedRole, setSelectedRole] = useState<string>('sales'); // Default to sales
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [error, setError] = useState('');
+  
+  // Role selection modal states
+  const [showRoleSelectionModal, setShowRoleSelectionModal] = useState(false);
+  const [preferredRole, setPreferredRole] = useState<string>('');
+  const [isFirstTimeUser, setIsFirstTimeUser] = useState(false);
+  
   const router = useRouter();
 
   useEffect(() => {
     initializeDashboard();
   }, [router]);
 
-  // Get available roles from scenarios
-  const availableRoles = Array.from(new Set(scenarios.map(s => s.role)));
-  
-  // Filter scenarios based on selected filters
+  // Filter scenarios based on user's preferred role and other filters
   const filteredScenarios = scenarios.filter(scenario => {
-    const roleMatch = selectedRole === 'all' || scenario.role === selectedRole;
+    const roleMatch = scenario.role === preferredRole;
     const difficultyMatch = selectedDifficulty === 'all' || scenario.difficulty === selectedDifficulty;
     const searchMatch = searchQuery === '' || 
       scenario.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -119,7 +121,6 @@ export default function DashboardPage() {
       
       if (!email || !sessionToken || authProvider !== 'google') {
         console.log('❌ No valid Google OAuth session found, redirecting to login');
-        // Clear any invalid session data
         localStorage.clear();
         router.push('/');
         return;
@@ -131,18 +132,36 @@ export default function DashboardPage() {
       setUserPicture(localStorage.getItem('userPicture') || '');
       setAuthProvider('google');
       
+      // Check for preferred role
+      const storedRole = localStorage.getItem('preferredRole');
+      const isNewUser = localStorage.getItem('isNewUser') === 'true';
+      
+      if (!storedRole && !isNewUser) {
+        // First time user - show role selection modal
+        setIsFirstTimeUser(true);
+        setShowRoleSelectionModal(true);
+      } else if (storedRole) {
+        setPreferredRole(storedRole);
+      }
+      
       // Load dashboard data
       await loadData(email);
       
     } catch (err) {
       console.error('❌ Dashboard initialization error:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
       setError('Failed to load dashboard. Please sign in again.');
       setLoading(false);
-      // Clear session and redirect to login
       localStorage.clear();
       setTimeout(() => router.push('/'), 2000);
     }
+  };
+
+  const handleRoleSelection = (role: string) => {
+    setPreferredRole(role);
+    localStorage.setItem('preferredRole', role);
+    localStorage.setItem('isNewUser', 'false');
+    setShowRoleSelectionModal(false);
+    setIsFirstTimeUser(false);
   };
 
   const loadData = async (email?: string) => {
@@ -150,10 +169,8 @@ export default function DashboardPage() {
       setLoading(true);
       setError('');
       
-      // Use provided email or fall back to state
       const emailToUse = email || userEmail;
       
-      // Validate email before making API calls
       if (!emailToUse || !emailToUse.includes('@')) {
         console.error('❌ Invalid email for API calls:', emailToUse);
         setError('Invalid Google OAuth session. Please sign in again.');
@@ -165,8 +182,7 @@ export default function DashboardPage() {
       
       console.log('📊 Loading dashboard data for:', emailToUse);
       
-      // Load scenarios first (always available)
-      console.log('📚 Loading scenarios...');
+      // Load scenarios
       const scenariosResponse = await fetch('/api/scenarios');
       if (scenariosResponse.ok) {
         const scenariosData = await scenariosResponse.json();
@@ -174,41 +190,27 @@ export default function DashboardPage() {
           setScenarios(scenariosData.data || []);
           console.log('✅ Loaded', scenariosData.data?.length || 0, 'scenarios');
         }
-      } else {
-        console.warn('⚠️ Failed to load scenarios:', scenariosResponse.status);
       }
       
-      // Load user progress (may not exist for new users)
-      console.log('📈 Loading user progress for:', emailToUse);
+      // Load user progress
       const progressUrl = `/api/progress?user_email=${encodeURIComponent(emailToUse)}`;
-      console.log('🔗 Progress API URL:', progressUrl);
-      
       const progressResponse = await fetch(progressUrl);
       if (progressResponse.ok) {
         const progressData = await progressResponse.json();
         if (progressData.success) {
           setUserProgress(progressData.data.progress || []);
           setProgressSummary(progressData.data.summary);
-          console.log('✅ Loaded progress for', progressData.data.progress?.length || 0, 'roles');
         } else {
-          console.log('ℹ️ No progress data yet:', progressData.error);
-          // This is normal for new users
           setUserProgress([]);
           setProgressSummary(null);
         }
-      } else if (progressResponse.status === 400) {
-        console.log('ℹ️ User progress not found - new user');
-        setUserProgress([]);
-        setProgressSummary(null);
       } else {
-        console.warn('⚠️ Failed to load progress:', progressResponse.status);
         setUserProgress([]);
         setProgressSummary(null);
       }
       
     } catch (error) {
       console.error('❌ Error loading dashboard data:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       setError('Failed to load some data. The app should still work for starting new sessions.');
     } finally {
       setLoading(false);
@@ -235,19 +237,17 @@ export default function DashboardPage() {
     router.push('/analytics');
   };
 
+  const goToProfile = () => {
+    router.push('/profile');
+  };
+
   const logout = () => {
     console.log('🚪 Logging out Google OAuth user');
-    // Clear all session data
     localStorage.clear();
     
-    // Redirect to Google logout and then to our login page
     const googleLogoutUrl = 'https://accounts.google.com/logout';
-    const returnUrl = encodeURIComponent(window.location.origin);
-    
-    // Open Google logout in a popup to clear Google session
     const popup = window.open(googleLogoutUrl, 'logout', 'width=500,height=500');
     
-    // Close popup and redirect after a brief delay
     setTimeout(() => {
       if (popup) popup.close();
       router.push('/');
@@ -274,6 +274,82 @@ export default function DashboardPage() {
     return new Date(dateString).toLocaleDateString();
   };
 
+  // Role Selection Modal Component
+  const RoleSelectionModal = () => {
+    const [selectedRole, setSelectedRole] = useState('');
+    
+    const availableRoles = [
+      { id: 'sales', name: 'Sales', emoji: '💼', description: 'Master consultative selling and customer relationships' },
+      { id: 'project-manager', name: 'Project Manager', emoji: '📋', description: 'Lead projects and coordinate stakeholders' },
+      { id: 'product-manager', name: 'Product Manager', emoji: '📱', description: 'Drive product strategy and roadmap planning' },
+      { id: 'leader', name: 'Leadership', emoji: '👑', description: 'Develop vision communication and team influence' },
+      { id: 'manager', name: 'People Manager', emoji: '👥', description: 'Build team management and coaching skills' },
+      { id: 'strategy-lead', name: 'Strategy Lead', emoji: '🎯', description: 'Practice strategic planning and analysis' },
+      { id: 'support-agent', name: 'Customer Support', emoji: '🎧', description: 'Excel at customer service and problem solving' },
+      { id: 'data-analyst', name: 'Data Analyst', emoji: '📊', description: 'Communicate insights and analytical thinking' },
+      { id: 'engineer', name: 'Engineering', emoji: '👩‍💻', description: 'Technical communication and collaboration' },
+      { id: 'nurse', name: 'Healthcare - Nursing', emoji: '👩‍⚕️', description: 'Patient care and medical team coordination' },
+      { id: 'doctor', name: 'Healthcare - Doctor', emoji: '🩺', description: 'Patient consultation and medical communication' }
+    ];
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-2xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="p-8">
+            <div className="text-center mb-8">
+              <div className="text-6xl mb-4">🎯</div>
+              <h2 className="text-3xl font-bold text-gray-900 mb-2">Welcome to AI Practice!</h2>
+              <p className="text-lg text-gray-600">Choose your primary role to get personalized training scenarios</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+              {availableRoles.map((role) => (
+                <button
+                  key={role.id}
+                  onClick={() => setSelectedRole(role.id)}
+                  className={`p-6 rounded-xl border-2 transition-all duration-200 text-left ${
+                    selectedRole === role.id
+                      ? 'border-blue-500 bg-blue-50 shadow-lg transform scale-105'
+                      : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
+                  }`}
+                >
+                  <div className="text-3xl mb-3">{role.emoji}</div>
+                  <h3 className="font-semibold text-gray-900 mb-2">{role.name}</h3>
+                  <p className="text-sm text-gray-600">{role.description}</p>
+                </button>
+              ))}
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-4">
+              <button
+                onClick={() => selectedRole && handleRoleSelection(selectedRole)}
+                disabled={!selectedRole}
+                className="flex-1 bg-blue-500 text-white py-4 px-6 rounded-xl font-semibold text-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {selectedRole ? `Start ${availableRoles.find(r => r.id === selectedRole)?.name} Practice` : 'Select a Role'}
+              </button>
+              <button
+                onClick={() => {
+                  setShowRoleSelectionModal(false);
+                  setPreferredRole('sales'); // Default fallback
+                  localStorage.setItem('preferredRole', 'sales');
+                  localStorage.setItem('isNewUser', 'false');
+                }}
+                className="sm:w-auto px-6 py-4 border border-gray-300 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-colors"
+              >
+                Skip (Default to Sales)
+              </button>
+            </div>
+
+            <p className="text-center text-sm text-gray-500 mt-4">
+              Don't worry! You can change your role preference anytime in your profile settings.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // Show error screen
   if (error) {
     return (
@@ -291,15 +367,9 @@ export default function DashboardPage() {
             </button>
             <button
               onClick={logout}
-              className="w-full bg-gradient-to-r from-red-500 to-red-600 text-white px-6 py-3 rounded-lg font-medium hover:from-red-600 hover:to-red-700 transition-colors flex items-center justify-center"
+              className="w-full bg-gradient-to-r from-red-500 to-red-600 text-white px-6 py-3 rounded-lg font-medium hover:from-red-600 hover:to-red-700 transition-colors"
             >
-              <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
-                <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-              </svg>
-              Sign In with Google Again
+              Sign In Again
             </button>
           </div>
         </div>
@@ -314,7 +384,7 @@ export default function DashboardPage() {
         <div className="text-center">
           <div className="w-12 h-12 mx-auto mb-4 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
           <p className="text-gray-600 text-lg">Loading your dashboard...</p>
-          <p className="text-gray-500 text-sm mt-2">Setting up your account...</p>
+          <p className="text-gray-500 text-sm mt-2">Setting up your personalized experience...</p>
         </div>
       </div>
     );
@@ -323,6 +393,9 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
       
+      {/* Role Selection Modal */}
+      {showRoleSelectionModal && <RoleSelectionModal />}
+
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-sm border-b border-white/20">
         <div className="max-w-6xl mx-auto px-4 py-4">
@@ -333,7 +406,9 @@ export default function DashboardPage() {
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">Practice Dashboard</h1>
-                <p className="text-sm text-gray-600">AI-powered conversation training</p>
+                <p className="text-sm text-gray-600">
+                  {preferredRole ? `${getRoleEmoji(preferredRole)} ${preferredRole.replace('-', ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')} Training` : 'AI-powered conversation training'}
+                </p>
               </div>
             </div>
 
@@ -346,7 +421,6 @@ export default function DashboardPage() {
                     alt={userName}
                     className="w-10 h-10 rounded-full border-2 border-white shadow-lg"
                     onError={(e) => {
-                      // Fallback to initials if image fails to load
                       const target = e.target as HTMLImageElement;
                       target.style.display = 'none';
                       const fallback = target.nextElementSibling as HTMLElement;
@@ -354,7 +428,6 @@ export default function DashboardPage() {
                     }}
                   />
                 ) : null}
-                {/* Fallback avatar with initials */}
                 <div 
                   className={`w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-bold shadow-lg ${userPicture ? 'hidden' : 'flex'}`}
                 >
@@ -363,7 +436,6 @@ export default function DashboardPage() {
                 <div className="text-right">
                   <div className="flex items-center space-x-2">
                     <p className="text-sm font-medium text-gray-900">Hi, {userName}!</p>
-                    {/* Google OAuth indicator */}
                     <div className="w-5 h-5 bg-white rounded p-0.5 shadow-sm" title="Signed in with Google">
                       <svg viewBox="0 0 24 24" className="w-full h-full">
                         <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -376,6 +448,14 @@ export default function DashboardPage() {
                   <p className="text-xs text-gray-600">{userEmail}</p>
                 </div>
               </div>
+              
+              {/* Navigation Buttons */}
+              <button
+                onClick={goToProfile}
+                className="text-gray-600 hover:text-gray-800 text-sm font-medium px-3 py-1 rounded hover:bg-gray-100 transition-colors"
+              >
+                Profile
+              </button>
               <button
                 onClick={logout}
                 className="text-gray-600 hover:text-gray-800 text-sm font-medium px-3 py-1 rounded hover:bg-gray-100 transition-colors"
@@ -399,7 +479,7 @@ export default function DashboardPage() {
                 : 'bg-white/80 text-gray-700 hover:bg-white'
             }`}
           >
-            🎯 Practice Scenarios ({scenarios.length})
+            🎯 Practice Scenarios ({filteredScenarios.length})
           </button>
           <button
             onClick={() => setSelectedView('progress')}
@@ -414,14 +494,17 @@ export default function DashboardPage() {
         </div>
 
         {/* Scenarios View */}
-        {selectedView === 'scenarios' && (
+        {selectedView === 'scenarios' && preferredRole && (
           <div>
-            {/* Header with Role Selection */}
+            {/* Header with Filters */}
             <div className="mb-8">
               <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
                 <div>
-                  <h2 className="text-2xl font-semibold text-gray-900 mb-2">Choose Your Practice Scenario</h2>
-                  <p className="text-gray-600">Select a role and difficulty to start your AI-powered conversation training</p>
+                  <h2 className="text-2xl font-semibold text-gray-900 mb-2 flex items-center">
+                    <span className="text-3xl mr-3">{getRoleEmoji(preferredRole)}</span>
+                    {preferredRole.replace('-', ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')} Practice
+                  </h2>
+                  <p className="text-gray-600">{getRoleDescription(preferredRole)}</p>
                 </div>
                 
                 {/* Search Bar */}
@@ -437,54 +520,14 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {/* Role Filter Tabs */}
-              <div className="flex flex-wrap gap-2 mb-4">
-                <button
-                  onClick={() => setSelectedRole('all')}
-                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                    selectedRole === 'all' 
-                      ? 'bg-blue-500 text-white shadow-lg' 
-                      : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
-                  }`}
-                >
-                  All Roles ({scenarios.length})
-                </button>
-                {availableRoles.map((role) => {
-                  const roleScenarios = scenarios.filter(s => s.role === role);
-                  const userProgressForRole = userProgress.find(p => p.role === role);
-                  
-                  return (
-                    <button
-                      key={role}
-                      onClick={() => setSelectedRole(role)}
-                      className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center space-x-2 ${
-                        selectedRole === role 
-                          ? 'bg-blue-500 text-white shadow-lg' 
-                          : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
-                      }`}
-                    >
-                      <span className="text-lg">{getRoleEmoji(role)}</span>
-                      <span className="capitalize">{role.replace('-', ' ')}</span>
-                      <span className="text-sm opacity-75">({roleScenarios.length})</span>
-                      {userProgressForRole && (
-                        <span className={`w-2 h-2 rounded-full ${
-                          userProgressForRole.average_score >= 4 ? 'bg-green-400' :
-                          userProgressForRole.average_score >= 3 ? 'bg-yellow-400' : 'bg-red-400'
-                        }`}></span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Difficulty and Stats Bar */}
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 bg-gray-50 rounded-lg">
+              {/* Difficulty Filter and Stats */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
                 <div className="flex items-center space-x-4">
-                  <label className="text-sm font-medium text-gray-700">Difficulty:</label>
+                  <label className="text-sm font-medium text-blue-900">Difficulty Level:</label>
                   <select
                     value={selectedDifficulty}
                     onChange={(e) => setSelectedDifficulty(e.target.value)}
-                    className="px-3 py-1 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="px-3 py-1 border border-blue-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
                   >
                     <option value="all">All Levels</option>
                     <option value="beginner">Beginner</option>
@@ -493,43 +536,29 @@ export default function DashboardPage() {
                   </select>
                 </div>
                 
-                <div className="flex items-center space-x-6 text-sm text-gray-600">
-                  <span>📊 {filteredScenarios.length} scenarios found</span>
-                  {selectedRole !== 'all' && (
-                    <span>🎯 {getRoleDescription(selectedRole).split(' ').slice(0, 4).join(' ')}...</span>
-                  )}
+                <div className="flex items-center space-x-6 text-sm text-blue-800">
+                  <span>📊 {sortedFilteredScenarios.length} scenarios available</span>
+                  <button
+                    onClick={() => setShowRoleSelectionModal(true)}
+                    className="text-blue-600 hover:text-blue-800 font-medium underline"
+                  >
+                    Change Role
+                  </button>
                 </div>
               </div>
             </div>
 
             {/* Scenarios Grid */}
-            {filteredScenarios.length > 0 ? (
+            {sortedFilteredScenarios.length > 0 ? (
               <>
-                {selectedRole !== 'all' && (
-                  <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                    <div className="flex items-center space-x-3 mb-2">
-                      <div className="text-2xl">{getRoleEmoji(selectedRole)}</div>
-                      <h3 className="text-lg font-semibold text-blue-900 capitalize">
-                        {selectedRole.replace('-', ' ')} Practice
-                      </h3>
-                    </div>
-                    <p className="text-blue-800 text-sm">
-                      {getRoleDescription(selectedRole)}
-                    </p>
-                  </div>
-                )}
-
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {sortedFilteredScenarios.map((scenario) => (
                     <div key={scenario.id} className="bg-white/80 backdrop-blur-sm rounded-lg p-6 shadow-sm hover:shadow-md transition-all duration-200 border border-white/20 hover:border-blue-200">
                       {/* Difficulty Badge */}
-                      <div className="flex justify-between items-start mb-4">
+                      <div className="flex justify-end mb-4">
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${getDifficultyColor(scenario.difficulty)}`}>
                           {scenario.difficulty}
                         </span>
-                        {selectedRole === 'all' && (
-                          <span className="text-lg">{getRoleEmoji(scenario.role)}</span>
-                        )}
                       </div>
                       
                       {/* Title */}
@@ -549,14 +578,9 @@ export default function DashboardPage() {
                       {/* Character Info */}
                       <div className="mb-4">
                         <p className="text-sm text-gray-700">
-                          <span className="font-medium">Character:</span> {scenario.character_name}
+                          <span className="font-medium">Practice with:</span> {scenario.character_name}
                         </p>
                         <p className="text-xs text-gray-600 line-clamp-1">{scenario.character_role}</p>
-                        {selectedRole === 'all' && (
-                          <p className="text-xs text-blue-600 capitalize mt-1">
-                            {scenario.role.replace('-', ' ')} scenario
-                          </p>
-                        )}
                       </div>
                       
                       {/* Progress Indicator */}
@@ -565,7 +589,7 @@ export default function DashboardPage() {
                         return roleProgress ? (
                           <div className="mb-4 p-2 bg-gray-50 rounded">
                             <div className="flex justify-between text-xs text-gray-600 mb-1">
-                              <span>Your {scenario.role} progress</span>
+                              <span>Your progress</span>
                               <span>{roleProgress.average_score.toFixed(1)}/5.0</span>
                             </div>
                             <div className="w-full bg-gray-200 rounded-full h-1">
@@ -594,94 +618,92 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Practice Tips */}
-                {selectedRole !== 'all' && sortedFilteredScenarios.length > 0 && (
-                  <div className="mt-8 p-6 bg-gradient-to-r from-green-50 to-blue-50 rounded-lg border border-green-200">
-                    <h4 className="font-semibold text-green-900 mb-3 flex items-center">
-                      <span className="text-lg mr-2">💡</span>
-                      {selectedRole.charAt(0).toUpperCase() + selectedRole.slice(1).replace('-', ' ')} Practice Tips
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-green-800">
-                      {(() => {
-                        const tips: Record<string, string[]> = {
-                          'sales': [
-                            '🎯 Focus on understanding customer needs before presenting solutions',
-                            '🤝 Build rapport and trust through active listening and empathy',
-                            '💡 Ask open-ended questions to uncover pain points',
-                            '📈 Always connect features to specific customer benefits'
-                          ],
-                          'project-manager': [
-                            '📋 Clearly define project scope, timeline, and deliverables',
-                            '👥 Identify and manage stakeholder expectations early',
-                            '⚠️ Proactively address risks and dependencies',
-                            '📊 Communicate progress and blockers transparently'
-                          ],
-                          'product-manager': [
-                            '👤 Start with user needs and validate with data',
-                            '🎯 Prioritize features based on impact and feasibility',
-                            '🔄 Gather feedback from engineering, design, and business teams',
-                            '📈 Define success metrics and measure outcomes'
-                          ],
-                          'leader': [
-                            '🎯 Communicate vision clearly and inspire action',
-                            '👂 Listen actively and show genuine care for team members',
-                            '🤝 Build consensus while making decisive choices',
-                            '🌱 Focus on developing others and building trust'
-                          ],
-                          'manager': [
-                            '🎯 Set clear expectations and provide regular feedback',
-                            '👂 Listen to understand, not just to respond',
-                            '🌱 Focus on development and growth opportunities',
-                            '⚖️ Balance support with accountability'
-                          ],
-                          'strategy-lead': [
-                            '📊 Use data and market insights to support recommendations',
-                            '🎯 Connect tactical decisions to strategic objectives',
-                            '🔮 Consider long-term implications and scenarios',
-                            '🤝 Build buy-in through clear communication and collaboration'
-                          ],
-                          'support-agent': [
-                            '👂 Listen carefully and acknowledge customer frustration',
-                            '🔍 Ask clarifying questions to understand the real issue',
-                            '✅ Provide step-by-step solutions and confirm understanding',
-                            '🤝 Follow up to ensure complete resolution'
-                          ],
-                          'data-analyst': [
-                            '❓ Ask clarifying questions about business objectives',
-                            '📊 Present insights clearly with visual aids',
-                            '🎯 Focus on actionable recommendations, not just data',
-                            '✅ Validate findings and consider alternative explanations'
-                          ],
-                          'engineer': [
-                            '🎯 Understand requirements fully before proposing solutions',
-                            '⚖️ Balance technical excellence with practical constraints',
-                            '💬 Explain technical concepts in business terms',
-                            '🤝 Collaborate effectively with non-technical stakeholders'
-                          ],
-                          'nurse': [
-                            '❤️ Show empathy and maintain patient dignity',
-                            '💬 Communicate clearly about procedures and care plans',
-                            '👥 Coordinate effectively with the medical team',
-                            '📋 Document thoroughly and follow safety protocols'
-                          ],
-                          'doctor': [
-                            '👂 Listen actively to patient concerns and symptoms',
-                            '💬 Explain conditions and treatments in understandable terms',
-                            '🤝 Involve patients in treatment decisions',
-                            '❤️ Show empathy while maintaining professional boundaries'
-                          ]
-                        };
-                        
-                        const roleTips = tips[selectedRole] || tips['sales'];
-                        return roleTips.map((tip, index) => (
-                          <div key={index} className="flex items-start">
-                            <span className="mr-2 text-green-600">{tip.split(' ')[0]}</span>
-                            <span>{tip.split(' ').slice(1).join(' ')}</span>
-                          </div>
-                        ));
-                      })()}
-                    </div>
+                <div className="mt-8 p-6 bg-gradient-to-r from-green-50 to-blue-50 rounded-lg border border-green-200">
+                  <h4 className="font-semibold text-green-900 mb-3 flex items-center">
+                    <span className="text-lg mr-2">💡</span>
+                    {preferredRole.charAt(0).toUpperCase() + preferredRole.slice(1).replace('-', ' ')} Practice Tips
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-green-800">
+                    {(() => {
+                      const tips: Record<string, string[]> = {
+                        'sales': [
+                          '🎯 Focus on understanding customer needs before presenting solutions',
+                          '🤝 Build rapport and trust through active listening and empathy',
+                          '💡 Ask open-ended questions to uncover pain points',
+                          '📈 Always connect features to specific customer benefits'
+                        ],
+                        'project-manager': [
+                          '📋 Clearly define project scope, timeline, and deliverables',
+                          '👥 Identify and manage stakeholder expectations early',
+                          '⚠️ Proactively address risks and dependencies',
+                          '📊 Communicate progress and blockers transparently'
+                        ],
+                        'product-manager': [
+                          '👤 Start with user needs and validate with data',
+                          '🎯 Prioritize features based on impact and feasibility',
+                          '🔄 Gather feedback from engineering, design, and business teams',
+                          '📈 Define success metrics and measure outcomes'
+                        ],
+                        'leader': [
+                          '🎯 Communicate vision clearly and inspire action',
+                          '👂 Listen actively and show genuine care for team members',
+                          '🤝 Build consensus while making decisive choices',
+                          '🌱 Focus on developing others and building trust'
+                        ],
+                        'manager': [
+                          '🎯 Set clear expectations and provide regular feedback',
+                          '👂 Listen to understand, not just to respond',
+                          '🌱 Focus on development and growth opportunities',
+                          '⚖️ Balance support with accountability'
+                        ],
+                        'strategy-lead': [
+                          '📊 Use data and market insights to support recommendations',
+                          '🎯 Connect tactical decisions to strategic objectives',
+                          '🔮 Consider long-term implications and scenarios',
+                          '🤝 Build buy-in through clear communication and collaboration'
+                        ],
+                        'support-agent': [
+                          '👂 Listen carefully and acknowledge customer frustration',
+                          '🔍 Ask clarifying questions to understand the real issue',
+                          '✅ Provide step-by-step solutions and confirm understanding',
+                          '🤝 Follow up to ensure complete resolution'
+                        ],
+                        'data-analyst': [
+                          '❓ Ask clarifying questions about business objectives',
+                          '📊 Present insights clearly with visual aids',
+                          '🎯 Focus on actionable recommendations, not just data',
+                          '✅ Validate findings and consider alternative explanations'
+                        ],
+                        'engineer': [
+                          '🎯 Understand requirements fully before proposing solutions',
+                          '⚖️ Balance technical excellence with practical constraints',
+                          '💬 Explain technical concepts in business terms',
+                          '🤝 Collaborate effectively with non-technical stakeholders'
+                        ],
+                        'nurse': [
+                          '❤️ Show empathy and maintain patient dignity',
+                          '💬 Communicate clearly about procedures and care plans',
+                          '👥 Coordinate effectively with the medical team',
+                          '📋 Document thoroughly and follow safety protocols'
+                        ],
+                        'doctor': [
+                          '👂 Listen actively to patient concerns and symptoms',
+                          '💬 Explain conditions and treatments in understandable terms',
+                          '🤝 Involve patients in treatment decisions',
+                          '❤️ Show empathy while maintaining professional boundaries'
+                        ]
+                      };
+                      
+                      const roleTips = tips[preferredRole] || tips['sales'];
+                      return roleTips.map((tip, index) => (
+                        <div key={index} className="flex items-start">
+                          <span className="mr-2 text-green-600">{tip.split(' ')[0]}</span>
+                          <span>{tip.split(' ').slice(1).join(' ')}</span>
+                        </div>
+                      ));
+                    })()}
                   </div>
-                )}
+                </div>
               </>
             ) : (
               <div className="text-center py-16">
@@ -689,9 +711,9 @@ export default function DashboardPage() {
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">No scenarios found</h3>
                 <p className="text-gray-600 mb-6">
                   {searchQuery ? (
-                    <>No scenarios match your search "{searchQuery}". Try different keywords or filters.</>
+                    <>No scenarios match your search "{searchQuery}". Try different keywords.</>
                   ) : (
-                    <>No scenarios available for the selected filters. Try adjusting your filters.</>
+                    <>No scenarios available for the selected difficulty level.</>
                   )}
                 </p>
                 <div className="space-x-4">
@@ -704,14 +726,10 @@ export default function DashboardPage() {
                     </button>
                   )}
                   <button
-                    onClick={() => {
-                      setSelectedRole('all');
-                      setSelectedDifficulty('all');
-                      setSearchQuery('');
-                    }}
+                    onClick={() => setSelectedDifficulty('all')}
                     className="bg-gray-500 text-white px-6 py-3 rounded-lg font-medium hover:bg-gray-600 transition-colors"
                   >
-                    Reset Filters
+                    Show All Difficulties
                   </button>
                 </div>
               </div>
@@ -727,14 +745,13 @@ export default function DashboardPage() {
                 <h2 className="text-xl font-semibold text-gray-900 mb-3">Your Progress Summary</h2>
                 <p className="text-gray-600">Track your improvement across different professional roles</p>
               </div>
-              {/* Single consolidated Analytics Dashboard button */}
               {userProgress.length > 0 && (
                 <button
                   onClick={viewAnalyticsDashboard}
                   className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-6 py-3 rounded-lg font-medium hover:from-indigo-600 hover:to-purple-700 transition-all shadow-lg flex items-center space-x-2"
                 >
                   <span className="text-lg">📊</span>
-                  <span>Analytics Dashboard</span>
+                  <span>Detailed Analytics</span>
                 </button>
               )}
             </div>
