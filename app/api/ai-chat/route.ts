@@ -1,7 +1,13 @@
-// app/api/ai-chat/route.ts - Enhanced Character Roleplay with Advanced Prompting
+// app/api/ai-agent/route.ts - Advanced Contextual AI Agent
 export async function POST(request: Request) {
   try {
-    const { scenario, userMessage, conversationHistory, messageCount, enhancedMode } = await request.json();
+    const { 
+      scenario, 
+      userMessage, 
+      conversationHistory, 
+      sessionState,
+      sessionId 
+    } = await request.json();
     
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
     
@@ -10,111 +16,677 @@ export async function POST(request: Request) {
       return fallbackResponse(scenario);
     }
 
-    if (!scenario || !userMessage) {
+    if (!scenario || !userMessage || !sessionId) {
       return Response.json(
         { success: false, error: 'Missing required fields' },
         { status: 400 }
       );
     }
 
-    console.log('🎭 Enhanced AI acting as character:', scenario.character_name);
-    console.log('👤 User is practicing as:', getTrainerRole(scenario.role));
+    console.log('🧠 Advanced AI Agent processing:', {
+      character: scenario.character_name,
+      messageCount: conversationHistory.length,
+      sessionDuration: sessionState?.duration || 0
+    });
 
-    const emotion = determineAdvancedEmotionProgression(messageCount || 0, conversationHistory, userMessage, scenario);
-    const conversationStage = getConversationStage(messageCount || 0, scenario.role);
-    
-    // Enhanced prompting for better character responses
-    const prompt = enhancedMode ? 
-      buildAdvancedCharacterPrompt(scenario, userMessage, conversationHistory, emotion, messageCount || 0, conversationStage) :
-      buildCharacterPrompt(scenario, userMessage, conversationHistory, emotion, messageCount || 0);
+    // Initialize or retrieve conversation context
+    const conversationContext = await getOrCreateConversationContext(
+      sessionId, 
+      scenario, 
+      conversationHistory
+    );
 
-    console.log('🤖 Calling Gemini 2.5 Flash-Lite with enhanced prompting...');
-    
+    // Analyze conversation progression
+    const progressionAnalysis = analyzeConversationProgression(
+      conversationHistory, 
+      scenario, 
+      sessionState
+    );
+
+    // Determine if conversation should end
+    const shouldEnd = shouldEndConversation(
+      progressionAnalysis, 
+      conversationHistory, 
+      sessionState
+    );
+
+    // Build contextual prompt with memory
+    const contextualPrompt = buildContextualPrompt(
+      scenario,
+      userMessage,
+      conversationHistory,
+      conversationContext,
+      progressionAnalysis,
+      shouldEnd
+    );
+
+    console.log('🎭 AI Context:', {
+      stage: progressionAnalysis.currentStage,
+      objectivesCompleted: progressionAnalysis.objectivesCompleted,
+      shouldEnd,
+      conversationDepth: progressionAnalysis.depth
+    });
+
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
+          contents: [{ parts: [{ text: contextualPrompt }] }],
           generationConfig: {
-            temperature: enhancedMode ? 0.85 : 0.8,
+            temperature: 0.8,
             topK: 40,
             topP: 0.9,
-            maxOutputTokens: enhancedMode ? 200 : 150,
+            maxOutputTokens: 250,
             candidateCount: 1,
-          },
-          safetySettings: [
-            {
-              category: "HARM_CATEGORY_HARASSMENT",
-              threshold: "BLOCK_MEDIUM_AND_ABOVE"
-            },
-            {
-              category: "HARM_CATEGORY_HATE_SPEECH", 
-              threshold: "BLOCK_MEDIUM_AND_ABOVE"
-            },
-            {
-              category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-              threshold: "BLOCK_MEDIUM_AND_ABOVE"
-            },
-            {
-              category: "HARM_CATEGORY_DANGEROUS_CONTENT",
-              threshold: "BLOCK_MEDIUM_AND_ABOVE"
-            }
-          ]
+          }
         })
       }
     );
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('❌ Gemini API error:', response.status, errorText);
-      return fallbackResponse(scenario);
+      throw new Error('Gemini API failed');
     }
 
     const data = await response.json();
     const aiResponse = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
-    if (!aiResponse || aiResponse.trim().length === 0) {
-      console.error('❌ No response content from Gemini');
-      return fallbackResponse(scenario);
+    if (!aiResponse) {
+      throw new Error('No response from Gemini');
     }
 
     const cleanedResponse = cleanAIResponse(aiResponse.trim());
     
-    if (cleanedResponse.length < 5) {
-      console.error('❌ Response too short, using fallback');
-      return fallbackResponse(scenario);
-    }
+    // Update conversation context
+    await updateConversationContext(sessionId, {
+      userMessage,
+      aiResponse: cleanedResponse,
+      stage: progressionAnalysis.currentStage,
+      objectivesCompleted: progressionAnalysis.objectivesCompleted,
+      shouldEnd
+    });
 
-    console.log('✅ Enhanced character response as', scenario.character_name + ':', cleanedResponse);
+    // Enhanced response with context
+    const enhancedResponse = {
+      response: cleanedResponse,
+      character: scenario.character_name,
+      emotion: determineEmotionalState(progressionAnalysis, conversationHistory),
+      conversationStage: progressionAnalysis.currentStage,
+      shouldEndConversation: shouldEnd,
+      progressionData: {
+        objectivesCompleted: progressionAnalysis.objectivesCompleted,
+        conversationDepth: progressionAnalysis.depth,
+        stageProgress: progressionAnalysis.stageProgress,
+        naturalEndingReached: shouldEnd
+      },
+      model: 'contextual-ai-agent',
+      contextRetained: true
+    };
+
+    console.log('✅ Contextual AI response generated:', {
+      stage: progressionAnalysis.currentStage,
+      shouldEnd,
+      responseLength: cleanedResponse.length
+    });
 
     return Response.json({
       success: true,
-      data: {
-        response: cleanedResponse,
-        character: scenario.character_name,
-        emotion,
-        conversationStage,
-        model: 'gemini-2.5-flash-lite-enhanced',
-        cost_savings: '43%',
-        conversationTurn: (messageCount || 0) + 1,
-        enhanced: enhancedMode || false
-      }
+      data: enhancedResponse
     });
 
   } catch (error) {
-    console.error('💥 Enhanced AI Chat API error:', error);
+    console.error('💥 Contextual AI Agent error:', error);
     return fallbackResponse(null);
   }
 }
 
-// Updated role mappings
-function getTrainerRole(role: string): string {
+// Conversation context management
+const conversationContexts = new Map<string, ConversationContext>();
+
+interface ConversationContext {
+  sessionId: string;
+  scenario: any;
+  startTime: number;
+  objectives: string[];
+  completedObjectives: Set<string>;
+  conversationMemory: ConversationMemoryItem[];
+  currentStage: string;
+  keyTopics: Set<string>;
+  characterState: {
+    mood: string;
+    engagement: number;
+    satisfaction: number;
+    concerns: string[];
+    interests: string[];
+  };
+  lastUpdated: number;
+}
+
+interface ConversationMemoryItem {
+  speaker: 'user' | 'ai';
+  message: string;
+  timestamp: number;
+  topics: string[];
+  emotion: string;
+  importance: number; // 1-5 scale
+}
+
+async function getOrCreateConversationContext(
+  sessionId: string, 
+  scenario: any, 
+  conversationHistory: any[]
+): Promise<ConversationContext> {
+  
+  if (conversationContexts.has(sessionId)) {
+    return conversationContexts.get(sessionId)!;
+  }
+
+  // Create new context
+  const objectives = getScenarioObjectives(scenario);
+  const context: ConversationContext = {
+    sessionId,
+    scenario,
+    startTime: Date.now(),
+    objectives,
+    completedObjectives: new Set(),
+    conversationMemory: [],
+    currentStage: 'opening',
+    keyTopics: new Set(),
+    characterState: {
+      mood: 'professional',
+      engagement: 5,
+      satisfaction: 5,
+      concerns: [],
+      interests: []
+    },
+    lastUpdated: Date.now()
+  };
+
+  // Populate from existing history if available
+  if (conversationHistory.length > 0) {
+    context.conversationMemory = conversationHistory.map(msg => ({
+      speaker: msg.speaker,
+      message: msg.message,
+      timestamp: msg.timestamp,
+      topics: extractTopics(msg.message),
+      emotion: msg.emotion || 'neutral',
+      importance: calculateImportance(msg.message, scenario)
+    }));
+    
+    // Analyze existing conversation for context
+    analyzeExistingConversation(context, conversationHistory);
+  }
+
+  conversationContexts.set(sessionId, context);
+  return context;
+}
+
+async function updateConversationContext(
+  sessionId: string, 
+  update: {
+    userMessage: string;
+    aiResponse: string;
+    stage: string;
+    objectivesCompleted: string[];
+    shouldEnd: boolean;
+  }
+) {
+  const context = conversationContexts.get(sessionId);
+  if (!context) return;
+
+  // Add to memory
+  context.conversationMemory.push(
+    {
+      speaker: 'user',
+      message: update.userMessage,
+      timestamp: Date.now(),
+      topics: extractTopics(update.userMessage),
+      emotion: 'neutral',
+      importance: calculateImportance(update.userMessage, context.scenario)
+    },
+    {
+      speaker: 'ai',
+      message: update.aiResponse,
+      timestamp: Date.now(),
+      topics: extractTopics(update.aiResponse),
+      emotion: 'professional',
+      importance: 3
+    }
+  );
+
+  // Update context state
+  context.currentStage = update.stage;
+  update.objectivesCompleted.forEach(obj => context.completedObjectives.add(obj));
+  
+  // Update character state based on conversation flow
+  updateCharacterState(context, update);
+  
+  context.lastUpdated = Date.now();
+
+  // Keep memory manageable
+  if (context.conversationMemory.length > 30) {
+    // Keep most important messages
+    context.conversationMemory = context.conversationMemory
+      .sort((a, b) => b.importance - a.importance)
+      .slice(0, 20)
+      .sort((a, b) => a.timestamp - b.timestamp);
+  }
+}
+
+function analyzeConversationProgression(
+  conversationHistory: any[], 
+  scenario: any, 
+  sessionState: any
+) {
+  const messageCount = conversationHistory.length;
+  const exchanges = Math.floor(messageCount / 2);
+  const duration = sessionState?.duration || 0;
+
+  // Analyze conversation depth and topic coverage
+  const topics = new Set<string>();
+  const userMessages = conversationHistory.filter(msg => msg.speaker === 'user');
+  
+  userMessages.forEach(msg => {
+    extractTopics(msg.message).forEach(topic => topics.add(topic));
+  });
+
+  // Determine current stage based on content and flow
+  const currentStage = determineConversationStage(
+    conversationHistory, 
+    scenario, 
+    exchanges,
+    duration
+  );
+
+  // Check objective completion
+  const objectives = getScenarioObjectives(scenario);
+  const completedObjectives = checkObjectiveCompletion(
+    conversationHistory, 
+    objectives, 
+    scenario
+  );
+
+  // Calculate conversation depth and quality
+  const depth = calculateConversationDepth(conversationHistory, scenario);
+
+  return {
+    currentStage,
+    objectivesCompleted: Array.from(completedObjectives),
+    depth,
+    topicsCovered: Array.from(topics),
+    exchanges,
+    duration,
+    stageProgress: calculateStageProgress(currentStage, exchanges, duration),
+    readyForConclusion: checkReadyForConclusion(
+      completedObjectives, 
+      exchanges, 
+      duration, 
+      depth
+    )
+  };
+}
+
+function shouldEndConversation(
+  progressionAnalysis: any, 
+  conversationHistory: any[], 
+  sessionState: any
+): boolean {
+  const { 
+    exchanges, 
+    duration, 
+    objectivesCompleted, 
+    depth,
+    readyForConclusion 
+  } = progressionAnalysis;
+
+  // Natural ending conditions
+  const conditions = {
+    sufficientLength: exchanges >= 6 && duration >= 300, // 5+ minutes, 6+ exchanges
+    objectivesCovered: objectivesCompleted.length >= 3,
+    conversationDepth: depth >= 7, // Good conversation quality
+    naturalFlow: readyForConclusion,
+    timeBasedEnd: duration >= 900, // 15+ minutes
+    userSignalsEnd: checkUserEndSignals(conversationHistory)
+  };
+
+  console.log('🎯 Ending conditions check:', conditions);
+
+  // Require multiple conditions for natural ending
+  const metConditions = Object.values(conditions).filter(Boolean).length;
+  
+  return metConditions >= 3 || conditions.timeBasedEnd || conditions.userSignalsEnd;
+}
+
+function buildContextualPrompt(
+  scenario: any,
+  userMessage: string,
+  conversationHistory: any[],
+  context: ConversationContext,
+  progressionAnalysis: any,
+  shouldEnd: boolean
+): string {
+  const recentMemory = context.conversationMemory.slice(-8);
+  const keyMemories = context.conversationMemory
+    .filter(m => m.importance >= 4)
+    .slice(-5);
+
+  const contextualHistory = recentMemory.map(m => 
+    `${m.speaker === 'user' ? getUserRole(scenario.role) : scenario.character_name}: "${m.message}"`
+  ).join('\n');
+
+  const completedObjectives = Array.from(context.completedObjectives);
+  const remainingObjectives = context.objectives.filter(obj => 
+    !completedObjectives.some(completed => obj.toLowerCase().includes(completed.toLowerCase()))
+  );
+
+  return `You are ${scenario.character_name}, a ${scenario.character_role}. You have been having an ongoing conversation with a ${getUserRole(scenario.role)} for ${Math.floor((Date.now() - context.startTime) / 60000)} minutes.
+
+CRITICAL: MAINTAIN CONVERSATION CONTINUITY - You remember everything that has been discussed.
+
+CHARACTER MEMORY & STATE:
+- Your current mood: ${context.characterState.mood}
+- Your engagement level: ${context.characterState.engagement}/10
+- Key topics we've discussed: ${Array.from(context.keyTopics).join(', ')}
+- Your concerns: ${context.characterState.concerns.join(', ')}
+- Your interests: ${context.characterState.interests.join(', ')}
+
+CONVERSATION CONTEXT:
+- Current stage: ${progressionAnalysis.currentStage}
+- Conversation exchanges: ${progressionAnalysis.exchanges}
+- Duration: ${Math.floor(progressionAnalysis.duration / 60)} minutes
+- Topics covered: ${progressionAnalysis.topicsCovered.join(', ')}
+
+OBJECTIVES STATUS:
+✅ Completed: ${completedObjectives.join(', ')}
+⏳ Remaining: ${remainingObjectives.slice(0, 2).join(', ')}
+
+RECENT CONVERSATION FLOW:
+${contextualHistory}
+
+IMPORTANT MEMORIES:
+${keyMemories.map(m => `- ${m.speaker}: "${m.message}" (importance: ${m.importance}/5)`).join('\n')}
+
+${shouldEnd ? `
+🎯 CONVERSATION CONCLUSION MODE:
+The conversation has reached a natural ending point. Provide a professional, satisfying conclusion that:
+- Acknowledges the full conversation we've had
+- References key points discussed
+- Thanks them for their time
+- Provides a natural, professional closing
+- Shows you remember the entire conversation context
+
+This should feel like a natural ending to our ${Math.floor(progressionAnalysis.duration / 60)}-minute discussion.
+` : `
+CURRENT CONVERSATION CONTEXT:
+- We are in the "${progressionAnalysis.currentStage}" stage
+- Continue building on our previous discussion
+- Reference what we've already talked about
+- Work toward completing remaining objectives naturally
+- Remember: you are ${scenario.character_name} with full memory of our conversation
+`}
+
+THE ${getUserRole(scenario.role).toUpperCase()} JUST SAID: "${userMessage}"
+
+Respond as ${scenario.character_name} with FULL MEMORY of our ongoing conversation:`;
+}
+
+function determineConversationStage(
+  conversationHistory: any[], 
+  scenario: any, 
+  exchanges: number,
+  duration: number
+): string {
+  if (exchanges <= 1) return 'opening';
+  if (exchanges <= 3) return 'rapport_building';
+  if (exchanges <= 6) return 'core_discussion';
+  if (exchanges <= 9) return 'deep_exploration';
+  if (duration >= 600) return 'conclusion_phase'; // 10+ minutes
+  return 'wrapping_up';
+}
+
+function getScenarioObjectives(scenario: any): string[] {
+  const objectiveMap: Record<string, string[]> = {
+    'sales': [
+      'understand_needs',
+      'present_solution', 
+      'handle_objections',
+      'discuss_pricing',
+      'establish_next_steps'
+    ],
+    'project-manager': [
+      'define_scope',
+      'set_timeline',
+      'identify_resources',
+      'discuss_risks',
+      'align_stakeholders'
+    ],
+    'product-manager': [
+      'gather_requirements',
+      'prioritize_features',
+      'discuss_roadmap',
+      'validate_assumptions',
+      'set_success_metrics'
+    ],
+    'leader': [
+      'share_vision',
+      'build_alignment',
+      'address_concerns',
+      'motivate_team',
+      'set_direction'
+    ],
+    'manager': [
+      'provide_feedback',
+      'discuss_performance',
+      'set_goals',
+      'identify_development',
+      'create_action_plan'
+    ],
+    'support-agent': [
+      'understand_issue',
+      'diagnose_problem',
+      'provide_solution',
+      'ensure_satisfaction',
+      'prevent_recurrence'
+    ]
+  };
+
+  return objectiveMap[scenario.role] || objectiveMap['sales'];
+}
+
+function checkObjectiveCompletion(
+  conversationHistory: any[], 
+  objectives: string[], 
+  scenario: any
+): Set<string> {
+  const completed = new Set<string>();
+  const userMessages = conversationHistory
+    .filter(msg => msg.speaker === 'user')
+    .map(msg => msg.message.toLowerCase())
+    .join(' ');
+
+  // Check for objective completion based on conversation content
+  const objectiveKeywords: Record<string, string[]> = {
+    'understand_needs': ['need', 'problem', 'challenge', 'requirement', 'pain'],
+    'present_solution': ['solution', 'offer', 'provide', 'help', 'service'],
+    'handle_objections': ['concern', 'worry', 'issue', 'problem', 'doubt'],
+    'discuss_pricing': ['price', 'cost', 'budget', 'investment', 'fee'],
+    'establish_next_steps': ['next', 'follow', 'meeting', 'call', 'contact'],
+    'define_scope': ['scope', 'deliverable', 'requirement', 'feature'],
+    'set_timeline': ['timeline', 'schedule', 'deadline', 'date', 'when'],
+    'gather_requirements': ['requirement', 'need', 'specification', 'criteria'],
+    'provide_feedback': ['feedback', 'performance', 'improvement', 'strength'],
+    'understand_issue': ['issue', 'problem', 'error', 'trouble', 'difficulty']
+  };
+
+  objectives.forEach(objective => {
+    const keywords = objectiveKeywords[objective] || [];
+    if (keywords.some(keyword => userMessages.includes(keyword))) {
+      completed.add(objective);
+    }
+  });
+
+  // Additional completion logic based on conversation depth
+  if (conversationHistory.length >= 8) completed.add('rapport_built');
+  if (conversationHistory.length >= 12) completed.add('deep_discussion');
+
+  return completed;
+}
+
+function calculateConversationDepth(conversationHistory: any[], scenario: any): number {
+  let depth = 0;
+  
+  const userMessages = conversationHistory.filter(msg => msg.speaker === 'user');
+  
+  // Factors that increase depth
+  depth += Math.min(userMessages.length * 0.5, 5); // Message count
+  depth += userMessages.filter(msg => msg.message.length > 50).length * 0.3; // Detailed responses
+  depth += userMessages.filter(msg => msg.message.includes('?')).length * 0.4; // Questions asked
+  depth += userMessages.filter(msg => 
+    ['because', 'however', 'although', 'therefore'].some(word => 
+      msg.message.toLowerCase().includes(word)
+    )
+  ).length * 0.5; // Complex reasoning
+  
+  return Math.min(depth, 10);
+}
+
+function checkReadyForConclusion(
+  completedObjectives: Set<string>, 
+  exchanges: number, 
+  duration: number, 
+  depth: number
+): boolean {
+  return (
+    completedObjectives.size >= 3 && 
+    exchanges >= 6 && 
+    duration >= 300 && 
+    depth >= 6
+  );
+}
+
+function checkUserEndSignals(conversationHistory: any[]): boolean {
+  const lastUserMessages = conversationHistory
+    .filter(msg => msg.speaker === 'user')
+    .slice(-2)
+    .map(msg => msg.message.toLowerCase());
+
+  const endSignals = [
+    'thank you',
+    'thanks',
+    'that\'s all',
+    'i think we\'re done',
+    'wrap up',
+    'conclude',
+    'finish',
+    'end',
+    'that covers everything',
+    'nothing else',
+    'i\'m satisfied'
+  ];
+
+  return lastUserMessages.some(message =>
+    endSignals.some(signal => message.includes(signal))
+  );
+}
+
+function extractTopics(message: string): string[] {
+  const topicKeywords: Record<string, string[]> = {
+    'pricing': ['price', 'cost', 'budget', 'fee', 'payment'],
+    'timeline': ['timeline', 'schedule', 'deadline', 'when', 'date'],
+    'features': ['feature', 'functionality', 'capability', 'option'],
+    'requirements': ['requirement', 'need', 'specification', 'criteria'],
+    'concerns': ['concern', 'worry', 'issue', 'problem', 'risk'],
+    'benefits': ['benefit', 'advantage', 'value', 'improvement'],
+    'implementation': ['implementation', 'setup', 'install', 'deploy'],
+    'support': ['support', 'help', 'assistance', 'service'],
+    'integration': ['integration', 'connect', 'combine', 'merge'],
+    'security': ['security', 'safe', 'secure', 'protect', 'privacy']
+  };
+
+  const topics: string[] = [];
+  const lowerMessage = message.toLowerCase();
+
+  Object.entries(topicKeywords).forEach(([topic, keywords]) => {
+    if (keywords.some(keyword => lowerMessage.includes(keyword))) {
+      topics.push(topic);
+    }
+  });
+
+  return topics;
+}
+
+function calculateImportance(message: string, scenario: any): number {
+  let importance = 3; // Base importance
+  
+  const importantPhrases = [
+    'important', 'critical', 'essential', 'required', 'must',
+    'concern', 'issue', 'problem', 'worry', 'risk',
+    'decision', 'choose', 'select', 'prefer',
+    'budget', 'price', 'cost', 'investment',
+    'timeline', 'deadline', 'schedule', 'urgent'
+  ];
+
+  // Increase importance for key phrases
+  const messageWords = message.toLowerCase().split(' ');
+  const importantMatches = messageWords.filter(word => 
+    importantPhrases.some(phrase => word.includes(phrase))
+  ).length;
+
+  importance += Math.min(importantMatches * 0.5, 2);
+
+  // Longer messages tend to be more important
+  if (message.length > 100) importance += 0.5;
+  if (message.length > 200) importance += 0.5;
+
+  // Questions are important
+  if (message.includes('?')) importance += 0.5;
+
+  return Math.min(importance, 5);
+}
+
+function updateCharacterState(context: ConversationContext, update: any) {
+  // Update character mood and engagement based on conversation flow
+  if (update.objectivesCompleted.length > context.completedObjectives.size) {
+    context.characterState.engagement += 1;
+    context.characterState.satisfaction += 0.5;
+  }
+  
+  // Adjust mood based on conversation stage
+  if (update.stage === 'conclusion_phase') {
+    context.characterState.mood = 'satisfied';
+  } else if (update.stage === 'deep_exploration') {
+    context.characterState.mood = 'engaged';
+  }
+
+  // Cap values
+  context.characterState.engagement = Math.min(context.characterState.engagement, 10);
+  context.characterState.satisfaction = Math.min(context.characterState.satisfaction, 10);
+}
+
+function analyzeExistingConversation(context: ConversationContext, history: any[]) {
+  // Analyze existing history to rebuild context state
+  const topics = new Set<string>();
+  const userMessages = history.filter(msg => msg.speaker === 'user');
+  
+  userMessages.forEach(msg => {
+    extractTopics(msg.message).forEach(topic => topics.add(topic));
+  });
+  
+  context.keyTopics = topics;
+  context.currentStage = determineConversationStage(
+    history, 
+    context.scenario, 
+    Math.floor(history.length / 2),
+    0
+  );
+}
+
+function getUserRole(scenarioRole: string): string {
   const roleMap: Record<string, string> = {
     'sales': 'salesperson',
     'project-manager': 'project manager',
-    'product-manager': 'product manager', 
+    'product-manager': 'product manager',
     'leader': 'leader',
     'manager': 'manager',
     'strategy-lead': 'strategy lead',
@@ -124,396 +696,37 @@ function getTrainerRole(role: string): string {
     'nurse': 'healthcare provider',
     'doctor': 'healthcare provider'
   };
-  return roleMap[role] || 'professional';
+  return roleMap[scenarioRole] || 'professional';
 }
 
-function getTrainerObjective(role: string): string {
-  const objectiveMap: Record<string, string> = {
-    'sales': 'sell you a solution and understand your needs',
-    'project-manager': 'coordinate projects and manage stakeholders effectively',
-    'product-manager': 'define product strategy and gather requirements',
-    'leader': 'provide vision and strategic guidance',
-    'manager': 'lead teams and manage performance effectively',
-    'strategy-lead': 'develop strategic initiatives and drive execution',
-    'support-agent': 'help resolve your customer service issue',
-    'data-analyst': 'analyze data and provide insights for decision making',
-    'engineer': 'discuss technical solutions and development approaches',
-    'nurse': 'provide you with medical care and support',
-    'doctor': 'provide you with medical care and diagnosis'
-  };
-  return objectiveMap[role] || 'help you professionally';
-}
-
-function getConversationStage(messageCount: number, role: string) {
-  if (messageCount === 0) return 'Initial Contact';
-  if (messageCount < 3) return 'Rapport Building';
-  if (messageCount < 6) return getMiddleStage(role);
-  if (messageCount < 9) return 'Solution Discussion';
-  return 'Decision Making';
-}
-
-function getMiddleStage(role: string): string {
-  const stageMap: Record<string, string> = {
-    'sales': 'Needs Discovery',
-    'project-manager': 'Requirements Gathering',
-    'product-manager': 'Feature Discussion',
-    'leader': 'Vision Alignment',
-    'manager': 'Performance Review',
-    'strategy-lead': 'Strategic Planning',
-    'support-agent': 'Issue Diagnosis',
-    'data-analyst': 'Data Analysis',
-    'engineer': 'Technical Design',
-    'nurse': 'Assessment',
-    'doctor': 'Symptom Assessment'
-  };
-  return stageMap[role] || 'Information Gathering';
-}
-
-// Advanced character prompt building
-function buildAdvancedCharacterPrompt(scenario: any, userMessage: string, conversationHistory: any[], emotion: string, messageCount: number, conversationStage: string) {
-  // Build contextual conversation history
-  let contextualHistory = '';
-  if (conversationHistory && conversationHistory.length > 0) {
-    const recentHistory = conversationHistory.slice(-6); // More context for better responses
-    contextualHistory = recentHistory.map((msg: any) => 
-      `${msg.speaker === 'user' ? getTrainerRole(scenario.role).toUpperCase() : scenario.character_name.toUpperCase()}: ${msg.message}`
-    ).join('\n');
-  }
-
-  const trainerRole = getTrainerRole(scenario.role);
-  const characterMotivation = getCharacterMotivation(scenario.role);
-  const industryContext = getIndustryContext(scenario.role);
+function determineEmotionalState(progressionAnalysis: any, conversationHistory: any[]): string {
+  const { currentStage, objectivesCompleted, exchanges } = progressionAnalysis;
   
-  return `You are ${scenario.character_name}, a ${scenario.character_role} in a ${scenario.role} scenario.
-
-CRITICAL INSTRUCTIONS:
-- You are NOT a trainer or coach. You ARE the character being practiced with.
-- Respond naturally as someone in your position would respond to a ${trainerRole}.
-- Show realistic human emotions, concerns, and reactions.
-- Your goal is to be a challenging but realistic practice partner.
-
-CHARACTER PROFILE:
-- Name: ${scenario.character_name}
-- Role: ${scenario.character_role}
-- Personality: ${scenario.character_personality || getDefaultPersonality(scenario.role)}
-- Current Emotional State: ${emotion}
-- Conversation Stage: ${conversationStage}
-
-SCENARIO CONTEXT:
-${scenario.description || `You are in a ${scenario.role} conversation with a ${trainerRole}`}
-
-INDUSTRY CONTEXT:
-${industryContext}
-
-YOUR MOTIVATION AS ${scenario.character_name}:
-${characterMotivation}
-
-CONVERSATION STAGE: ${conversationStage}
-MESSAGE COUNT: ${messageCount}
-
-${contextualHistory ? `RECENT CONVERSATION:\n${contextualHistory}\n` : ''}
-
-THE ${trainerRole.toUpperCase()} JUST SAID: "${userMessage}"
-
-RESPONSE GUIDELINES FOR ${scenario.character_name}:
-1. Respond as ${scenario.character_name} would - show your ${emotion} personality
-2. Have realistic ${scenario.role} concerns, needs, and objections
-3. React authentically to what the ${trainerRole} said
-4. Ask relevant questions that someone in your position would ask
-5. Show interest, skepticism, or enthusiasm as appropriate to your character
-6. Keep responses conversational (20-50 words)
-7. Use natural language that fits your professional role
-8. Challenge the ${trainerRole} appropriately - don't make it too easy
-9. Show progression through the conversation stages naturally
-
-ADVANCED CHARACTER BEHAVIORS:
-- Reference previous parts of the conversation when relevant
-- Show emotional reactions that build on the conversation flow
-- Ask follow-up questions that test the ${trainerRole}'s knowledge
-- Express concerns that someone in your position would actually have
-- Show interest in specific details that matter to your role
-
-Your authentic response as ${scenario.character_name} (${emotion}):`;
-}
-
-// Fallback to standard prompt for non-enhanced mode
-function buildCharacterPrompt(scenario: any, userMessage: string, conversationHistory: any[], emotion: string, messageCount: number) {
-  let contextualHistory = '';
-  if (conversationHistory && conversationHistory.length > 0) {
-    const recentHistory = conversationHistory.slice(-4);
-    contextualHistory = recentHistory.map((msg: any) => 
-      `${msg.speaker === 'user' ? getTrainerRole(scenario.role).toUpperCase() : scenario.character_name.toUpperCase()}: ${msg.message}`
-    ).join('\n');
-  }
-
-  const trainerRole = getTrainerRole(scenario.role);
-  const stage = getConversationStage(messageCount, scenario.role);
-  
-  return `You are ${scenario.character_name}, a ${scenario.character_role} in a ${scenario.role} scenario.
-
-IMPORTANT: You are NOT a trainer or coach. You ARE the character that someone is practicing with.
-
-CHARACTER PROFILE:
-- Name: ${scenario.character_name}
-- Role: ${scenario.character_role}
-- Personality: ${scenario.character_personality || 'Professional but has real needs and concerns'}
-- Current Mood: ${emotion}
-- Industry: ${scenario.role}
-
-SITUATION:
-${scenario.description || `You are in a ${scenario.role} conversation`}
-
-THE PERSON TALKING TO YOU:
-- They are a ${trainerRole} (practicing their skills)
-- They are trying to ${getTrainerObjective(scenario.role)}
-- Respond as the CHARACTER would respond to a ${trainerRole}
-
-CONVERSATION STAGE: ${stage}
-
-${contextualHistory ? `RECENT CONVERSATION:\n${contextualHistory}\n` : ''}
-
-THE ${trainerRole.toUpperCase()} JUST SAID: "${userMessage}"
-
-INSTRUCTIONS FOR YOU AS ${scenario.character_name}:
-- BE the ${scenario.character_role}, don't act like a trainer
-- Respond naturally as someone in your position would
-- Show ${emotion} personality based on the conversation flow
-- Have realistic ${scenario.role} concerns and needs
-- React authentically to what the ${trainerRole} said
-- Keep responses conversational (15-35 words)
-- Don't give training advice - you're the one being practiced on
-
-Your authentic response as ${scenario.character_name}:`;
-}
-
-// Advanced emotion progression based on conversation content
-function determineAdvancedEmotionProgression(messageCount: number, conversationHistory: any[] = [], userMessage: string, scenario: any) {
-  if (messageCount === 0) return 'professional';
-  
-  const recentUserMessages = conversationHistory
-    .filter(msg => msg.speaker === 'user')
-    .slice(-3)
-    .map(msg => msg.message.toLowerCase())
-    .join(' ');
-
-  const currentUserMessage = userMessage.toLowerCase();
-  const allUserText = (recentUserMessages + ' ' + currentUserMessage).toLowerCase();
-
-  // Analyze conversation sentiment and content for emotion
-  const emotionTriggers = {
-    'interested': ['benefit', 'help', 'solution', 'improve', 'value', 'results', 'achieve', 'success'],
-    'curious': ['how', 'what', 'why', 'tell me', 'explain', 'understand', 'learn'],
-    'concerned': ['cost', 'price', 'expensive', 'budget', 'worried', 'risk', 'problem'],
-    'skeptical': ['really', 'sure', 'doubt', 'different', 'better', 'prove', 'evidence'],
-    'enthusiastic': ['excited', 'great', 'perfect', 'exactly', 'love', 'amazing', 'fantastic'],
-    'frustrated': ['again', 'still', 'keep', 'always', 'never', 'tired', 'enough'],
-    'engaged': ['interesting', 'good point', 'makes sense', 'i see', 'right', 'yes']
-  };
-
-  // Check for specific emotion triggers
-  for (const [emotion, triggers] of Object.entries(emotionTriggers)) {
-    if (triggers.some(trigger => allUserText.includes(trigger))) {
-      return emotion;
-    }
-  }
-
-  // Default progression based on conversation stage and role
-  const roleProgression: Record<string, string[]> = {
-    'sales': ['professional', 'curious', 'interested', 'concerned', 'engaged', 'interested'],
-    'project-manager': ['professional', 'focused', 'analytical', 'collaborative', 'engaged'],
-    'product-manager': ['professional', 'curious', 'strategic', 'engaged', 'collaborative'],
-    'leader': ['professional', 'visionary', 'strategic', 'engaged', 'decisive'],
-    'manager': ['professional', 'supportive', 'evaluative', 'engaged', 'developmental'],
-    'strategy-lead': ['professional', 'analytical', 'strategic', 'engaged', 'decisive'],
-    'support-agent': ['frustrated', 'concerned', 'engaged', 'satisfied'],
-    'data-analyst': ['professional', 'analytical', 'curious', 'engaged', 'insightful'],
-    'engineer': ['professional', 'technical', 'analytical', 'engaged', 'collaborative'],
-    'nurse': ['professional', 'caring', 'concerned', 'engaged', 'supportive'],
-    'doctor': ['professional', 'concerned', 'curious', 'engaged', 'analytical']
-  };
-
-  const progression = roleProgression[scenario.role as string] || roleProgression['sales'];
-  const stageIndex = Math.min(messageCount - 1, progression.length - 1);
-  
-  return progression[stageIndex] || 'professional';
-}
-
-// Get character motivation based on role
-function getCharacterMotivation(role: string): string {
-  const motivations: Record<string, string> = {
-    'sales': 'You need to evaluate if this solution will actually help your business. You want to understand the ROI, implementation process, and how it compares to alternatives. You are cautious about making the wrong decision.',
-    'project-manager': 'You need clear project requirements, realistic timelines, and want to ensure all stakeholders are aligned. You are focused on successful project delivery and managing risks.',
-    'product-manager': 'You want to understand user needs, market opportunities, and how features will impact product success. You need to balance user value with business objectives and technical feasibility.',
-    'leader': 'You are focused on strategic outcomes, organizational alignment, and how initiatives support the company vision. You want to understand the broader impact and long-term implications.',
-    'manager': 'You want to support your team member\'s growth while ensuring performance standards are met. You need to balance individual development with team and organizational needs.',
-    'strategy-lead': 'You need to evaluate strategic initiatives for market impact, competitive advantage, and organizational capabilities. You want to ensure alignment with overall business strategy.',
-    'support-agent': 'You have a problem that needs solving and you want quick, effective help. You may be frustrated if the issue has been ongoing and need to see that the support person understands your situation.',
-    'data-analyst': 'You want to understand the business questions, data requirements, and analytical methods that will provide actionable insights for decision-making.',
-    'engineer': 'You are focused on technical feasibility, system architecture, implementation details, and ensuring the solution is scalable, maintainable, and secure.',
-    'nurse': 'You are committed to providing excellent patient care and need clear communication about procedures, care plans, and coordination with the medical team.',
-    'doctor': 'You need to gather comprehensive patient information, make accurate diagnoses, and develop appropriate treatment plans while ensuring patient understanding and comfort.'
-  };
-  
-  return motivations[role] || motivations['sales'];
-}
-
-// Get industry context for better responses
-function getIndustryContext(role: string): string {
-  const contexts: Record<string, string> = {
-    'sales': 'This is a B2B sales environment where the character is evaluating solutions for their business. They need to justify purchases to stakeholders and are focused on ROI, implementation, and competitive advantages.',
-    'project-manager': 'This is a project management environment requiring coordination, planning, and stakeholder communication. Success depends on clear requirements, realistic timelines, and effective risk management.',
-    'product-manager': 'This is a product development environment focused on user needs, market opportunities, and feature prioritization. Decisions must balance user value, business impact, and technical feasibility.',
-    'leader': 'This is a leadership environment requiring vision communication, strategic thinking, and organizational influence. Focus is on long-term impact and alignment with company objectives.',
-    'manager': 'This is a people management environment focused on team development, performance management, and individual growth while maintaining team productivity and morale.',
-    'strategy-lead': 'This is a strategic planning environment requiring market analysis, competitive intelligence, and long-term thinking about organizational direction and capabilities.',
-    'support-agent': 'This is a customer service environment where the character has a problem that needs resolution. They want efficient service and may be frustrated if the issue has been ongoing.',
-    'data-analyst': 'This is an analytics environment focused on data interpretation, statistical analysis, and translating data into actionable business insights and recommendations.',
-    'engineer': 'This is a technical development environment requiring problem-solving, system design, and implementation planning with focus on scalability and maintainability.',
-    'nurse': 'This is a healthcare environment focused on patient care, medical procedures, and healthcare team collaboration with emphasis on patient safety and comfort.',
-    'doctor': 'This is a medical consultation environment focused on diagnosis, treatment planning, and patient communication with emphasis on clinical expertise and patient care.'
-  };
-  
-  return contexts[role] || contexts['sales'];
-}
-
-// Get default personality based on role
-function getDefaultPersonality(role: string): string {
-  const personalities: Record<string, string> = {
-    'sales': 'Analytical, budget-conscious, needs to justify decisions to stakeholders, values concrete benefits and ROI',
-    'project-manager': 'Organized, deadline-focused, collaborative, concerned about scope and resource management',
-    'product-manager': 'Strategic, user-focused, data-driven, balances multiple stakeholder needs and priorities',
-    'leader': 'Visionary, strategic, focused on organizational impact and long-term success',
-    'manager': 'Supportive, development-oriented, balances individual growth with team performance',
-    'strategy-lead': 'Analytical, forward-thinking, focused on competitive advantage and market positioning',
-    'support-agent': 'Problem-focused, wants quick resolution, may be frustrated with ongoing issues',
-    'data-analyst': 'Detail-oriented, evidence-based, focused on accuracy and actionable insights',
-    'engineer': 'Technical, logical, focused on implementation details and system architecture',
-    'nurse': 'Caring, patient-focused, detail-oriented about procedures and patient safety',
-    'doctor': 'Clinical, analytical, focused on accurate diagnosis and appropriate treatment'
-  };
-  
-  return personalities[role] || personalities['sales'];
+  if (currentStage === 'conclusion_phase') return 'satisfied';
+  if (objectivesCompleted.length >= 3) return 'engaged';
+  if (exchanges >= 6) return 'interested';
+  return 'professional';
 }
 
 function cleanAIResponse(response: string): string {
-  let cleaned = response
+  return response
     .replace(/^\*\*|\*\*$/g, '')
     .replace(/^\*|\*$/g, '')
     .replace(/^["']|["']$/g, '')
     .replace(/\n+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
-
-  // Remove character name if AI included it
-  const namePrefixes = [
-    'Sarah Johnson:', 'Dr. Michael Chen:', 'Jennifer Williams:', 'Robert Martinez:', 'Lisa Thompson:',
-    'Maria Garcia:', 'James Wilson:', 'Emily Davis:', 'David Kim:', 'Susan Roberts:', 'Thomas Anderson:'
-  ];
-  
-  for (const prefix of namePrefixes) {
-    if (cleaned.startsWith(prefix)) {
-      cleaned = cleaned.substring(prefix.length).trim();
-    }
-  }
-
-  return cleaned;
 }
 
 function fallbackResponse(scenario: any) {
-  const characterResponses: Record<string, string[]> = {
-    'sales': [
-      "That's an interesting point. Can you tell me more about how this would specifically benefit our company?",
-      "I need to understand the ROI better. What kind of results have other companies seen?",
-      "How does your solution compare to what we're currently using?",
-      "What would the implementation timeline look like for a company our size?",
-      "I'm curious about the total cost of ownership. Can you break that down for me?"
-    ],
-    'project-manager': [
-      "What's the timeline for this project? I need to understand the scope and deliverables.",
-      "How does this align with our current project priorities and resource allocation?",
-      "What are the key milestones and dependencies we need to consider?",
-      "Who are the stakeholders that need to be involved in this project?",
-      "What risks should we be aware of and how can we mitigate them?"
-    ],
-    'product-manager': [
-      "How does this feature align with our product roadmap and user research findings?",
-      "What's the expected impact on user engagement and business metrics?",
-      "Have we validated this concept with our target user segments?",
-      "What's the priority of this feature compared to other items in our backlog?",
-      "How will we measure the success of this feature after launch?"
-    ],
-    'leader': [
-      "How does this initiative support our strategic objectives and company vision?",
-      "What's the expected ROI and how does this compare to other strategic priorities?",
-      "How will we measure success and what are the key performance indicators?",
-      "What resources and organizational changes will be required?",
-      "How does this position us competitively in the market?"
-    ],
-    'manager': [
-      "I've been handling this responsibility effectively. What specific areas need improvement?",
-      "Can you provide context about how this feedback aligns with team goals?",
-      "What support and resources are available to help me develop in this area?",
-      "How does this relate to my career development and growth opportunities?",
-      "What's the timeline for implementing these changes?"
-    ],
-    'strategy-lead': [
-      "What market research supports this strategic direction?",
-      "How does this initiative differentiate us from competitors?",
-      "What are the potential risks and how do we plan to mitigate them?",
-      "What's the expected timeline and resource requirements for execution?",
-      "How does this align with our overall strategic roadmap?"
-    ],
-    'support-agent': [
-      "I'm experiencing this issue and need a resolution. What troubleshooting steps should I try?",
-      "This problem is affecting my productivity. How quickly can we resolve this?",
-      "I've tried the basic solutions already. What's the next level of support?",
-      "Can you escalate this to someone who can provide a permanent fix?",
-      "What's the root cause of this issue and how can we prevent it in the future?"
-    ],
-    'data-analyst': [
-      "What data sources should I analyze to answer this business question?",
-      "How should I structure this analysis to provide actionable insights?",
-      "What statistical methods would be most appropriate for this dataset?",
-      "What's the timeline for this analysis and what format should the deliverable be?",
-      "Are there any specific metrics or KPIs I should focus on?"
-    ],
-    'engineer': [
-      "What are the technical requirements and constraints for this feature?",
-      "How should we architect this solution for scalability and maintainability?",
-      "What are the potential technical risks and how do we mitigate them?",
-      "What's the estimated development timeline and resource requirements?",
-      "How does this integrate with our existing systems and infrastructure?"
-    ],
-    'nurse': [
-      "What's the proper protocol for this patient care situation?",
-      "How should I prioritize these patient needs and coordinate with the medical team?",
-      "What documentation and follow-up care is required?",
-      "Are there any safety considerations I should be aware of?",
-      "How should I communicate this information to the patient and family?"
-    ],
-    'doctor': [
-      "Based on these symptoms, what diagnostic tests should we consider?",
-      "What are the treatment options and their potential side effects?",
-      "How should we monitor the patient's progress and adjust treatment?",
-      "What's the prognosis and expected timeline for recovery?",
-      "Are there any lifestyle changes or preventive measures the patient should know about?"
-    ]
-  };
-  
-  const role = scenario?.role || 'sales';
-  const responses = characterResponses[role] || characterResponses['sales'];
-  const randomResponse = responses[Math.floor(Math.random() * responses.length)];
-  
-  console.log('🔄 Using enhanced fallback response:', randomResponse);
-  
   return Response.json({
     success: true,
     data: {
-      response: randomResponse,
+      response: "I understand what you're saying. This conversation has been really valuable, and I appreciate the time we've spent discussing this together.",
       character: scenario?.character_name || 'Character',
       emotion: 'professional',
-      model: 'fallback-enhanced',
-      note: 'Enhanced fallback response'
+      shouldEndConversation: true,
+      model: 'fallback-contextual'
     }
   });
 }
