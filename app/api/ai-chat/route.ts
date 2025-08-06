@@ -1,4 +1,4 @@
-// app/api/ai-agent/route.ts - Advanced Contextual AI Agent
+// app/api/ai-chat/route.ts - Fixed Complete Implementation
 export async function POST(request: Request) {
   try {
     const { 
@@ -68,7 +68,7 @@ export async function POST(request: Request) {
     });
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -310,6 +310,9 @@ function analyzeConversationProgression(
   // Calculate conversation depth and quality
   const depth = calculateConversationDepth(conversationHistory, scenario);
 
+  // FIXED: Calculate stage progress
+  const stageProgress = calculateStageProgress(currentStage, exchanges, duration);
+
   return {
     currentStage,
     objectivesCompleted: Array.from(completedObjectives),
@@ -317,7 +320,7 @@ function analyzeConversationProgression(
     topicsCovered: Array.from(topics),
     exchanges,
     duration,
-    stageProgress: calculateStageProgress(currentStage, exchanges, duration),
+    stageProgress,
     readyForConclusion: checkReadyForConclusion(
       completedObjectives, 
       exchanges, 
@@ -325,6 +328,26 @@ function analyzeConversationProgression(
       depth
     )
   };
+}
+
+// FIXED: Added missing calculateStageProgress function
+function calculateStageProgress(stage: string, exchanges: number, duration: number): number {
+  const stageProgressMap: Record<string, { minExchanges: number; minDuration: number; weight: number }> = {
+    'opening': { minExchanges: 1, minDuration: 30, weight: 0.2 },
+    'rapport_building': { minExchanges: 3, minDuration: 120, weight: 0.3 },
+    'core_discussion': { minExchanges: 6, minDuration: 300, weight: 0.4 },
+    'deep_exploration': { minExchanges: 9, minDuration: 480, weight: 0.6 },
+    'conclusion_phase': { minExchanges: 12, minDuration: 600, weight: 1.0 },
+    'wrapping_up': { minExchanges: 15, minDuration: 720, weight: 1.0 }
+  };
+
+  const stageData = stageProgressMap[stage] || stageProgressMap['opening'];
+  
+  const exchangeProgress = Math.min(exchanges / stageData.minExchanges, 1.0);
+  const durationProgress = Math.min(duration / stageData.minDuration, 1.0);
+  
+  const combinedProgress = (exchangeProgress + durationProgress) / 2;
+  return Math.min(combinedProgress * stageData.weight, 1.0);
 }
 
 function shouldEndConversation(
