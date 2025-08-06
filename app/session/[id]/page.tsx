@@ -1567,4 +1567,353 @@ export default function EnhancedSessionPage({ params }: { params: { id: string }
                         <ul className="space-y-1">
                           {aiGuide.tips.map((tip, index) => (
                             <li key={index} className="text-sm text-gray-600 flex items-start">
-                              <span className="text-green-500 mr-2 mt
+                              <span className="text-green-500 mr-2 mt-0.5 text-xs">→</span>
+                              {tip}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      {/* Character Insights */}
+                      {aiGuide.insights && aiGuide.insights.length > 0 && (
+                        <div>
+                          <h4 className="font-medium text-gray-900 mb-2 flex items-center">
+                            <span className="text-sm mr-2">🎭</span>
+                            Character Insights
+                          </h4>
+                          <ul className="space-y-1">
+                            {aiGuide.insights.map((insight, index) => (
+                              <li key={index} className="text-sm text-gray-600 flex items-start">
+                                <span className="text-purple-500 mr-2 mt-0.5 text-xs">★</span>
+                                {insight}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="text-center py-4">
+                      <p className="text-sm text-gray-500">
+                        Guide temporarily unavailable. Enhanced conversation features are active!
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Enhanced Character Profile */}
+                  <div className="pt-4 border-t border-gray-100">
+                    <h4 className="font-medium text-gray-900 mb-2 flex items-center">
+                      <span className="text-sm mr-2">🧠</span>
+                      Enhanced Character Profile
+                    </h4>
+                    <div className="text-sm text-gray-600 space-y-1">
+                      <div><strong>Name:</strong> {scenario.character_name}</div>
+                      <div><strong>Role:</strong> {scenario.character_role}</div>
+                      <div><strong>Type:</strong> {scenario.role.replace('-', ' ')}</div>
+                      <div><strong>AI Memory:</strong> Full conversation context</div>
+                      {scenario.character_personality && (
+                        <div><strong>Personality:</strong> {scenario.character_personality}</div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Enhanced Progress Indicator */}
+                  {conversation.length > 0 && (
+                    <div className="pt-4 border-t border-gray-100">
+                      <h4 className="font-medium text-gray-900 mb-3 flex items-center">
+                        <span className="text-sm mr-2">📈</span>
+                        Contextual Progress
+                      </h4>
+                      
+                      <div className="space-y-3">
+                        {/* Objective Progress */}
+                        <div>
+                          <div className="flex justify-between text-xs text-gray-600 mb-1">
+                            <span>Conversation Objectives</span>
+                            <span>{Math.round(conversationProgress.objectivesProgress * 100)}%</span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div 
+                              className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full transition-all duration-300"
+                              style={{ width: `${conversationProgress.objectivesProgress * 100}%` }}
+                            ></div>
+                          </div>
+                        </div>
+                        
+                        {/* Conversation Depth */}
+                        <div>
+                          <div className="flex justify-between text-xs text-gray-600 mb-1">
+                            <span>Conversation Depth</span>
+                            <span>{conversationProgress.conversationDepth.toFixed(1)}/10</span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div 
+                              className="bg-gradient-to-r from-green-500 to-emerald-500 h-2 rounded-full transition-all duration-300"
+                              style={{ width: `${Math.min(100, (conversationProgress.conversationDepth / 10) * 100)}%` }}
+                            ></div>
+                          </div>
+                        </div>
+                        
+                        {/* AI Context Status */}
+                        <div className="text-xs text-gray-600 bg-purple-50 rounded-lg p-2">
+                          <div className="font-medium text-purple-800 mb-1">🧠 Enhanced AI Status</div>
+                          <div>✓ Full conversation memory active</div>
+                          <div>✓ Contextual objective tracking</div>
+                          <div>✓ Natural progression monitoring</div>
+                          {aiShouldEnd && <div className="text-green-700 font-medium">✓ Natural ending detected</div>}
+                        </div>
+                        
+                        {/* Enhanced Conversation Status */}
+                        <div className="text-xs">
+                          {conversation.length < 6 ? (
+                            <div className="text-orange-600 bg-orange-50 rounded p-2">
+                              💡 Building conversation depth for comprehensive AI feedback
+                            </div>
+                          ) : conversation.length < 12 ? (
+                            <div className="text-blue-600 bg-blue-50 rounded p-2">
+                              🎯 Excellent depth! Enhanced AI building complete context
+                            </div>
+                          ) : aiShouldEnd ? (
+                            <div className="text-green-600 bg-green-50 rounded p-2 animate-pulse">
+                              ⭐ Perfect! Natural conclusion reached - comprehensive analysis ready
+                            </div>
+                          ) : (
+                            <div className="text-purple-600 bg-purple-50 rounded p-2">
+                              🚀 Outstanding session! Exceptional contextual conversation
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Enhanced Main Conversation Area */}
+          <div className="lg:col-span-3">
+            <div className="bg-white rounded-2xl shadow-lg border border-white/20 min-h-[600px]">
+              
+              {/* Enhanced Conversation Messages */}
+              <div className="p-6">
+                
+                {conversation.length === 0 ? (
+                  <div className="text-center py-16">
+                    <div className="text-6xl mb-6">🧠</div>
+                    <h3 className="text-2xl font-bold text-gray-900 mb-4">
+                      Enhanced AI System Ready!
+                    </h3>
+                    <p className="text-gray-600 text-lg mb-6 max-w-md mx-auto">
+                      You&apos;re about to practice with <strong>{scenario.character_name}</strong> using our 
+                      advanced contextual AI that maintains complete conversation memory and tracks your objectives.
+                    </p>
+                    
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6 max-w-lg mx-auto">
+                      <h4 className="text-blue-900 font-medium mb-3">✨ Enhanced AI Features</h4>
+                      <div className="grid grid-cols-2 gap-4 text-sm text-blue-800">
+                        <div className="text-left">
+                          <div className="font-medium mb-2">🧠 Memory & Context</div>
+                          <ul className="space-y-1 text-xs">
+                            <li>• Remembers full conversation</li>
+                            <li>• Tracks {conversationObjectives.length} objectives</li>
+                            <li>• Maintains character consistency</li>
+                          </ul>
+                        </div>
+                        <div className="text-left">
+                          <div className="font-medium mb-2">🎯 Smart Features</div>
+                          <ul className="space-y-1 text-xs">
+                            <li>• Natural progression tracking</li>
+                            <li>• Automatic conclusion detection</li>
+                            <li>• Contextual feedback analysis</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {sessionState.status === 'ready' && !isEndingSession && (
+                      <div>
+                        {audioState.permissionDenied ? (
+                          <div className="bg-red-50 border border-red-200 rounded-lg p-6 mb-6 max-w-md mx-auto">
+                            <h4 className="text-red-800 font-medium mb-2">Microphone Required</h4>
+                            <p className="text-red-700 text-sm mb-4">
+                              Enhanced voice conversations require microphone access.
+                            </p>
+                            <button
+                              onClick={() => window.location.reload()}
+                              className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-700"
+                            >
+                              Refresh & Enable
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={startConversation}
+                            className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white px-8 py-4 rounded-xl text-lg font-semibold hover:from-purple-600 hover:to-indigo-700 transition-all shadow-lg transform hover:scale-105"
+                          >
+                            <span className="mr-2">🧠</span>
+                            Start Enhanced Conversation
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    
+                    {sessionState.status === 'initializing' && (
+                      <div className="text-purple-600">
+                        <div className="w-8 h-8 border-3 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                        <p className="text-lg">Initializing Enhanced AI Systems...</p>
+                        <p className="text-sm mt-2">Loading contextual memory and objective tracking...</p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-6 max-h-96 overflow-y-auto">
+                    {conversation.map((message, index) => (
+                      <div
+                        key={index}
+                        className={`flex items-start space-x-3 ${
+                          message.speaker === 'user' ? 'flex-row-reverse space-x-reverse' : ''
+                        }`}
+                      >
+                        {/* Enhanced Avatar */}
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0 ${
+                          message.speaker === 'user' 
+                            ? 'bg-gradient-to-br from-blue-500 to-indigo-600' 
+                            : 'bg-gradient-to-br from-purple-500 to-pink-600'
+                        }`}>
+                          {message.speaker === 'user' ? '👤' : '🧠'}
+                        </div>
+                        
+                        {/* Enhanced Message Bubble */}
+                        <div className={`flex-1 max-w-md p-4 rounded-2xl ${
+                          message.speaker === 'user'
+                            ? 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white'
+                            : 'bg-gradient-to-br from-gray-100 to-gray-50 text-gray-900 border border-gray-200'
+                        }`}>
+                          <div className={`text-xs mb-2 font-medium flex items-center justify-between ${
+                            message.speaker === 'user' ? 'text-blue-100' : 'text-gray-500'
+                          }`}>
+                            <span>
+                              {message.speaker === 'user' ? 'You' : `${scenario.character_name} 🧠`}
+                              {message.emotion && message.speaker === 'ai' && (
+                                <span className="ml-2 text-purple-600">({message.emotion})</span>
+                              )}
+                            </span>
+                            {message.confidence && message.speaker === 'user' && (
+                              <span className="text-xs bg-blue-600 px-2 py-1 rounded-full">
+                                {Math.round(message.confidence * 100)}%
+                              </span>
+                            )}
+                          </div>
+                          <div className="leading-relaxed">
+                            {message.message}
+                          </div>
+                          
+                          {/* Enhanced context indicator for AI messages */}
+                          {message.speaker === 'ai' && index > 2 && (
+                            <div className="text-xs mt-2 text-purple-600 bg-purple-50 rounded px-2 py-1 flex items-center">
+                              <span className="mr-1">🧠</span>
+                              Contextual response (full conversation memory)
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    
+                    {/* Enhanced current transcript display */}
+                    {audioState.currentTranscript && sessionState.status === 'listening' && (
+                      <div className="flex items-start space-x-3 flex-row-reverse space-x-reverse">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold flex-shrink-0">
+                          👤
+                        </div>
+                        <div className="flex-1 max-w-md p-4 rounded-2xl bg-yellow-50 border-2 border-dashed border-yellow-300 text-yellow-800">
+                          <div className="text-xs mb-2 font-medium text-yellow-600 flex items-center justify-between">
+                            <span>You (processing with AI context...)</span>
+                            <span className="bg-yellow-200 px-2 py-1 rounded-full text-xs">
+                              {Math.round(audioState.speechConfidence * 100)}%
+                            </span>
+                          </div>
+                          <div className="leading-relaxed">
+                            {audioState.currentTranscript}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Enhanced AI Thinking Indicator */}
+                    {sessionState.status === 'processing' && (
+                      <div className="flex items-center space-x-3 justify-center py-4">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center text-white font-bold">
+                          🧠
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce"></div>
+                          <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                          <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                          <span className="text-purple-600 text-sm ml-2">
+                            Enhanced AI analyzing full conversation context...
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Enhanced Natural Ending Detection */}
+        {aiShouldEnd && sessionState.status !== 'ended' && (
+          <div className="mt-6 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-6 text-center">
+            <div className="text-4xl mb-4">🎯</div>
+            <h3 className="text-xl font-semibold text-green-800 mb-2">
+              Natural Conversation Conclusion Reached!
+            </h3>
+            <p className="text-green-700 mb-4">
+              The enhanced AI detected that your conversation with {scenario.character_name} has reached a natural, 
+              professional conclusion with excellent depth and context. This is perfect for getting comprehensive feedback 
+              based on your complete {Math.floor(conversation.length / 2)}-exchange conversation!
+            </p>
+            <div className="flex justify-center space-x-4">
+              <button
+                onClick={endSession}
+                disabled={isEndingSession}
+                className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-6 py-3 rounded-lg font-medium hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg"
+              >
+                🎉 Get Complete Contextual Feedback
+              </button>
+              <button
+                onClick={() => setAiShouldEnd(false)}
+                className="bg-gray-500 text-white px-6 py-3 rounded-lg font-medium hover:bg-gray-600 transition-colors"
+              >
+                Continue Enhanced Conversation
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Enhanced Session Encouragement Updates */}
+        {conversation.length >= 8 && !aiShouldEnd && sessionState.status !== 'ended' && (
+          <div className="mt-6 bg-purple-50 border border-purple-200 rounded-lg p-4 text-center">
+            <p className="text-purple-800 font-medium">
+              🌟 Outstanding conversation depth! The enhanced AI is building comprehensive context 
+              with {Math.floor(conversation.length / 2)} exchanges for detailed contextual feedback.
+            </p>
+          </div>
+        )}
+
+        {/* Mobile Help */}
+        {isMobile && sessionState.status === 'listening' && (
+          <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <p className="text-blue-800 text-sm">
+              <strong>📱 Enhanced Mobile Experience:</strong> Speak clearly for {Math.round(audioState.speechConfidence * 100)}% accuracy. 
+              The AI maintains full conversation context on mobile.
+            </p>
+          </div>
+        )}
+
+      </main>
+    </div>
+  );
+}
