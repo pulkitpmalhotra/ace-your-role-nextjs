@@ -1,5 +1,5 @@
-// app/api/ai-character-suggestions/route.ts
-export async function POST(request: Request) {
+// app/api/ai-character-suggestions/route.ts - Fixed TypeScript errors
+export async function POST(request: Request): Promise<Response> {
   try {
     const { role, difficulty, userProgress, preferences } = await request.json();
     
@@ -16,7 +16,8 @@ export async function POST(request: Request) {
     
     if (!GOOGLE_AI_API_KEY) {
       console.warn('⚠️ Google AI API key not found, using enhanced fallback');
-      return generateFallbackCharacterSuggestions(role, difficulty, userProgress);
+      const fallbackResult = generateFallbackCharacterSuggestions(role, difficulty, userProgress);
+      return Response.json(fallbackResult);
     }
 
     // Generate AI-powered character suggestions
@@ -29,11 +30,12 @@ export async function POST(request: Request) {
 
   } catch (error) {
     console.error('❌ Character suggestions API error:', error);
-    return generateFallbackCharacterSuggestions(role, difficulty || 'intermediate');
+    const fallbackResult = generateFallbackCharacterSuggestions(role, difficulty || 'intermediate');
+    return Response.json(fallbackResult);
   }
 }
 
-async function generateAICharacterSuggestions(role: string, difficulty: string, userProgress: any, preferences: any) {
+async function generateAICharacterSuggestions(role: string, difficulty: string, userProgress: any, preferences: any): Promise<any> {
   const GOOGLE_AI_API_KEY = process.env.GOOGLE_AI_API_KEY || process.env.GEMINI_API_KEY;
   
   const prompt = buildCharacterSuggestionPrompt(role, difficulty, userProgress, preferences);
@@ -72,7 +74,7 @@ async function generateAICharacterSuggestions(role: string, difficulty: string, 
 
   } catch (error) {
     console.error('❌ Google AI character generation failed:', error);
-    return generateFallbackCharacterSuggestions(role, difficulty);
+    return generateFallbackCharacterSuggestions(role, difficulty).data;
   }
 }
 
@@ -185,7 +187,7 @@ function getProgressContext(userProgress: any): string {
   return 'Developing user working to improve core skills';
 }
 
-function parseCharacterSuggestions(aiResponse: string, role: string, difficulty: string) {
+function parseCharacterSuggestions(aiResponse: string, role: string, difficulty: string): any {
   try {
     // Try to parse JSON response
     const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
@@ -208,7 +210,7 @@ function parseCharacterSuggestions(aiResponse: string, role: string, difficulty:
   return parseTextBasedResponse(aiResponse, role, difficulty);
 }
 
-function parseTextBasedResponse(aiResponse: string, role: string, difficulty: string) {
+function parseTextBasedResponse(aiResponse: string, role: string, difficulty: string): any {
   // Extract character information from text response
   const characters = [];
   const sections = aiResponse.split(/(?=Name:|Character \d+:|^\d+\.)/gm);
@@ -223,7 +225,7 @@ function parseTextBasedResponse(aiResponse: string, role: string, difficulty: st
   
   // If we couldn't parse any characters, use fallback
   if (characters.length === 0) {
-    return generateFallbackCharacterSuggestions(role, difficulty);
+    return generateFallbackCharacterSuggestions(role, difficulty).data;
   }
   
   return {
@@ -234,7 +236,7 @@ function parseTextBasedResponse(aiResponse: string, role: string, difficulty: st
   };
 }
 
-function extractCharacterFromText(text: string, role: string, difficulty: string) {
+function extractCharacterFromText(text: string, role: string, difficulty: string): any {
   // Basic text extraction - in a real implementation, this would be more sophisticated
   const nameMatch = text.match(/(?:Name|Character)[:\s]*([A-Za-z\s]+)(?:\n|$)/i);
   const roleMatch = text.match(/(?:Role|Title|Position)[:\s]*([A-Za-z\s]+)(?:\n|$)/i);
@@ -253,7 +255,7 @@ function extractCharacterFromText(text: string, role: string, difficulty: string
   };
 }
 
-function generateFallbackCharacterSuggestions(role: string, difficulty: string, userProgress?: any) {
+function generateFallbackCharacterSuggestions(role: string, difficulty: string, userProgress?: any): { success: boolean; data: any } {
   console.log('📊 Generating fallback character suggestions...');
   
   const fallbackCharacters = getFallbackCharactersByRole(role, difficulty);
@@ -269,7 +271,7 @@ function generateFallbackCharacterSuggestions(role: string, difficulty: string, 
   };
 }
 
-function getFallbackCharactersByRole(role: string, difficulty: string) {
+function getFallbackCharactersByRole(role: string, difficulty: string): any[] {
   const characterSets: Record<string, any[]> = {
     'sales': [
       {
@@ -335,8 +337,40 @@ function getFallbackCharactersByRole(role: string, difficulty: string) {
         scenario: 'Service escalation requiring professional handling',
         difficulty_notes: `${difficulty} level challenging customer`
       }
+    ],
+    
+    'project-manager': [
+      {
+        name: 'Alex Thompson',
+        role: 'Engineering Lead',
+        personality: ['technical', 'skeptical', 'detail-oriented'],
+        communication_style: 'Direct technical communication',
+        concerns: ['technical feasibility', 'resource allocation'],
+        challenge_type: 'Technical stakeholder with resource concerns',
+        scenario: 'Project scope discussion with technical constraints',
+        difficulty_notes: `${difficulty} level technical stakeholder management`
+      },
+      {
+        name: 'Maria Gonzalez',
+        role: 'Client Director',
+        personality: ['demanding', 'results-focused', 'impatient'],
+        communication_style: 'Business-focused and urgent',
+        concerns: ['project timeline', 'deliverable quality'],
+        challenge_type: 'Demanding client with tight deadlines',
+        scenario: 'Client status meeting with timeline pressures',
+        difficulty_notes: `${difficulty} level client relationship management`
+      },
+      {
+        name: 'James Wilson',
+        role: 'Team Member',
+        personality: ['overwhelmed', 'honest', 'collaborative'],
+        communication_style: 'Open but concerned',
+        concerns: ['workload balance', 'skill development'],
+        challenge_type: 'Team member needing support and guidance',
+        scenario: 'One-on-one discussion about project challenges',
+        difficulty_notes: `${difficulty} level team management`
+      }
     ]
-    // Add more roles as needed
   };
   
   const characters = characterSets[role] || characterSets['sales'];
