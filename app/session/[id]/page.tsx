@@ -47,7 +47,18 @@ interface AIGuide {
   tips: string[];
   insights: string[];
 }
-
+interface EnhancedStatusInfo {
+  icon: string;
+  title: string;
+  message: string;
+  color: string;
+  progress?: boolean;
+  pulse?: boolean;
+  showStats?: boolean;
+  exchanges: number;        // Always provided when showStats is true
+  duration: number;         // Always provided when showStats is true  
+  objectivesProgress: number; // Always provided when showStats is true
+}
 interface ConversationProgress {
   objectivesProgress: number;
   conversationDepth: number;
@@ -1184,83 +1195,83 @@ export default function EnhancedSessionPage({ params }: { params: { id: string }
   };
 
   // ENHANCED: Get status info with contextual awareness
-  const getEnhancedStatusInfo = () => {
-    const exchanges = Math.floor(conversation.length / 2);
-    const duration = Math.floor((Date.now() - sessionStartTime) / 60000);
-    const objectivesProgress = Math.min((exchanges / 6) * 100, 100);
-    
-    switch (sessionState.status) {
-      case 'initializing':
-        return { 
-          icon: '⏳', 
-          title: 'Initializing Contextual AI System...', 
-          message: 'Loading conversation context, objectives, and memory systems', 
-          color: 'bg-yellow-500',
-          progress: true
-        };
-      case 'ready':
-        return { 
-          icon: '🧠', 
-          title: 'Enhanced AI Ready with Full Context!', 
-          message: `${scenario?.character_name} will remember your complete conversation with ${conversationObjectives.length} objectives`, 
-          color: 'bg-blue-500',
-          showStats: false
-        };
-      case 'listening':
-        return { 
-          icon: '🎤', 
-          title: aiShouldEnd ? 'Natural Conclusion Available' : 'Active Contextual Conversation', 
-          message: aiShouldEnd 
-            ? `Comprehensive conversation completed - ready for detailed feedback` 
-            : `Contextual AI analyzing your ${getUserRole(scenario?.role || '')} approach with full memory`, 
-          color: aiShouldEnd ? 'bg-green-600' : 'bg-green-500',
-          pulse: !aiShouldEnd,
-          showStats: true,
-          exchanges,
-          duration,
-          objectivesProgress
-        };
-      case 'processing':
-        return { 
-          icon: '🧠', 
-          title: 'AI Processing with Full Context...', 
-          message: `${scenario?.character_name} considering complete conversation history and objectives`, 
-          color: 'bg-orange-500',
-          progress: true,
-          showStats: true,
-          exchanges,
-          duration,
-          objectivesProgress
-        };
-      case 'ai-speaking':
-        return { 
-          icon: '🔊', 
-          title: `${scenario?.character_name} (Contextual Response)`, 
-          message: aiShouldEnd 
-            ? 'Providing professional conversation conclusion with full context'
-            : 'Responding with complete conversation memory and objective awareness', 
-          color: aiShouldEnd ? 'bg-green-600' : 'bg-purple-500',
-          showStats: true,
-          exchanges,
-          duration,
-          objectivesProgress
-        };
-      case 'ended':
-        return { 
-          icon: '✅', 
-          title: 'Enhanced Contextual Analysis Complete', 
-          message: 'Analyzing your comprehensive performance with full conversation context...', 
-          color: 'bg-gray-500'
-        };
-      default:
-        return { 
-          icon: '⏳', 
-          title: 'Loading Enhanced System...', 
-          message: 'Please wait', 
-          color: 'bg-gray-500'
-        };
-    }
-  };
+const getEnhancedStatusInfo = () => {
+  const exchanges = Math.floor(conversation.length / 2);
+  const duration = Math.floor((Date.now() - sessionStartTime) / 60000);
+  const objectivesProgress = Math.min((exchanges / 6) * 100, 100); // Ensure this is always a number
+  
+  switch (sessionState.status) {
+    case 'initializing':
+      return { 
+        icon: '⏳', 
+        title: 'Initializing Contextual AI System...', 
+        message: 'Loading conversation context, objectives, and memory systems', 
+        color: 'bg-yellow-500',
+        progress: true
+      };
+    case 'ready':
+      return { 
+        icon: '🧠', 
+        title: 'Enhanced AI Ready with Full Context!', 
+        message: `${scenario?.character_name} will remember your complete conversation with ${conversationObjectives.length} objectives`, 
+        color: 'bg-blue-500',
+        showStats: false
+      };
+    case 'listening':
+      return { 
+        icon: '🎤', 
+        title: aiShouldEnd ? 'Natural Conclusion Available' : 'Active Contextual Conversation', 
+        message: aiShouldEnd 
+          ? `Comprehensive conversation completed - ready for detailed feedback` 
+          : `Contextual AI analyzing your ${getUserRole(scenario?.role || '')} approach with full memory`, 
+        color: aiShouldEnd ? 'bg-green-600' : 'bg-green-500',
+        pulse: !aiShouldEnd,
+        showStats: true,
+        exchanges,
+        duration,
+        objectivesProgress // This is now guaranteed to be a number
+      };
+    case 'processing':
+      return { 
+        icon: '🧠', 
+        title: 'AI Processing with Full Context...', 
+        message: `${scenario?.character_name} considering complete conversation history and objectives`, 
+        color: 'bg-orange-500',
+        progress: true,
+        showStats: true,
+        exchanges,
+        duration,
+        objectivesProgress // This is now guaranteed to be a number
+      };
+    case 'ai-speaking':
+      return { 
+        icon: '🔊', 
+        title: `${scenario?.character_name} (Contextual Response)`, 
+        message: aiShouldEnd 
+          ? 'Providing professional conversation conclusion with full context'
+          : 'Responding with complete conversation memory and objective awareness', 
+        color: aiShouldEnd ? 'bg-green-600' : 'bg-purple-500',
+        showStats: true,
+        exchanges,
+        duration,
+        objectivesProgress // This is now guaranteed to be a number
+      };
+    case 'ended':
+      return { 
+        icon: '✅', 
+        title: 'Enhanced Contextual Analysis Complete', 
+        message: 'Analyzing your comprehensive performance with full conversation context...', 
+        color: 'bg-gray-500'
+      };
+    default:
+      return { 
+        icon: '⏳', 
+        title: 'Loading Enhanced System...', 
+        message: 'Please wait', 
+        color: 'bg-gray-500'
+      };
+  }
+};
 
   // Helper function to get user role
   const getUserRole = (scenarioRole: string): string => {
@@ -1445,38 +1456,38 @@ export default function EnhancedSessionPage({ params }: { params: { id: string }
               )}
             </div>
             
-            {statusInfo.showStats && (
-              <div className="flex items-center space-x-6 text-sm">
-                <div className="text-center">
-                  <div className="font-bold">{statusInfo.exchanges}</div>
-                  <div className="opacity-75">Exchanges</div>
-                </div>
-                <div className="text-center">
-                  <div className="font-bold">{statusInfo.duration}m</div>
-                  <div className="opacity-75">Duration</div>
-                </div>
-                
-                {/* Enhanced objectives progress */}
-                <div className="text-center">
-                  <div className="font-bold">{Math.round(statusInfo.objectivesProgress)}%</div>
-                  <div className="opacity-75">Objectives</div>
-                </div>
-                
-                {/* Conversation depth */}
-                <div className="text-center">
-                  <div className="font-bold">{conversationProgress.conversationDepth.toFixed(1)}</div>
-                  <div className="opacity-75">Depth</div>
-                </div>
-                
-                {/* Speech quality indicator */}
-                {audioState.speechConfidence > 0 && (
-                  <div className="text-center">
-                    <div className="font-bold">{Math.round(audioState.speechConfidence * 100)}%</div>
-                    <div className="opacity-75">Speech Quality</div>
-                  </div>
-                )}
-              </div>
-            )}
+{statusInfo.showStats && (
+  <div className="flex items-center space-x-6 text-sm">
+    <div className="text-center">
+      <div className="font-bold">{statusInfo.exchanges || 0}</div>
+      <div className="opacity-75">Exchanges</div>
+    </div>
+    <div className="text-center">
+      <div className="font-bold">{statusInfo.duration || 0}m</div>
+      <div className="opacity-75">Duration</div>
+    </div>
+    
+    {/* FIXED: Add null checking and default value */}
+    <div className="text-center">
+      <div className="font-bold">{Math.round(statusInfo.objectivesProgress || 0)}%</div>
+      <div className="opacity-75">Objectives</div>
+    </div>
+    
+    {/* Conversation depth - FIXED: Add null checking */}
+    <div className="text-center">
+      <div className="font-bold">{(conversationProgress.conversationDepth || 0).toFixed(1)}</div>
+      <div className="opacity-75">Depth</div>
+    </div>
+    
+    {/* Speech quality indicator - FIXED: Add null checking */}
+    {(audioState.speechConfidence || 0) > 0 && (
+      <div className="text-center">
+        <div className="font-bold">{Math.round((audioState.speechConfidence || 0) * 100)}%</div>
+        <div className="opacity-75">Speech Quality</div>
+      </div>
+    )}
+  </div>
+)}
           </div>
         </div>
       </div>
