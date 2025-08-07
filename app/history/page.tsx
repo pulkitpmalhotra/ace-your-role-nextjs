@@ -111,8 +111,13 @@ export default function HistoryPage() {
         : 0;
       const bestScore = Math.max(...completedSessions.map((s: Session) => s.overall_score || 0), 0);
       
-      // Fix TypeScript Set iteration issue
-      const rolesSet = new Set(sessions.map((s: Session) => s.scenarios?.role).filter(Boolean));
+      // Fix TypeScript Set iteration issue with proper typing
+      const rolesSet = new Set<string>();
+      sessions.forEach((s: Session) => {
+        if (s.scenarios?.role) {
+          rolesSet.add(s.scenarios.role);
+        }
+      });
       const rolesPracticed = Array.from(rolesSet);
 
       const summary = {
