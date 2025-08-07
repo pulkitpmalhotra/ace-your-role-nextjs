@@ -20,8 +20,14 @@ export async function POST(request: Request) {
     
     if (!supabaseUrl || !supabaseServiceKey) {
       console.error('❌ Missing Supabase configuration');
+      console.error('SUPABASE_URL:', supabaseUrl ? 'Set' : 'Missing');
+      console.error('SUPABASE_SERVICE_ROLE_KEY:', supabaseServiceKey ? 'Set' : 'Missing');
       return Response.json(
-        { success: false, error: 'Database configuration missing' },
+        { 
+          success: false, 
+          error: 'Database configuration missing',
+          details: 'Required environment variables not configured'
+        },
         { status: 500 }
       );
     }
