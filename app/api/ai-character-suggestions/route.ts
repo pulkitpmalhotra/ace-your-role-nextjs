@@ -1,9 +1,15 @@
 // app/api/ai-character-suggestions/route.ts - Fixed TypeScript errors
 export async function POST(request: Request): Promise<Response> {
+  let role = 'sales'; // Default fallback
+  let difficulty = 'intermediate'; // Default fallback
+
   try {
-    const { role, difficulty, userProgress, preferences } = await request.json();
+    const requestBody = await request.json();
+    role = requestBody.role || 'sales';
+    difficulty = requestBody.difficulty || 'intermediate';
+    const { userProgress, preferences } = requestBody;
     
-    if (!role) {
+    if (!requestBody.role) {
       return Response.json(
         { success: false, error: 'Role is required for character suggestions' },
         { status: 400 }
@@ -30,7 +36,7 @@ export async function POST(request: Request): Promise<Response> {
 
   } catch (error) {
     console.error('❌ Character suggestions API error:', error);
-    const fallbackResult = generateFallbackCharacterSuggestions(role, difficulty || 'intermediate');
+    const fallbackResult = generateFallbackCharacterSuggestions(role, difficulty);
     return Response.json(fallbackResult);
   }
 }
