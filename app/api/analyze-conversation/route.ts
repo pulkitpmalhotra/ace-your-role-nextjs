@@ -1,15 +1,19 @@
 // app/api/analyze-conversation/route.ts - Context-Aware Analysis (TypeScript Fixed)
 export async function POST(request: Request) {
-  let conversation: any[], scenario: any, sessionId: string, sessionData: any;
+  // Initialize variables with default values to avoid "used before assigned" errors
+  let conversation: any[] = [];
+  let scenario: any = { role: 'unknown', character_name: 'Character', title: 'Practice Session' };
+  let sessionId: string = '';
+  let sessionData: any = {};
   
   try {
     const requestData = await request.json();
-    conversation = requestData.conversation;
-    scenario = requestData.scenario;
-    sessionId = requestData.sessionId;
-    sessionData = requestData.sessionData; // Additional context
+    conversation = requestData.conversation || [];
+    scenario = requestData.scenario || { role: 'unknown', character_name: 'Character', title: 'Practice Session' };
+    sessionId = requestData.sessionId || '';
+    sessionData = requestData.sessionData || {}; // Additional context
     
-    if (!conversation || !scenario) {
+    if (!requestData.conversation || !requestData.scenario) {
       return Response.json(
         { success: false, error: 'Conversation and scenario are required' },
         { status: 400 }
@@ -66,10 +70,8 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('💥 Enhanced Analysis API error:', error);
     
-    const fallbackResult = createEnhancedFallback(
-      conversation || [], 
-      scenario || { role: 'unknown', character_name: 'Character', title: 'Practice Session' }
-    );
+    // Now these variables are safely initialized with default values
+    const fallbackResult = createEnhancedFallback(conversation, scenario);
     
     return Response.json({
       success: true,
