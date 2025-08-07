@@ -348,7 +348,7 @@ function checkNaturalProgression(conversation: any[]): number {
   
   // Check if conversation builds logically
   const topics = conversation.map(msg => extractTopics(msg.message)).flat();
-  const uniqueTopics = [...new Set(topics)];
+  const uniqueTopics = Array.from(new Set(topics)); // FIXED: Use Array.from instead of spread operator
   
   // Good progression has topic development
   if (uniqueTopics.length >= 3) progressionScore += 2;
@@ -723,7 +723,7 @@ function extractConversationTopics(conversation: any[], scenario: any): string[]
     .map(msg => extractTopics(msg.message))
     .flat();
   
-  return [...new Set(allTopics)];
+  return Array.from(new Set(allTopics)); // FIXED: Use Array.from instead of spread operator
 }
 
 function analyzeDetailedCoverage(userMessages: any[], scenario: any): Record<string, number> {
