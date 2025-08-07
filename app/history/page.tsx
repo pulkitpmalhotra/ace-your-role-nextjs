@@ -110,7 +110,10 @@ export default function HistoryPage() {
         ? completedSessions.reduce((sum: number, s: Session) => sum + (s.overall_score || 0), 0) / completedSessions.length
         : 0;
       const bestScore = Math.max(...completedSessions.map((s: Session) => s.overall_score || 0), 0);
-      const rolesPracticed = [...new Set(sessions.map((s: Session) => s.scenarios?.role).filter(Boolean))];
+      
+      // Fix TypeScript Set iteration issue
+      const rolesSet = new Set(sessions.map((s: Session) => s.scenarios?.role).filter(Boolean));
+      const rolesPracticed = Array.from(rolesSet);
 
       const summary = {
         total_sessions: sessions.length,
