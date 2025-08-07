@@ -1,21 +1,9 @@
-// app/api/ai-chat/route.ts - Clean AI Chat Route (Sessions code removed)
+// app/api/ai-conversation/route.ts - Single AI endpoint using Gemini
 export async function POST(request: Request) {
   try {
-    const { 
-      scenario, 
-      userMessage, 
-      conversationHistory, 
-      sessionState,
-      sessionId 
-    } = await request.json();
+    const { scenario, userMessage, conversationHistory, sessionId } = await request.json();
     
-    const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-    
-    if (!GEMINI_API_KEY) {
-      console.error('❌ Missing GEMINI_API_KEY environment variable');
-      return fallbackResponse(scenario);
-    }
-
+    // Validate required fields
     if (!scenario || !userMessage || !sessionId) {
       return Response.json(
         { success: false, error: 'Missing required fields' },
@@ -23,17 +11,21 @@ export async function POST(request: Request) {
       );
     }
 
-    console.log('🧠 AI Chat processing:', {
-      character: scenario.character_name,
-      messageCount: conversationHistory.length,
-      sessionDuration: sessionState?.duration || 0
-    });
+    const GOOGLE_AI_API_KEY = process.env.GOOGLE_AI_API_KEY;
+    
+    if (!GOOGLE_AI_API_KEY) {
+      console.error('❌ Missing GOOGLE_AI_API_KEY');
+      return generateFallbackResponse(scenario);
+    }
 
-    // Build enhanced prompt
-    const prompt = buildEnhancedPrompt(scenario, userMessage, conversationHistory, sessionState);
+    console.log('🤖 Generating AI response with Gemini...');
 
+    // Build conversation prompt
+    const prompt = buildConversationPrompt(scenario, userMessage, conversationHistory);
+
+    // Call Gemini API
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GOOGLE_AI_API_KEY}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -43,7 +35,7 @@ export async function POST(request: Request) {
             temperature: 0.8,
             topK: 40,
             topP: 0.9,
-            maxOutputTokens: 250,
+            maxOutputTokens: 300,
             candidateCount: 1,
           }
         })
@@ -51,7 +43,7 @@ export async function POST(request: Request) {
     );
 
     if (!response.ok) {
-      throw new Error('Gemini API failed');
+      throw new Error(`Gemini API failed: ${response.status}`);
     }
 
     const data = await response.json();
@@ -61,82 +53,73 @@ export async function POST(request: Request) {
       throw new Error('No response from Gemini');
     }
 
-    const cleanedResponse = cleanAIResponse(aiResponse.trim());
-    
-    // Determine if conversation should end naturally
-    const shouldEnd = shouldEndConversation(conversationHistory, sessionState);
+    // Process response
+    const cleanResponse = cleanAIResponse(aiResponse);
+    const shouldEnd = shouldEndConversation(conversationHistory);
+    const emotion = determineEmotion(conversationHistory);
 
-    const enhancedResponse = {
-      response: cleanedResponse,
-      character: scenario.character_name,
-      emotion: determineEmotionalState(conversationHistory),
-      shouldEndConversation: shouldEnd,
-      model: 'ai-chat',
-      contextRetained: true
-    };
-
-    console.log('✅ AI chat response generated');
+    console.log('✅ Gemini response generated successfully');
 
     return Response.json({
       success: true,
-      data: enhancedResponse
+      data: {
+        response: cleanResponse,
+        character: scenario.character_name,
+        emotion: emotion,
+        shouldEndConversation: shouldEnd,
+        model: 'gemini-2.0-flash'
+      }
     });
 
   } catch (error) {
-    console.error('💥 AI Chat error:', error);
-    return fallbackResponse(null);
+    console.error('❌ AI Conversation error:', error);
+    
+    // Fallback response
+    const { scenario } = await request.json().catch(() => ({}));
+    return generateFallbackResponse(scenario);
   }
 }
 
-function buildEnhancedPrompt(scenario: any, userMessage: string, conversationHistory: any[], sessionState: any): string {
+function buildConversationPrompt(scenario: any, userMessage: string, conversationHistory: any[]): string {
   const userRole = getUserRole(scenario.role);
-  const duration = Math.floor((sessionState?.duration || 0) / 60);
   const exchanges = Math.floor(conversationHistory.length / 2);
+  
+  const recentHistory = conversationHistory.slice(-6).map(msg => 
+    `${msg.speaker === 'user' ? userRole : scenario.character_name}: "${msg.message}"`
+  ).join('\n');
 
-  return `You are ${scenario.character_name}, a ${scenario.character_role}. You are having a conversation with a ${userRole} in this scenario: "${scenario.title}".
+  return `You are ${scenario.character_name}, a ${scenario.character_role}. You are having a professional conversation with a ${userRole} about "${scenario.title}".
 
 CHARACTER CONTEXT:
 - You are ${scenario.character_name}
 - Your role: ${scenario.character_role}
-- Conversation duration: ${duration} minutes
+- Conversation topic: ${scenario.title}
 - Exchanges so far: ${exchanges}
 
-CONVERSATION HISTORY:
-${conversationHistory.slice(-6).map(msg => 
-  `${msg.speaker === 'user' ? userRole : scenario.character_name}: "${msg.message}"`
-).join('\n')}
+RECENT CONVERSATION:
+${recentHistory}
 
-CURRENT SITUATION:
+CURRENT MESSAGE:
 The ${userRole} just said: "${userMessage}"
 
 INSTRUCTIONS:
 - Stay in character as ${scenario.character_name}
 - Respond naturally and professionally
 - Keep responses conversational (1-2 sentences)
-- Show personality appropriate to your role
-- Consider the full conversation context
-- Be helpful but realistic to your character
+- Show appropriate personality for your role
+- Consider the conversation context
 
-${exchanges >= 8 ? `
-NATURAL CONCLUSION:
-This conversation has good depth. Consider providing a natural conclusion if appropriate.
-You can thank them for the discussion and suggest next steps.
-` : `
-CONTINUE CONVERSATION:
-Build on the discussion naturally. Ask relevant questions or provide helpful responses.
-`}
+${exchanges >= 8 ? 'NATURAL CONCLUSION: This conversation has good depth. Consider providing a natural conclusion if appropriate.' : 'CONTINUE CONVERSATION: Build on the discussion naturally.'}
 
 Respond as ${scenario.character_name}:`;
 }
 
-function shouldEndConversation(conversationHistory: any[], sessionState: any): boolean {
+function shouldEndConversation(conversationHistory: any[]): boolean {
   const exchanges = Math.floor(conversationHistory.length / 2);
-  const duration = sessionState?.duration || 0;
-  
-  return exchanges >= 8 || duration >= 600; // 10+ minutes or 8+ exchanges
+  return exchanges >= 8; // Natural ending after 8+ exchanges
 }
 
-function determineEmotionalState(conversationHistory: any[]): string {
+function determineEmotion(conversationHistory: any[]): string {
   const exchanges = Math.floor(conversationHistory.length / 2);
   
   if (exchanges >= 8) return 'satisfied';
@@ -152,7 +135,6 @@ function getUserRole(scenarioRole: string): string {
     'product-manager': 'product manager',
     'leader': 'leader',
     'manager': 'manager',
-    'strategy-lead': 'strategy lead',
     'support-agent': 'customer service representative',
     'data-analyst': 'data analyst',
     'engineer': 'engineer',
@@ -172,14 +154,24 @@ function cleanAIResponse(response: string): string {
     .trim();
 }
 
-function fallbackResponse(scenario: any) {
+function generateFallbackResponse(scenario: any) {
+  const responses = [
+    "That's really interesting. Could you tell me more about that?",
+    "I understand what you're saying. How does that make you feel about the situation?",
+    "That's a great point. Let me share my perspective on this.",
+    "I appreciate you sharing that with me. What would you like to discuss next?",
+    "Thank you for this conversation. I feel we've covered some important points today."
+  ];
+
+  const randomResponse = responses[Math.floor(Math.random() * responses.length)];
+
   return Response.json({
     success: true,
     data: {
-      response: "I understand what you're saying. This has been a really valuable conversation, and I appreciate the time we've spent discussing this together.",
-      character: scenario?.character_name || 'Character',
+      response: randomResponse,
+      character: scenario?.character_name || 'AI Assistant',
       emotion: 'professional',
-      shouldEndConversation: true,
+      shouldEndConversation: false,
       model: 'fallback'
     }
   });
