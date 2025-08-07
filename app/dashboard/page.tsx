@@ -482,7 +482,7 @@ export default function DashboardPage() {
       <main className="max-w-6xl mx-auto px-4 py-6">
         
         {/* Navigation Tabs */}
-        <div className="flex space-x-4 mb-6">
+       <div className="flex space-x-4 mb-6">
           <button
             onClick={() => setSelectedView('scenarios')}
             className={`px-6 py-3 rounded-lg font-medium transition-colors ${
@@ -491,17 +491,13 @@ export default function DashboardPage() {
                 : 'bg-white/80 text-gray-700 hover:bg-white'
             }`}
           >
-            🎯 List of Scenarios ({filteredScenarios.length})
+            🎯 Practice Scenarios ({filteredScenarios.length})
           </button>
           <button
-            onClick={() => setSelectedView('progress')}
-            className={`px-6 py-3 rounded-lg font-medium transition-colors ${
-              selectedView === 'progress' 
-                ? 'bg-blue-500 text-white shadow-lg' 
-                : 'bg-white/80 text-gray-700 hover:bg-white'
-            }`}
+            onClick={() => router.push('/history')}
+            className="bg-white/80 text-gray-700 hover:bg-white px-6 py-3 rounded-lg font-medium transition-colors"
           >
-            📈 My Progress ({userProgress.length} roles)
+            📚 Session History ({userProgress.length} completed)
           </button>
         </div>
 
