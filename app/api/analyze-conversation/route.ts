@@ -1,6 +1,6 @@
-// app/api/analyze-conversation-enhanced/route.ts - Context-Aware Analysis
+// app/api/analyze-conversation/route.ts - Context-Aware Analysis (TypeScript Fixed)
 export async function POST(request: Request) {
-  let conversation, scenario, sessionId, sessionData;
+  let conversation: any[], scenario: any, sessionId: string, sessionData: any;
   
   try {
     const requestData = await request.json();
@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     const conversationAnalysis = analyzeConversationContext(conversation, scenario, sessionData);
     
     // Perform enhanced AI analysis with full context
-    let analysisResult;
+    let analysisResult: any;
     
     try {
       analysisResult = await performEnhancedAIAnalysis(
@@ -154,8 +154,8 @@ function analyzeConversationContext(conversation: any[], scenario: any, sessionD
 
 // Analyze how well the conversation progressed through natural stages
 function analyzeProgressionQuality(conversation: any[], scenario: any) {
-  const stages = ['opening', 'rapport_building', 'core_discussion', 'deep_exploration', 'conclusion'];
-  const stagesReached = [];
+  const stages: string[] = ['opening', 'rapport_building', 'core_discussion', 'deep_exploration', 'conclusion'];
+  const stagesReached: string[] = [];
   const exchanges = Math.floor(conversation.length / 2);
   
   // Determine which stages were reached based on content and flow
@@ -244,10 +244,10 @@ function checkForNaturalEnding(conversation: any[], scenario: any): boolean {
   return (aiEndsNaturally || userSignaledEnd) && hasSubstance;
 }
 
-// Analyze how well the user covered scenario objectives
+// FIXED: Analyze how well the user covered scenario objectives with explicit typing
 function analyzeObjectiveCompletion(userMessages: any[], scenario: any) {
   const objectives = getScenarioObjectives(scenario.role);
-  const coveredObjectives = [];
+  const coveredObjectives: string[] = []; // FIXED: Explicit string array type
   const topics = new Set<string>();
   
   const userText = userMessages.map(msg => msg.message.toLowerCase()).join(' ');
@@ -556,7 +556,7 @@ async function performEnhancedAIAnalysis(
   console.log('🤖 Calling Gemini for enhanced USER analysis...');
   
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
