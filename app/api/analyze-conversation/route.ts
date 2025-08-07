@@ -1,80 +1,70 @@
-// app/api/analyze-conversation-enhanced/route.ts - Enhanced Conversation Analysis
+// app/api/analyze-conversation/route.ts - Gemini-powered feedback analysis
 export async function POST(request: Request) {
   try {
     const { conversation, scenario, sessionId, sessionData } = await request.json();
     
-    if (!conversation || !scenario) {
+    if (!conversation || !scenario || conversation.length < 2) {
       return Response.json(
-        { success: false, error: 'Conversation and scenario are required' },
+        { success: false, error: 'Invalid conversation data' },
         { status: 400 }
       );
     }
 
-    if (conversation.length < 2) {
-      return Response.json(
-        { success: false, error: 'Not enough conversation data to analyze' },
-        { status: 400 }
-      );
-    }
-
-    console.log('🧠 Enhanced conversation analysis:', {
+    console.log('🧠 Analyzing conversation with Gemini...', {
       sessionId,
       messageCount: conversation.length,
-      role: scenario.role,
-      duration: sessionData?.duration || 0
+      role: scenario.role
     });
 
-    const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+    const GOOGLE_AI_API_KEY = process.env.GOOGLE_AI_API_KEY;
     
-    if (!GEMINI_API_KEY) {
-      console.warn('⚠️ No Gemini API key, using enhanced fallback');
+    if (!GOOGLE_AI_API_KEY) {
+      console.warn('⚠️ No Gemini API key, using fallback analysis');
       return Response.json({
         success: true,
-        data: generateEnhancedFallback(conversation, scenario, sessionData),
-        source: 'enhanced-fallback'
+        data: generateFallbackAnalysis(conversation, scenario, sessionData),
+        source: 'fallback'
       });
     }
 
-    // Enhanced analysis with full context
-    const analysisResult = await performEnhancedAnalysis(conversation, scenario, sessionId, sessionData);
+    // Generate analysis with Gemini
+    const analysisResult = await performGeminiAnalysis(conversation, scenario, sessionData);
     
-    console.log('✅ Enhanced analysis completed');
+    console.log('✅ Gemini analysis completed');
 
     return Response.json({
       success: true,
       data: analysisResult,
-      source: 'ai-enhanced'
+      source: 'gemini'
     });
 
   } catch (error) {
-    console.error('💥 Enhanced analysis API error:', error);
+    console.error('❌ Analysis API error:', error);
     
-    const fallbackResult = generateEnhancedFallback(
-      (await request.json()).conversation || [],
-      (await request.json()).scenario || {},
-      (await request.json()).sessionData || {}
-    );
+    // Fallback to local analysis
+    const { conversation, scenario, sessionData } = await request.json().catch(() => ({ conversation: [], scenario: {}, sessionData: {} }));
     
     return Response.json({
       success: true,
-      data: fallbackResult,
+      data: generateFallbackAnalysis(conversation, scenario, sessionData),
       source: 'error-fallback'
     });
   }
 }
 
-async function performEnhancedAnalysis(conversation: any[], scenario: any, sessionId: string, sessionData: any) {
-  const GEMINI_API_KEY = process.env.GEMINI_API_KEY!;
+async function performGeminiAnalysis(conversation: any[], scenario: any, sessionData: any) {
+  const GOOGLE_AI_API_KEY = process.env.GOOGLE_AI_API_KEY!;
   
   const userMessages = conversation.filter(msg => msg.speaker === 'user');
   const userRole = getUserRole(scenario.role);
+  const exchanges = Math.floor(conversation.length / 2);
+  const duration = sessionData?.duration || 0;
   
-  const analysisPrompt = buildEnhancedAnalysisPrompt(conversation, scenario, sessionData, userRole);
-  
-  console.log('🤖 Calling Gemini for enhanced analysis...');
+  // Build analysis prompt
+  const analysisPrompt = buildAnalysisPrompt(conversation, scenario, userRole, exchanges, duration);
   
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GOOGLE_AI_API_KEY}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -93,31 +83,27 @@ async function performEnhancedAnalysis(conversation: any[], scenario: any, sessi
   );
 
   if (!response.ok) {
-    throw new Error(`Gemini API failed: ${response.status}`);
+    throw new Error(`Gemini analysis failed: ${response.status}`);
   }
 
   const data = await response.json();
   const aiAnalysis = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
   if (!aiAnalysis) {
-    throw new Error('No analysis content from Gemini');
+    throw new Error('No analysis from Gemini');
   }
 
-  return parseEnhancedAnalysis(aiAnalysis, conversation, scenario, sessionData);
+  return parseGeminiAnalysis(aiAnalysis, conversation, scenario, sessionData);
 }
 
-function buildEnhancedAnalysisPrompt(conversation: any[], scenario: any, sessionData: any, userRole: string): string {
+function buildAnalysisPrompt(conversation: any[], scenario: any, userRole: string, exchanges: number, duration: number): string {
   const userMessages = conversation.filter(msg => msg.speaker === 'user');
-  const exchanges = Math.floor(conversation.length / 2);
-  const duration = sessionData?.duration || 0;
   
   const conversationText = conversation.map((msg, i) => 
     `${msg.speaker === 'user' ? `USER (${userRole})` : scenario.character_name}: "${msg.message}"`
   ).join('\n');
 
-  return `You are an expert ${scenario.role.replace('-', ' ')} communication coach analyzing a practice session.
-
-ANALYZE ONLY THE USER'S PERFORMANCE as a ${userRole}. Ignore the AI character's responses.
+  return `You are an expert ${scenario.role.replace('-', ' ')} communication coach. Analyze this practice session focusing ONLY on the user's performance.
 
 SESSION DETAILS:
 - Scenario: "${scenario.title}"
@@ -125,73 +111,79 @@ SESSION DETAILS:
 - Character: ${scenario.character_name} (${scenario.character_role})
 - Duration: ${duration} minutes
 - Exchanges: ${exchanges}
-- Natural Ending: ${sessionData?.naturalEnding ? 'Yes' : 'No'}
 
 COMPLETE CONVERSATION:
 ${conversationText}
 
-USER MESSAGES ONLY (Focus your analysis on these):
+USER MESSAGES TO ANALYZE:
 ${userMessages.map((msg, i) => `${i+1}. "${msg.message}"`).join('\n')}
 
-Provide comprehensive feedback in this EXACT format:
+Provide feedback in this EXACT format:
 
-OVERALL_IMPRESSION: [2-3 sentences about the USER's overall performance as a ${userRole}]
+SCORE: [Rate 1-5 based on conversation skills, engagement, and professionalism]
 
-WHAT_WORKED_WELL: [List 3-4 specific things the USER did well]
+OVERALL_IMPRESSION: [2-3 sentences about the user's overall performance as a ${userRole}]
 
-AREAS_TO_IMPROVE: [List 3-4 specific areas for improvement]
+STRENGTHS: [List 3 specific things the user did well in this conversation]
 
-COACHING_ADVICE: [Detailed advice for improving ${userRole} skills]
+IMPROVEMENTS: [List 3 specific areas where the user could improve]
 
-SCORE: [Rate 1-5 based on conversation management, communication skills, and goal achievement]
+COACHING_ADVICE: [Detailed paragraph with actionable advice for improving ${userRole} skills]
 
-Focus exclusively on the USER's ${userRole} performance.`;
+Focus exclusively on the user's communication skills and performance.`;
 }
 
-function parseEnhancedAnalysis(aiResponse: string, conversation: any[], scenario: any, sessionData: any) {
+function parseGeminiAnalysis(aiResponse: string, conversation: any[], scenario: any, sessionData: any) {
   const lines = aiResponse.split('\n').filter(line => line.trim());
   
+  let overall_score = 3.0;
   let overall_impression = '';
   let what_worked_well: string[] = [];
   let areas_to_improve: string[] = [];
   let coaching_advice = '';
-  let score = 3.0;
-  
-  let currentSection = '';
   
   for (const line of lines) {
     const trimmed = line.trim();
     
-    if (trimmed.startsWith('OVERALL_IMPRESSION:')) {
-      overall_impression = trimmed.replace('OVERALL_IMPRESSION:', '').trim();
-      currentSection = 'impression';
-    } else if (trimmed.startsWith('WHAT_WORKED_WELL:')) {
-      currentSection = 'strengths';
-    } else if (trimmed.startsWith('AREAS_TO_IMPROVE:')) {
-      currentSection = 'improvements';
-    } else if (trimmed.startsWith('COACHING_ADVICE:')) {
-      currentSection = 'advice';
-    } else if (trimmed.startsWith('SCORE:')) {
+    if (trimmed.startsWith('SCORE:')) {
       const scoreMatch = trimmed.match(/(\d+\.?\d*)/);
       if (scoreMatch) {
-        score = Math.min(5.0, Math.max(1.0, parseFloat(scoreMatch[1])));
+        overall_score = Math.min(5.0, Math.max(1.0, parseFloat(scoreMatch[1])));
       }
-      currentSection = '';
-    } else if (trimmed && currentSection === 'strengths') {
-      const content = trimmed.replace(/^[-•*]\s*/, '').trim();
-      if (content && content.length > 5) {
-        what_worked_well.push(content);
+    } else if (trimmed.startsWith('OVERALL_IMPRESSION:')) {
+      overall_impression = trimmed.replace('OVERALL_IMPRESSION:', '').trim();
+    } else if (trimmed.startsWith('STRENGTHS:')) {
+      // Parse following lines as strengths
+      const nextLines = lines.slice(lines.indexOf(line) + 1);
+      for (const nextLine of nextLines) {
+        const content = nextLine.trim().replace(/^[-•*]\s*/, '');
+        if (content && !content.includes(':') && content.length > 10) {
+          what_worked_well.push(content);
+          if (what_worked_well.length >= 3) break;
+        }
+        if (nextLine.includes(':')) break;
       }
-    } else if (trimmed && currentSection === 'improvements') {
-      const content = trimmed.replace(/^[-•*]\s*/, '').trim();
-      if (content && content.length > 5) {
-        areas_to_improve.push(content);
+    } else if (trimmed.startsWith('IMPROVEMENTS:')) {
+      // Parse following lines as improvements
+      const nextLines = lines.slice(lines.indexOf(line) + 1);
+      for (const nextLine of nextLines) {
+        const content = nextLine.trim().replace(/^[-•*]\s*/, '');
+        if (content && !content.includes(':') && content.length > 10) {
+          areas_to_improve.push(content);
+          if (areas_to_improve.length >= 3) break;
+        }
+        if (nextLine.includes(':')) break;
       }
-    } else if (trimmed && currentSection === 'advice') {
-      if (!coaching_advice) {
-        coaching_advice = trimmed;
-      } else {
-        coaching_advice += ' ' + trimmed;
+    } else if (trimmed.startsWith('COACHING_ADVICE:')) {
+      coaching_advice = trimmed.replace('COACHING_ADVICE:', '').trim();
+      // Include following lines until next section
+      const nextLines = lines.slice(lines.indexOf(line) + 1);
+      for (const nextLine of nextLines) {
+        if (nextLine.trim() && !nextLine.includes(':')) {
+          coaching_advice += ' ' + nextLine.trim();
+        } else {
+          break;
+        }
       }
     }
   }
@@ -201,20 +193,20 @@ function parseEnhancedAnalysis(aiResponse: string, conversation: any[], scenario
   const duration = sessionData?.duration || 0;
 
   return {
-    overall_score: score,
+    overall_score,
     human_feedback: {
-      overall_impression: overall_impression || `You completed a ${userRole} practice session with ${scenario.character_name}. ${sessionData?.naturalEnding ? 'The conversation reached a natural conclusion' : 'The session covered key topics'} over ${exchanges} exchanges.`,
+      overall_impression: overall_impression || `You completed a ${userRole} practice session with ${scenario.character_name} over ${exchanges} exchanges in ${duration} minutes.`,
       what_worked_well: what_worked_well.length > 0 ? what_worked_well : [
-        `You actively engaged as a ${userRole} throughout the conversation`,
-        `You maintained professional communication during the ${duration}-minute session`,
-        'You participated consistently in the role-play exercise'
+        `You actively participated in the ${userRole} conversation`,
+        `You maintained professional communication throughout`,
+        'You engaged consistently with the AI character'
       ],
       areas_to_improve: areas_to_improve.length > 0 ? areas_to_improve : [
         `Continue developing your ${userRole} conversation techniques`,
         'Practice bringing conversations to natural conclusions',
-        'Work on achieving conversation goals more systematically'
+        'Work on achieving specific conversation objectives'
       ],
-      coaching_advice: coaching_advice || `Your ${userRole} practice session ${sessionData?.naturalEnding ? 'was well-structured with a natural ending' : 'covered important ground'}. Focus on systematic objective completion in future sessions.`
+      coaching_advice: coaching_advice || `Your ${userRole} practice session covered important ground. Continue practicing to build conversation confidence and achieve objectives more systematically.`
     },
     conversation_stats: {
       total_exchanges: exchanges,
@@ -225,23 +217,22 @@ function parseEnhancedAnalysis(aiResponse: string, conversation: any[], scenario
       user_role_practiced: userRole,
       session_duration: duration,
       conversation_quality: exchanges >= 8 ? 8.5 : exchanges >= 6 ? 7.0 : exchanges >= 4 ? 6.0 : 5.0,
-      completeness_score: exchanges >= 8 ? 9.0 : exchanges >= 6 ? 7.5 : exchanges >= 4 ? 6.0 : 4.5,
+      completeness_score: exchanges >= 8 ? 8.0 : exchanges >= 6 ? 6.5 : exchanges >= 4 ? 5.0 : 4.0,
       natural_ending: sessionData?.naturalEnding || false
     },
-    analysis_type: 'enhanced-ai-analysis',
+    analysis_type: 'gemini-analysis',
     timestamp: new Date().toISOString()
   };
 }
 
-function generateEnhancedFallback(conversation: any[], scenario: any, sessionData: any) {
-  console.log('📊 Creating enhanced fallback analysis...');
+function generateFallbackAnalysis(conversation: any[], scenario: any, sessionData: any) {
+  console.log('📊 Generating fallback analysis...');
   
-  const userMessages = conversation.filter(msg => msg.speaker === 'user');
   const userRole = getUserRole(scenario.role);
   const exchanges = Math.floor(conversation.length / 2);
   const duration = sessionData?.duration || 0;
   
-  // Enhanced scoring based on multiple factors
+  // Calculate score based on engagement
   let score = 2.5;
   score += exchanges >= 2 ? 0.5 : 0;
   score += exchanges >= 4 ? 0.5 : 0;
@@ -254,24 +245,22 @@ function generateEnhancedFallback(conversation: any[], scenario: any, sessionDat
   return {
     overall_score: score,
     human_feedback: {
-      overall_impression: `You practiced as a ${userRole} with ${scenario.character_name} ${sessionData?.naturalEnding ? 'and successfully brought the conversation to a natural conclusion' : 'over ' + exchanges + ' exchanges'}. Your conversation quality was ${exchanges >= 8 ? 'excellent' : exchanges >= 6 ? 'good' : exchanges >= 4 ? 'solid' : 'developing'}.`,
+      overall_impression: `You completed a ${userRole} practice session with ${scenario.character_name}. The conversation included ${exchanges} exchanges over ${duration} minutes, showing ${exchanges >= 8 ? 'excellent' : exchanges >= 6 ? 'good' : exchanges >= 4 ? 'solid' : 'basic'} engagement.`,
       what_worked_well: [
-        `You actively participated in the ${userRole} role-play exercise`,
-        exchanges >= 6 ? `You sustained the conversation well with ${exchanges} exchanges` : 'You engaged professionally with the AI character',
-        duration >= 5 ? `You invested ${duration} minutes in meaningful practice` : 'You committed time to skill development',
-        sessionData?.naturalEnding ? 'You successfully guided the conversation to a natural conclusion' : 'You stayed focused on the scenario objectives'
-      ].slice(0, 3),
+        `You actively participated as a ${userRole} throughout the conversation`,
+        exchanges >= 6 ? `You sustained good conversation flow with ${exchanges} exchanges` : 'You maintained professional engagement with the AI character',
+        duration >= 5 ? `You invested ${duration} minutes in meaningful practice` : 'You committed time to skill development'
+      ],
       areas_to_improve: [
-        exchanges < 6 ? `Try to extend conversations longer for more comprehensive ${userRole} practice` : 'Continue building on your conversation management skills',
-        !sessionData?.naturalEnding ? 'Practice bringing conversations to natural, professional conclusions' : 'Try to explore topics in even greater depth',
-        'Work on systematically covering key professional objectives',
-        'Continue developing your communication confidence'
-      ].slice(0, 3),
-      coaching_advice: `Your ${userRole} practice session ${sessionData?.naturalEnding ? 'demonstrated good conversation management with a natural ending' : 'covered important ground'}. ${exchanges >= 8 ? 'Excellent depth - continue practicing with similar engagement.' : exchanges >= 6 ? 'Good progress - focus on extending conversations naturally.' : 'Keep practicing to build conversation confidence and depth.'}`
+        exchanges < 6 ? `Try extending conversations longer for more comprehensive ${userRole} practice` : 'Continue building advanced conversation techniques',
+        !sessionData?.naturalEnding ? 'Practice bringing conversations to natural, professional conclusions' : 'Explore topics in greater depth in future sessions',
+        'Focus on systematically achieving conversation objectives'
+      ],
+      coaching_advice: `Your ${userRole} practice session ${sessionData?.naturalEnding ? 'reached a natural conclusion, showing good conversation management' : 'covered important ground'}. ${exchanges >= 8 ? 'Excellent engagement - continue with similar depth.' : exchanges >= 6 ? 'Good progress - focus on extending conversations naturally.' : 'Keep practicing to build conversation confidence.'} Regular practice will help you develop stronger professional communication skills.`
     },
     conversation_stats: {
       total_exchanges: exchanges,
-      user_messages: userMessages.length,
+      user_messages: conversation.filter(msg => msg.speaker === 'user').length,
       character_name: scenario.character_name,
       scenario_title: scenario.title,
       role_type: scenario.role,
@@ -281,7 +270,7 @@ function generateEnhancedFallback(conversation: any[], scenario: any, sessionDat
       completeness_score: exchanges >= 8 ? 8.5 : exchanges >= 6 ? 7.0 : exchanges >= 4 ? 5.5 : 4.0,
       natural_ending: sessionData?.naturalEnding || false
     },
-    analysis_type: 'enhanced-fallback',
+    analysis_type: 'fallback-analysis',
     timestamp: new Date().toISOString()
   };
 }
@@ -293,7 +282,6 @@ function getUserRole(scenarioRole: string): string {
     'product-manager': 'product manager',
     'leader': 'leader',
     'manager': 'manager',
-    'strategy-lead': 'strategy lead',
     'support-agent': 'customer service representative',
     'data-analyst': 'data analyst',
     'engineer': 'engineer',
