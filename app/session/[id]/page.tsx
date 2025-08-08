@@ -1,4 +1,4 @@
-// app/session/[id]/page.tsx - Fixed Session with Proper Speech Flow
+// app/session/[id]/page.tsx - Fixed Speech Recognition and Conversation Flow
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -40,7 +40,7 @@ export default function FixedSessionPage({ params }: { params: { id: string } })
   const [objectives, setObjectives] = useState<ObjectiveProgress[]>([]);
   const [objectivesCompleted, setObjectivesCompleted] = useState(0);
   
-  // Speech state - Fixed state management
+  // Speech state - Simplified and more reliable
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -53,12 +53,18 @@ export default function FixedSessionPage({ params }: { params: { id: string } })
   const [aiSuggestedEnd, setAiSuggestedEnd] = useState(false);
   const [isEnding, setIsEnding] = useState(false);
   
-  // Refs
+  // Refs for stable references
   const recognitionRef = useRef<any>(null);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
-  const isProcessingRef = useRef(false); // Ref to track processing state
+  const conversationRef = useRef<ConversationMessage[]>([]);
+  const processingRef = useRef(false);
   
   const router = useRouter();
+
+  // Keep conversation ref in sync
+  useEffect(() => {
+    conversationRef.current = conversation;
+  }, [conversation]);
 
   // Get scenario objectives based on role
   const getScenarioObjectives = (role: string): string[] => {
@@ -189,7 +195,7 @@ export default function FixedSessionPage({ params }: { params: { id: string } })
         recognitionRef.current.stop();
         recognitionRef.current.abort();
       } catch (e) {
-        console.log('Recognition already stopped');
+        console.log('Recognition cleanup completed');
       }
       recognitionRef.current = null;
     }
@@ -203,27 +209,34 @@ export default function FixedSessionPage({ params }: { params: { id: string } })
       utteranceRef.current = null;
     }
     
-    // Reset states
+    // Reset all states
     setIsListening(false);
     setIsSpeaking(false);
     setIsProcessing(false);
     setMicrophoneEnabled(false);
-    isProcessingRef.current = false;
+    setCurrentTranscript('');
+    processingRef.current = false;
   }, []);
 
   const startConversation = async () => {
     if (!scenario || !sessionId) return;
 
     try {
-      // Request microphone permission and enable microphone
-      await navigator.mediaDevices.getUserMedia({ audio: true });
+      console.log('🎤 Requesting microphone permission...');
+      
+      // Request microphone permission
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      
+      // Stop the stream immediately (we just needed permission)
+      stream.getTracks().forEach(track => track.stop());
+      
       setHasPermission(true);
       setMicrophoneEnabled(true);
       setError('');
       
-      console.log('🎤 Microphone enabled, starting conversation...');
+      console.log('✅ Microphone permission granted');
       
-      // Generate proper character greeting
+      // Generate greeting
       const greeting = getCharacterGreeting(scenario);
       
       const aiMessage: ConversationMessage = {
@@ -234,24 +247,29 @@ export default function FixedSessionPage({ params }: { params: { id: string } })
       
       const initialConversation = [aiMessage];
       setConversation(initialConversation);
+      conversationRef.current = initialConversation;
       
       // Save to database
       await saveConversation(initialConversation);
       
-      // Speak greeting
+      console.log('🔊 AI will speak greeting...');
+      
+      // Speak greeting and then start listening
       await speakMessage(greeting);
       
-      // Start listening after AI finishes speaking
+      // Start listening after a brief delay
       setTimeout(() => {
         if (isActive && !isEnding && microphoneEnabled) {
           console.log('🎤 Starting to listen for user input...');
           startListening();
         }
-      }, 1000);
+      }, 500);
       
     } catch (err) {
-      console.error('Microphone permission error:', err);
-      setError('Microphone access required. Please allow access and refresh.');
+      console.error('❌ Microphone permission error:', err);
+      setError('Microphone access is required. Please allow microphone access and try again.');
+      setMicrophoneEnabled(false);
+      setHasPermission(false);
     }
   };
 
@@ -259,19 +277,19 @@ export default function FixedSessionPage({ params }: { params: { id: string } })
     const greetings: Record<string, string[]> = {
       'sales': [
         `Hi, I'm ${scenario.character_name}. I understand you wanted to discuss ${scenario.title}. I'm interested to learn more about what you're offering.`,
-        `Hello! I'm ${scenario.character_name}. I've heard you might have a solution that could help us with ${scenario.title}. Tell me more.`
+        `Hello! I'm ${scenario.character_name}. I've heard you might have a solution that could help us. Tell me more.`
       ],
       'project-manager': [
         `Hi, I'm ${scenario.character_name}. I'm here for our meeting about ${scenario.title}. What's our main focus today?`,
-        `Hello! Thanks for setting up this meeting about ${scenario.title}. What should we prioritize?`
+        `Hello! Thanks for setting up this meeting. What should we prioritize?`
       ],
       'support-agent': [
         `Hi there! I'm ${scenario.character_name} and I need some help. I'm having an issue related to ${scenario.title}. Can you assist me?`,
-        `Hello, I'm ${scenario.character_name}. I'm calling because I'm experiencing some problems with ${scenario.title}. Can you help?`
+        `Hello, I'm ${scenario.character_name}. I'm experiencing some problems and need assistance. Can you help?`
       ],
       'manager': [
-        `Hi, thanks for meeting with me today. I wanted to discuss ${scenario.title}. How do you think things are going so far?`,
-        `Hello! I appreciate you taking the time to chat about ${scenario.title}. What's your perspective on this?`
+        `Hi, thanks for meeting with me today. I wanted to discuss ${scenario.title}. How do you think things are going?`,
+        `Hello! I appreciate you taking the time to chat. What's your perspective on this?`
       ]
     };
 
@@ -282,6 +300,7 @@ export default function FixedSessionPage({ params }: { params: { id: string } })
   const speakMessage = async (text: string): Promise<void> => {
     return new Promise((resolve) => {
       if (!window.speechSynthesis) {
+        console.log('⚠️ Speech synthesis not available');
         resolve();
         return;
       }
@@ -307,7 +326,7 @@ export default function FixedSessionPage({ params }: { params: { id: string } })
       };
       
       utterance.onerror = (event) => {
-        console.error('Speech synthesis error:', event);
+        console.error('🔊 Speech synthesis error:', event);
         setIsSpeaking(false);
         utteranceRef.current = null;
         resolve();
@@ -318,80 +337,100 @@ export default function FixedSessionPage({ params }: { params: { id: string } })
   };
 
   const startListening = useCallback(() => {
-    // Check if we should be listening
-    if (!isActive || !microphoneEnabled || isSpeaking || isProcessingRef.current || isEnding) {
-      console.log('🎤 Cannot start listening:', { 
+    // Comprehensive state check
+    if (!isActive || !microphoneEnabled || isSpeaking || processingRef.current || isEnding) {
+      console.log('🚫 Cannot start listening:', { 
         isActive, 
         microphoneEnabled, 
         isSpeaking, 
-        isProcessing: isProcessingRef.current, 
+        isProcessing: processingRef.current, 
         isEnding 
       });
       return;
     }
 
     if (!('webkitSpeechRecognition' in window)) {
-      setError('Speech recognition requires Chrome browser.');
+      setError('Speech recognition is only supported in Chrome browser. Please use Chrome to continue.');
       return;
     }
 
-    // Stop any existing recognition
+    // Clean up any existing recognition
     if (recognitionRef.current) {
       try {
         recognitionRef.current.stop();
+        recognitionRef.current = null;
       } catch (e) {
-        console.log('Previous recognition already stopped');
+        console.log('Cleaned up previous recognition');
       }
     }
 
-    console.log('🎤 Starting speech recognition...');
+    console.log('🎤 Initializing speech recognition...');
     
     const SpeechRecognition = (window as any).webkitSpeechRecognition;
     const recognition = new SpeechRecognition();
     
-    recognition.continuous = false; // Changed to false for better control
+    // Configure recognition for better reliability
+    recognition.continuous = true;
     recognition.interimResults = true;
     recognition.lang = 'en-US';
     recognition.maxAlternatives = 1;
     
     recognitionRef.current = recognition;
-    setIsListening(true);
-    setCurrentTranscript('');
-
+    
+    let silenceTimer: NodeJS.Timeout;
     let finalTranscript = '';
+    let hasRecognizedSpeech = false;
 
     recognition.onstart = () => {
-      console.log('🎤 Speech recognition started');
+      console.log('🎤 Speech recognition started successfully');
       setIsListening(true);
+      setCurrentTranscript('');
+      hasRecognizedSpeech = false;
+      
+      // Set a timeout to detect silence and restart if needed
+      silenceTimer = setTimeout(() => {
+        if (recognitionRef.current && !hasRecognizedSpeech) {
+          console.log('🔄 Restarting recognition due to silence');
+          recognition.stop();
+        }
+      }, 10000); // 10 second timeout
     };
 
     recognition.onresult = (event: any) => {
-      if (!isActive || !microphoneEnabled || isProcessingRef.current || isEnding) return;
+      if (!isActive || !microphoneEnabled || processingRef.current || isEnding) {
+        console.log('🚫 Ignoring recognition result due to state');
+        return;
+      }
+
+      clearTimeout(silenceTimer);
+      hasRecognizedSpeech = true;
 
       let interimTranscript = '';
       let confidence = 0;
       
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i];
-        const transcript = result[0].transcript;
+        const transcript = result[0].transcript.trim();
         confidence = result[0].confidence || 0.8;
         
         if (result.isFinal) {
           finalTranscript = transcript;
-          console.log('🎤 Final transcript:', finalTranscript);
+          console.log('🎤 Final transcript received:', finalTranscript);
         } else {
           interimTranscript = transcript;
         }
       }
 
-      // Update interim transcript display
+      // Update UI with interim results
       setCurrentTranscript(interimTranscript);
 
       // Process final transcript
-      if (finalTranscript.trim() && !isProcessingRef.current) {
+      if (finalTranscript && finalTranscript.length > 0 && !processingRef.current) {
+        console.log('✅ Processing final transcript:', finalTranscript);
+        recognition.stop(); // Stop recognition before processing
         setIsListening(false);
         setCurrentTranscript('');
-        processUserSpeech(finalTranscript.trim(), confidence);
+        processUserSpeech(finalTranscript, confidence);
       }
     };
 
@@ -399,23 +438,24 @@ export default function FixedSessionPage({ params }: { params: { id: string } })
       console.error('🎤 Speech recognition error:', event.error);
       setIsListening(false);
       setCurrentTranscript('');
+      clearTimeout(silenceTimer);
       
       if (event.error === 'not-allowed') {
-        setError('Microphone access denied. Please refresh and allow access.');
+        setError('Microphone access was denied. Please allow microphone access and refresh the page.');
         setMicrophoneEnabled(false);
-      } else if (event.error === 'no-speech') {
-        console.log('🎤 No speech detected, restarting...');
-        // Restart listening after a short delay
+        return;
+      }
+      
+      if (event.error === 'network') {
+        setError('Network error occurred. Please check your internet connection.');
+        return;
+      }
+      
+      // For other errors, try to restart after a delay
+      if (event.error !== 'aborted' && isActive && microphoneEnabled && !processingRef.current && !isEnding) {
+        console.log('🔄 Will restart recognition after error:', event.error);
         setTimeout(() => {
-          if (isActive && microphoneEnabled && !isSpeaking && !isProcessingRef.current && !isEnding) {
-            startListening();
-          }
-        }, 1000);
-      } else if (event.error !== 'aborted') {
-        console.log('🎤 Recognition error, will restart...');
-        // Restart listening after error
-        setTimeout(() => {
-          if (isActive && microphoneEnabled && !isSpeaking && !isProcessingRef.current && !isEnding) {
+          if (isActive && microphoneEnabled && !isSpeaking && !processingRef.current && !isEnding) {
             startListening();
           }
         }, 2000);
@@ -425,38 +465,47 @@ export default function FixedSessionPage({ params }: { params: { id: string } })
     recognition.onend = () => {
       console.log('🎤 Speech recognition ended');
       setIsListening(false);
+      clearTimeout(silenceTimer);
       
-      // Auto-restart if no final transcript was captured and conditions are met
-      if (!finalTranscript && isActive && microphoneEnabled && !isSpeaking && !isProcessingRef.current && !isEnding) {
-        console.log('🎤 Auto-restarting speech recognition...');
+      // Only restart if we haven't captured speech and conditions are still good
+      if (!finalTranscript && !hasRecognizedSpeech && isActive && microphoneEnabled && !isSpeaking && !processingRef.current && !isEnding) {
+        console.log('🔄 Auto-restarting recognition');
         setTimeout(() => {
           startListening();
-        }, 500);
+        }, 1000);
       }
     };
 
+    // Start recognition
     try {
       recognition.start();
     } catch (error) {
       console.error('🎤 Failed to start recognition:', error);
+      setError('Failed to start speech recognition. Please try again.');
       setIsListening(false);
     }
   }, [isActive, microphoneEnabled, isSpeaking, isEnding]);
 
   const processUserSpeech = async (userMessage: string, confidence: number) => {
-    if (!userMessage || !scenario || !sessionId || !isActive || isEnding || isProcessingRef.current) {
-      console.log('🚫 Cannot process speech:', { userMessage: !!userMessage, scenario: !!scenario, sessionId: !!sessionId, isActive, isEnding, isProcessing: isProcessingRef.current });
+    if (!userMessage || userMessage.length < 2 || !scenario || !sessionId || !isActive || isEnding || processingRef.current) {
+      console.log('🚫 Cannot process speech:', { 
+        userMessage: userMessage?.length, 
+        scenario: !!scenario, 
+        sessionId: !!sessionId, 
+        isActive, 
+        isEnding, 
+        isProcessing: processingRef.current 
+      });
       return;
     }
     
     console.log('🔄 Processing user speech:', userMessage);
     
     // Set processing state
-    isProcessingRef.current = true;
+    processingRef.current = true;
     setIsProcessing(true);
-    setIsListening(false);
-    setCurrentTranscript('');
     
+    // Create user message
     const userMsg: ConversationMessage = {
       speaker: 'user',
       message: userMessage,
@@ -464,14 +513,25 @@ export default function FixedSessionPage({ params }: { params: { id: string } })
       confidence
     };
     
-    const updatedConversation = [...conversation, userMsg];
+    // Update conversation state
+    const updatedConversation = [...conversationRef.current, userMsg];
     setConversation(updatedConversation);
+    conversationRef.current = updatedConversation;
+    
+    console.log('💾 Saving conversation with user message...');
     await saveConversation(updatedConversation);
 
     try {
-      // Get AI response
       console.log('🤖 Getting AI response...');
+      
+      // Get AI response
       const aiResponse = await getAIResponse(scenario, userMessage, updatedConversation);
+      
+      if (!aiResponse || !aiResponse.response) {
+        throw new Error('No response from AI');
+      }
+      
+      console.log('🤖 AI responded:', aiResponse.response.substring(0, 50) + '...');
       
       const aiMsg: ConversationMessage = {
         speaker: 'ai',
@@ -479,11 +539,15 @@ export default function FixedSessionPage({ params }: { params: { id: string } })
         timestamp: Date.now()
       };
       
+      // Update conversation with AI response
       const finalConversation = [...updatedConversation, aiMsg];
       setConversation(finalConversation);
+      conversationRef.current = finalConversation;
+      
+      console.log('💾 Saving conversation with AI response...');
       await saveConversation(finalConversation);
       
-      // Update objectives based on conversation
+      // Update objectives
       updateObjectiveProgress(finalConversation);
       
       // Check for natural ending
@@ -491,26 +555,30 @@ export default function FixedSessionPage({ params }: { params: { id: string } })
         setAiSuggestedEnd(true);
       }
       
-      // Reset processing state before speaking
-      isProcessingRef.current = false;
+      // Reset processing state
+      processingRef.current = false;
       setIsProcessing(false);
       
-      // Speak response
+      console.log('🔊 AI will speak response...');
+      
+      // Speak AI response
       await speakMessage(aiResponse.response);
       
-      // Start listening again after AI finishes speaking
       console.log('🎤 Ready to listen again...');
+      
+      // Start listening again after AI finishes speaking
       setTimeout(() => {
-        if (isActive && microphoneEnabled && !isEnding && !isProcessingRef.current) {
+        if (isActive && microphoneEnabled && !isEnding && !processingRef.current) {
           startListening();
         }
       }, 500);
       
     } catch (err) {
       console.error('❌ Error processing speech:', err);
-      isProcessingRef.current = false;
+      processingRef.current = false;
       setIsProcessing(false);
-      setError('Having trouble processing your message. Please try again.');
+      
+      setError('Having trouble processing your message. Please try speaking again.');
       
       // Restart listening after error
       setTimeout(() => {
@@ -527,26 +595,25 @@ export default function FixedSessionPage({ params }: { params: { id: string } })
     const userMessages = conversationHistory.filter(msg => msg.speaker === 'user');
     const conversationText = userMessages.map(msg => msg.message.toLowerCase()).join(' ');
     
-    // Simple keyword-based objective detection
+    // Enhanced keyword-based objective detection
     const updatedObjectives = objectives.map(obj => {
       let completed = false;
       let evidence = '';
       
-      // Basic pattern matching for different objectives
       if (obj.text.includes('rapport') || obj.text.includes('trust')) {
-        const rapportWords = ['nice to meet', 'pleasure', 'understand', 'appreciate', 'thanks', 'hello', 'good morning', 'good afternoon'];
+        const rapportWords = ['hello', 'hi', 'nice', 'pleasure', 'thank', 'appreciate', 'good morning', 'good afternoon', 'how are you'];
         completed = rapportWords.some(word => conversationText.includes(word));
-        if (completed) evidence = 'Used positive language and showed appreciation';
+        if (completed) evidence = 'Used greeting and positive language';
       }
       
       if (obj.text.includes('needs') || obj.text.includes('requirements') || obj.text.includes('questions')) {
-        const questionWords = ['what', 'how', 'why', 'when', 'where', 'tell me', 'explain', 'can you', 'would you', '?'];
+        const questionWords = ['what', 'how', 'why', 'when', 'where', 'tell me', 'can you', 'would you', 'do you', 'are you'];
         completed = questionWords.some(word => conversationText.includes(word));
         if (completed) evidence = 'Asked questions to understand needs';
       }
       
       if (obj.text.includes('solution') || obj.text.includes('benefits') || obj.text.includes('present')) {
-        const solutionWords = ['we can', 'this will', 'help you', 'benefit', 'solution', 'offer', 'provide', 'recommend'];
+        const solutionWords = ['we can', 'i can', 'this will', 'help', 'benefit', 'solution', 'offer', 'provide', 'recommend', 'suggest'];
         completed = solutionWords.some(word => conversationText.includes(word));
         if (completed) evidence = 'Presented solutions or benefits';
       }
@@ -560,6 +627,8 @@ export default function FixedSessionPage({ params }: { params: { id: string } })
 
   const getAIResponse = async (scenario: Scenario, userMessage: string, conversationHistory: ConversationMessage[]) => {
     try {
+      console.log('📡 Calling AI API...');
+      
       const response = await fetch('/api/ai-conversation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -572,27 +641,34 @@ export default function FixedSessionPage({ params }: { params: { id: string } })
       });
 
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error('AI API failed:', response.status, errorText);
         throw new Error(`AI API failed: ${response.status}`);
       }
 
       const data = await response.json();
       
       if (!data.success) {
+        console.error('AI API returned error:', data.error);
         throw new Error(data.error || 'AI response failed');
       }
       
+      console.log('✅ AI API successful');
       return data.data;
     } catch (error) {
-      console.error('Error getting AI response:', error);
+      console.error('❌ Error calling AI API:', error);
       throw error;
     }
   };
 
   const saveConversation = async (updatedConversation: ConversationMessage[]) => {
-    if (!sessionId) return;
+    if (!sessionId) {
+      console.warn('⚠️ No session ID for saving conversation');
+      return;
+    }
     
     try {
-      await fetch('/api/sessions', {
+      const response = await fetch('/api/sessions', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -600,8 +676,14 @@ export default function FixedSessionPage({ params }: { params: { id: string } })
           conversation: updatedConversation
         })
       });
+      
+      if (!response.ok) {
+        console.error('Failed to save conversation:', response.status);
+      } else {
+        console.log('💾 Conversation saved successfully');
+      }
     } catch (err) {
-      console.error('Error saving conversation:', err);
+      console.error('❌ Error saving conversation:', err);
     }
   };
 
@@ -611,8 +693,8 @@ export default function FixedSessionPage({ params }: { params: { id: string } })
     console.log('🛑 Ending session...');
     
     setIsEnding(true);
-    setMicrophoneEnabled(false); // Disable microphone
-    cleanup(); // Clean up all speech components
+    setMicrophoneEnabled(false);
+    cleanup();
     setIsActive(false);
     
     // Save session data
@@ -623,10 +705,10 @@ export default function FixedSessionPage({ params }: { params: { id: string } })
       
       try {
         // Calculate score based on objectives and conversation quality
-        let score = 2.0; // Base score
-        score += (objectivesCompleted / objectives.length) * 2.0; // Up to 2 points for objectives
-        score += exchanges >= 4 ? 0.5 : 0; // Engagement bonus
-        score += duration >= 3 ? 0.5 : 0; // Duration bonus
+        let score = 2.0;
+        score += (objectivesCompleted / objectives.length) * 2.0;
+        score += exchanges >= 4 ? 0.5 : 0;
+        score += duration >= 3 ? 0.5 : 0;
         score = Math.min(5.0, score);
         
         await fetch('/api/sessions', {
@@ -673,6 +755,17 @@ export default function FixedSessionPage({ params }: { params: { id: string } })
     router.push('/feedback');
   };
 
+  // Manual restart listening button (for debugging)
+  const restartListening = () => {
+    console.log('🔄 Manual restart listening...');
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+    }
+    setTimeout(() => {
+      startListening();
+    }, 500);
+  };
+
   // Get status info for UI
   const getStatusInfo = () => {
     const exchanges = Math.floor(conversation.length / 2);
@@ -686,24 +779,24 @@ export default function FixedSessionPage({ params }: { params: { id: string } })
     }
     
     if (isProcessing) {
-      return { icon: '🤖', title: 'AI Thinking...', message: `${scenario.character_name} is processing`, color: 'bg-orange-500' };
+      return { icon: '🤖', title: 'AI Processing...', message: `${scenario.character_name} is thinking`, color: 'bg-orange-500' };
     }
     
     if (isSpeaking) {
-      return { icon: '🔊', title: `${scenario.character_name} Speaking`, message: 'AI is responding', color: 'bg-purple-500' };
+      return { icon: '🔊', title: `${scenario.character_name} Speaking`, message: 'Listen to the response', color: 'bg-purple-500' };
     }
     
     if (isListening) {
       return { 
         icon: '🎤', 
-        title: aiSuggestedEnd ? 'Natural Conclusion Ready' : 'Listening...', 
-        message: aiSuggestedEnd ? 'Conversation completed - ready for feedback' : 'Speak your message',
-        color: aiSuggestedEnd ? 'bg-green-600' : 'bg-green-500'
+        title: 'Your Turn to Speak', 
+        message: 'Speak clearly into your microphone',
+        color: 'bg-green-500'
       };
     }
 
     if (microphoneEnabled && !isListening && !isSpeaking && !isProcessing) {
-      return { icon: '⏸️', title: 'Ready to Listen', message: 'Microphone is active', color: 'bg-blue-500' };
+      return { icon: '⏸️', title: 'Ready to Listen', message: 'Waiting to start listening...', color: 'bg-blue-500' };
     }
     
     return { icon: '💬', title: 'In Conversation', message: `${exchanges} exchanges completed`, color: 'bg-blue-600' };
@@ -735,11 +828,11 @@ export default function FixedSessionPage({ params }: { params: { id: string } })
             <button
               onClick={() => {
                 setError('');
-                if (sessionId) startConversation();
+                window.location.reload();
               }}
               className="w-full bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600"
             >
-              Try Again
+              Refresh & Try Again
             </button>
             <button
               onClick={() => router.push('/dashboard')}
@@ -747,7 +840,7 @@ export default function FixedSessionPage({ params }: { params: { id: string } })
             >
               Back to Dashboard
             </button>
-          </div>
+          </div
         </div>
       </div>
     );
