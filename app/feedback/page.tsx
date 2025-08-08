@@ -238,6 +238,7 @@ export default function FocusedFeedbackPage() {
     router.push('/dashboard');
   };
 
+  // Loading state
   if (loading || !sessionData) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
@@ -254,6 +255,7 @@ export default function FocusedFeedbackPage() {
     );
   }
 
+  // Error state
   if (error && !feedback) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-red-50 to-pink-100 flex items-center justify-center p-4">
@@ -281,7 +283,10 @@ export default function FocusedFeedbackPage() {
     );
   }
 
-  if (!feedback) return null;
+  // No feedback state
+  if (!feedback) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4">
