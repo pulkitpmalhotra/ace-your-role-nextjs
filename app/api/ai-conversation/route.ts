@@ -1,4 +1,4 @@
-// app/api/ai-conversation/route.ts - Fixed with Vercel AI SDK
+// app/api/ai-conversation/route.ts - Fixed with Better Error Handling & Environment Setup
 import { google } from '@ai-sdk/google';
 import { generateText } from 'ai';
 
@@ -14,23 +14,37 @@ export async function POST(request: Request) {
       );
     }
 
-    const GOOGLE_AI_API_KEY = process.env.GOOGLE_AI_API_KEY;
+    // Check for Google API key - try both environment variable names
+    const GOOGLE_AI_API_KEY = process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GOOGLE_AI_API_KEY;
     
     if (!GOOGLE_AI_API_KEY) {
-      console.error('❌ Missing GOOGLE_AI_API_KEY');
+      console.error('❌ Missing Google API key. Check environment variables: GOOGLE_GENERATIVE_AI_API_KEY or GOOGLE_AI_API_KEY');
       return generateContextualFallback(scenario, userMessage, conversationHistory);
     }
 
-    console.log('🤖 Generating enhanced AI response with Gemini 2.5 Flash Lite...');
+    console.log('🤖 Generating AI response with Vercel AI SDK + Gemini...');
 
     // Build enhanced conversation prompt
     const prompt = buildEnhancedConversationPrompt(scenario, userMessage, conversationHistory);
 
     try {
-      // Use Vercel AI SDK with Gemini 2.5 Flash Lite
-      // API key should be set in environment as GOOGLE_GENERATIVE_AI_API_KEY
+      // Use Vercel AI SDK with Gemini
+      // Note: If using GOOGLE_AI_API_KEY, you may need to create a custom provider
+      let model;
+      if (process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+        // Use default provider
+        model = google('gemini-2.0-flash-exp');
+      } else {
+        // Create custom provider for GOOGLE_AI_API_KEY
+        const { createGoogleGenerativeAI } = await import('@ai-sdk/google');
+        const customGoogle = createGoogleGenerativeAI({
+          apiKey: GOOGLE_AI_API_KEY,
+        });
+        model = customGoogle('gemini-2.0-flash-exp');
+      }
+
       const { text: aiResponse } = await generateText({
-        model: google('gemini-2.5-flash-lite'),
+        model: model,
         prompt: prompt,
         temperature: 0.9, // Higher for more natural responses
         maxTokens: 200, // Shorter for conversation flow
@@ -41,7 +55,7 @@ export async function POST(request: Request) {
       });
 
       if (!aiResponse || aiResponse.trim().length === 0) {
-        console.error('❌ Empty response from Gemini');
+        console.error('❌ Empty response from Gemini API');
         return generateContextualFallback(scenario, userMessage, conversationHistory);
       }
 
@@ -63,7 +77,7 @@ export async function POST(request: Request) {
       const shouldEnd = shouldEndConversation(conversationHistory);
       const emotion = determineEmotion(conversationHistory, scenario);
 
-      console.log('✅ Enhanced Gemini 2.5 Flash Lite response generated successfully');
+      console.log('✅ AI response generated successfully');
 
       return Response.json({
         success: true,
@@ -72,17 +86,28 @@ export async function POST(request: Request) {
           character: scenario.character_name,
           emotion: emotion,
           shouldEndConversation: shouldEnd,
-          model: 'gemini-2.5-flash-lite'
+          model: 'gemini-2.0-flash-exp'
         }
       });
 
-    } catch (aiError) {
+    } catch (aiError: any) {
       console.error('❌ Vercel AI SDK error:', aiError);
+      
+      // Check if it's an API key issue
+      if (aiError.message?.includes('API key') || aiError.message?.includes('authentication')) {
+        console.error('🔑 API Key authentication failed. Check your Google API key configuration.');
+      }
+      
+      // Check if it's a rate limit issue
+      if (aiError.message?.includes('quota') || aiError.message?.includes('rate limit')) {
+        console.error('⏰ API rate limit exceeded. Using fallback.');
+      }
+      
       return generateContextualFallback(scenario, userMessage, conversationHistory);
     }
 
   } catch (error) {
-    console.error('❌ AI Conversation error:', error);
+    console.error('❌ AI Conversation general error:', error);
     
     // Use contextual fallback for any errors
     const { scenario, userMessage, conversationHistory } = await request.json().catch(() => ({}));
@@ -150,31 +175,31 @@ Your response as ${scenario.character_name}:`;
 function getStageGuidelines(stage: string, role: string, userRole: string): string {
   const guidelines: Record<string, Record<string, string>> = {
     opening: {
-      sales: `Be welcoming but busy. You have specific needs. Ask clarifying questions about their offering.`,
-      'project-manager': `Be professional and focused. You need to understand scope and timeline. Ask about deliverables.`,
-      'product-manager': `Be curious about their proposal. You need to understand user impact. Ask about requirements.`,
-      'support-agent': `Be helpful but need to understand the issue. Ask specific questions about the problem.`,
-      'manager': `Be approachable but direct. You need to understand the situation. Ask for context.`,
-      'leader': `Be strategic and forward-thinking. You need to understand bigger picture. Ask about vision.`,
-      'default': `Be professional and engaged. Show interest but ask clarifying questions.`
+      sales: `Be welcoming but curious. You have specific business needs. Ask clarifying questions about their offering and how it addresses your challenges.`,
+      'project-manager': `Be professional and focused. You need to understand scope and timeline. Ask about deliverables and project requirements.`,
+      'product-manager': `Be curious about their proposal. You need to understand user impact. Ask about requirements and feasibility.`,
+      'support-agent': `You're frustrated with an issue. Need help urgently. Ask specific questions about the problem you're experiencing.`,
+      'manager': `Be approachable but direct. You need to understand the situation. Ask for context and their perspective.`,
+      'leader': `Be strategic and forward-thinking. You need to understand bigger picture. Ask about vision and alignment.`,
+      'default': `Be professional and engaged. Show interest but ask clarifying questions about their proposal.`
     },
     middle: {
-      sales: `Engage with their proposal. Present your specific challenges. Ask about ROI and implementation.`,
-      'project-manager': `Discuss details and challenges. Ask about resources, timeline, and risks.`,
-      'product-manager': `Dive into features and user needs. Ask about prioritization and technical feasibility.`,
-      'support-agent': `Work through the solution steps. Ask follow-up questions to ensure understanding.`,
-      'manager': `Discuss implications and next steps. Ask about resources and support needed.`,
-      'leader': `Explore strategic alignment. Ask about change management and organizational impact.`,
-      'default': `Engage with their ideas. Ask detailed questions and present realistic challenges.`
+      sales: `Engage with their proposal. Present your specific business challenges. Ask about ROI, implementation, and costs.`,
+      'project-manager': `Discuss details and challenges. Ask about resources, timeline, risks, and stakeholder communication.`,
+      'product-manager': `Dive into features and user needs. Ask about prioritization, technical feasibility, and roadmap alignment.`,
+      'support-agent': `Work through the solution steps. Ask follow-up questions to ensure you understand the fix.`,
+      'manager': `Discuss implications and next steps. Ask about resources, support needed, and implementation details.`,
+      'leader': `Explore strategic alignment. Ask about change management, organizational impact, and success metrics.`,
+      'default': `Engage with their ideas. Ask detailed questions and present realistic challenges or concerns.`
     },
     closing: {
-      sales: `Consider next steps. Ask about pricing, timeline, and decision process.`,
-      'project-manager': `Wrap up with clear action items. Ask about next meeting and deliverables.`,
-      'product-manager': `Summarize decisions. Ask about implementation timeline and success metrics.`,
-      'support-agent': `Confirm resolution. Ask if there are any other questions or concerns.`,
-      'manager': `Establish follow-up plans. Ask about check-ins and support needed.`,
-      'leader': `Align on vision and next steps. Ask about communication and rollout strategy.`,
-      'default': `Work toward resolution. Ask about next steps and follow-up actions.`
+      sales: `Consider next steps seriously. Ask about pricing, timeline, decision process, and implementation support.`,
+      'project-manager': `Wrap up with clear action items. Ask about next meeting, deliverables, and progress tracking.`,
+      'product-manager': `Summarize decisions made. Ask about implementation timeline, success metrics, and team coordination.`,
+      'support-agent': `Confirm the resolution works. Ask if there are any other questions or follow-up needed.`,
+      'manager': `Establish follow-up plans. Ask about check-ins, support needed, and success measures.`,
+      'leader': `Align on vision and next steps. Ask about communication strategy and rollout planning.`,
+      'default': `Work toward resolution. Ask about specific next steps and follow-up actions.`
     }
   };
 
@@ -341,8 +366,7 @@ function generateContextualFallback(scenario: any, userMessage: string, conversa
   const characterName = scenario?.character_name || 'Professional Contact';
   const characterRole = scenario?.character_role || 'Professional';
   
-  // Character-aware responses based on what the CHARACTER (not user) would say in their role
-  // These are responses FROM the character TO the user who is practicing
+  // Character-aware responses based on what the CHARACTER would say in their role
   const characterResponseTemplates: Record<string, any> = {
     'sales': {
       // Character is a PROSPECT/CLIENT responding to a salesperson
