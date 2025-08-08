@@ -335,114 +335,176 @@ function cleanAIResponse(response: string): string {
 }
 
 function generateContextualFallback(scenario: any, userMessage: string, conversationHistory: any[]) {
-  console.log('🔄 Using enhanced contextual fallback');
+  console.log('🔄 Using character-aware contextual fallback');
   
   const exchanges = Math.floor((conversationHistory?.length || 0) / 2);
-  const userRole = getUserRole(scenario?.role || 'sales');
+  const characterName = scenario?.character_name || 'Professional Contact';
+  const characterRole = scenario?.character_role || 'Professional';
   
-  // Context-aware responses based on what user said and conversation stage
-  const responseTemplates: Record<string, any> = {
+  // Character-aware responses based on what the CHARACTER (not user) would say in their role
+  // These are responses FROM the character TO the user who is practicing
+  const characterResponseTemplates: Record<string, any> = {
     'sales': {
+      // Character is a PROSPECT/CLIENT responding to a salesperson
       opening: [
         "That's interesting. Can you tell me more about how this would specifically help our company?",
         "I see. What makes your solution different from what we're currently using?",
-        "Help me understand - what kind of results have other companies like ours seen?"
+        "Help me understand - what kind of results have other companies like ours seen?",
+        "We've been looking for a solution like this. What's your approach?"
       ],
       middle: [
         "That's a good point. What would the implementation process look like for us?",
         "I appreciate that information. What kind of timeline are we looking at?",
-        "That sounds promising. What are the costs involved?"
+        "That sounds promising. What are the costs involved?",
+        "How would this integrate with our current systems?"
       ],
       closing: [
         "I need to think about this. What are the next steps if we want to move forward?",
         "This seems like it could work for us. Who else would need to be involved in this decision?",
-        "Let me discuss this with my team. When could we schedule a follow-up?"
+        "Let me discuss this with my team. When could we schedule a follow-up?",
+        "What kind of support do you provide during implementation?"
       ]
     },
     'project-manager': {
+      // Character is a STAKEHOLDER/TEAM MEMBER responding to a project manager
       opening: [
         "Thanks for bringing this up. What are the main challenges we need to address?",
         "I understand. How does this affect our current timeline?",
-        "That's helpful context. What resources would we need for this?"
+        "That's helpful context. What resources would we need for this?",
+        "I have some concerns about the scope. Can we discuss them?"
       ],
       middle: [
         "Good point. How should we communicate this to the stakeholders?",
         "I see the complexity here. What are the biggest risks we should consider?",
-        "That makes sense. How do we ensure we stay on track with deliverables?"
+        "That makes sense. How do we ensure we stay on track with deliverables?",
+        "What's the impact on our other priorities?"
       ],
       closing: [
         "Alright, let's define the action items. Who's responsible for what?",
         "I think we have a path forward. When should we check in on progress?",
-        "This sounds like a solid plan. What do you need from me to make this successful?"
+        "This sounds like a solid plan. What do you need from me to make this successful?",
+        "How will we measure success on this project?"
+      ]
+    },
+    'product-manager': {
+      // Character is a STAKEHOLDER responding to a product manager
+      opening: [
+        "I'm interested in hearing your thoughts on this feature request.",
+        "Our users have been asking about this. What's your take?",
+        "How does this fit with our product roadmap?",
+        "What data do we have to support this decision?"
+      ],
+      middle: [
+        "That's an interesting perspective. What about the technical feasibility?",
+        "How would this impact our current user experience?",
+        "What's the expected timeline for something like this?",
+        "Have you considered the resource requirements?"
+      ],
+      closing: [
+        "I think we need to prioritize this. What are the next steps?",
+        "Let's get the engineering team's input on this.",
+        "When can we see a prototype or mockup?",
+        "How should we communicate this to the users?"
       ]
     },
     'support-agent': {
+      // Character is a CUSTOMER with an issue responding to support
       opening: [
-        "I understand your frustration. Let me see how I can help resolve this issue.",
-        "That sounds concerning. Can you walk me through exactly what happened?",
-        "I appreciate you explaining that. Let me check what options we have available."
+        "I'm really frustrated with this issue. It's been going on for days.",
+        "I've tried everything I can think of and nothing works.",
+        "This is affecting my ability to get work done. Can you help?",
+        "I'm not very technical, so I need simple instructions."
       ],
       middle: [
-        "That makes sense. Have you tried restarting the application?",
-        "I see the problem. Let me check if this is a known issue on our end.",
-        "That's helpful information. Can you try these steps and let me know what happens?"
+        "Okay, I tried that but it's still not working. What else can we do?",
+        "That seems complicated. Is there an easier way?",
+        "I think it's working better now, but I'm still seeing some issues.",
+        "How long should this take to fully resolve?"
       ],
       closing: [
-        "Great! It sounds like that resolved the issue. Is there anything else I can help with?",
-        "Perfect. I'll make sure to document this solution for future reference.",
-        "I'm glad we got that sorted out. Don't hesitate to reach out if you need more help."
+        "Great! That seems to have fixed it. Thank you so much.",
+        "Perfect. Is there anything I should do to prevent this in the future?",
+        "I really appreciate your help. You've been very patient with me.",
+        "Should I contact you if this happens again?"
       ]
     },
     'manager': {
+      // Character is a TEAM MEMBER responding to their manager
       opening: [
-        "Thanks for bringing this to my attention. What's your perspective on the situation?",
-        "I appreciate you coming to me with this. Can you help me understand the context?",
-        "That's an important point. What do you think would be the best approach?"
+        "Thanks for meeting with me. I wanted to discuss my progress on the project.",
+        "I appreciate you taking the time. I have some concerns I'd like to share.",
+        "I've been thinking about our conversation last week.",
+        "I wanted to get your feedback on how things are going."
       ],
       middle: [
-        "I see what you mean. What kind of support would be most helpful?",
-        "That's valuable feedback. How do you think we should move forward?",
-        "Good insight. What obstacles do you see, and how might we address them?"
+        "That's helpful feedback. How can I improve in that area?",
+        "I understand your point. What would success look like?",
+        "That makes sense. What support do I need to get there?",
+        "I'm struggling with this particular challenge. Any advice?"
       ],
       closing: [
-        "This has been a productive conversation. What are your next steps?",
-        "I think we have a clear path forward. How can I support you on this?",
-        "Let's schedule a follow-up to check on progress. When works best for you?"
+        "This has been really helpful. What should I focus on next?",
+        "I feel much clearer about the expectations. Thank you.",
+        "When should we check in again on my progress?",
+        "I'm committed to making these improvements."
       ]
     },
     'leader': {
+      // Character is a TEAM MEMBER responding to leadership
       opening: [
-        "That's an important strategic consideration. How do you see this fitting with our goals?",
-        "I appreciate you thinking about the bigger picture. What's driving this initiative?",
-        "That's insightful. How do you think this will impact the team and organization?"
+        "I'm excited about the direction you're proposing for our team.",
+        "I have some questions about the new strategy.",
+        "The team has been talking about this change. Can we discuss it?",
+        "I want to make sure I understand the vision correctly."
       ],
       middle: [
-        "I see the potential here. What would successful implementation look like?",
-        "That's a compelling vision. What are the key milestones we should focus on?",
-        "Good thinking. How do we ensure this aligns with our organizational values?"
+        "That's inspiring. How can I help drive this initiative?",
+        "I see the big picture. What's my role in making this happen?",
+        "The team seems motivated by this direction.",
+        "What obstacles do you anticipate we'll face?"
       ],
       closing: [
-        "This sounds like a strategic priority. How do we build momentum around this?",
-        "I'm excited about this direction. What resources do you need to make it happen?",
-        "Let's create a roadmap for this. When should we reconvene to track progress?"
+        "I'm fully on board with this plan. What are my next steps?",
+        "How should I communicate this to my team?",
+        "I'm excited to start implementing these changes.",
+        "When should we reconvene to discuss progress?"
       ]
     }
+  };
+  
+  // Default responses for unknown roles
+  const defaultResponses = {
+    opening: [
+      "That's an interesting point. Could you elaborate on that?",
+      "I see what you're saying. Can you help me understand your perspective?",
+      "Thanks for bringing that up. What are your thoughts on next steps?"
+    ],
+    middle: [
+      "That makes sense. How do you think we should proceed?",
+      "I appreciate that insight. What else should we consider?",
+      "Good point. What would you recommend?"
+    ],
+    closing: [
+      "This has been a productive discussion. What should we do next?",
+      "I think we've covered a lot. How should we move forward?",
+      "Thank you for the information. What are the next steps?"
+    ]
   };
   
   // Determine conversation stage
   const stage = exchanges < 3 ? 'opening' : exchanges < 6 ? 'middle' : 'closing';
   
-  // Get appropriate responses for the role and stage
-  const roleResponses = responseTemplates[scenario?.role] || responseTemplates['sales'];
-  const stageResponses = roleResponses[stage] || roleResponses['opening'];
+  // Get appropriate responses for the character's role and stage
+  const roleResponses = characterResponseTemplates[scenario?.role] || defaultResponses;
+  const stageResponses = roleResponses[stage] || defaultResponses[stage];
   
   // Select a contextual response
   let selectedResponse = stageResponses[Math.floor(Math.random() * stageResponses.length)];
   
-  // Make response more contextual based on user message
+  // Make response more contextual based on user message content
   if (userMessage?.toLowerCase().includes('price') || userMessage?.toLowerCase().includes('cost')) {
     if (scenario?.role === 'sales') {
-      selectedResponse = "That's an important consideration. Can you help me understand your budget range for this type of solution?";
+      selectedResponse = "That's an important consideration. What budget range are you working with for this type of solution?";
     }
   } else if (userMessage?.toLowerCase().includes('time') || userMessage?.toLowerCase().includes('when')) {
     selectedResponse = "Good question about timing. What's driving the urgency on your end?";
@@ -454,10 +516,10 @@ function generateContextualFallback(scenario: any, userMessage: string, conversa
     success: true,
     data: {
       response: selectedResponse,
-      character: scenario?.character_name || 'Professional Contact',
+      character: characterName,
       emotion: determineEmotion(conversationHistory || [], scenario),
       shouldEndConversation: shouldEndConversation(conversationHistory || []),
-      model: 'enhanced-contextual-fallback'
+      model: 'character-aware-fallback'
     }
   });
 }
