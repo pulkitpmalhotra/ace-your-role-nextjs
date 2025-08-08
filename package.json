@@ -14,7 +14,9 @@
     "react": "^18",
     "react-dom": "^18",
     "@supabase/supabase-js": "^2.39.0",
-    "jose": "^5.2.0"
+    "jose": "^5.2.0",
+    "ai": "^3.4.0",
+    "@ai-sdk/google": "^0.0.52"
   },
   "devDependencies": {
     "typescript": "^5",
