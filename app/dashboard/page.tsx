@@ -218,11 +218,6 @@ export default function DashboardPage() {
     router.push(`/session/${scenario.id}`);
   };
 
-  // Navigation functions
-  const viewAnalyticsDashboard = () => {
-    router.push('/analytics');
-  };
-
   const goToProfile = () => {
     router.push('/profile');
   };
@@ -754,15 +749,13 @@ export default function DashboardPage() {
                 <p className="text-gray-600">Track your improvement across different professional roles</p>
               </div>
               {userProgress.length > 0 && (
-                <button
-                  onClick={viewAnalyticsDashboard}
-                  className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-6 py-3 rounded-lg font-medium hover:from-indigo-600 hover:to-purple-700 transition-all shadow-lg flex items-center space-x-2"
-                >
-                  <span className="text-lg">📊</span>
-                  <span>Detailed Analytics</span>
-                </button>
-              )}
-            </div>
+                {userProgress.length > 0 && (
+  <div className="text-center">
+    <p className="text-gray-600 mb-4">
+      You've practiced {userProgress.length} different roles with great progress!
+    </p>
+  </div>
+)}
 
             {userProgress.length > 0 ? (
               <div className="space-y-4">
