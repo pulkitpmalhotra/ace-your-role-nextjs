@@ -840,7 +840,7 @@ export default function FixedSessionPage({ params }: { params: { id: string } })
             >
               Back to Dashboard
             </button>
-          </div
+          </div>
         </div>
       </div>
     );
