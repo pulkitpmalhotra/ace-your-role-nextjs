@@ -173,7 +173,6 @@ const nextConfig = {
 
   // Enhanced experimental features for better performance
   experimental: {
-    optimizeCss: true,
     scrollRestoration: true,
     legacyBrowsers: false,
     browsersListForSwc: true,
