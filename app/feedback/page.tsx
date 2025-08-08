@@ -1,4 +1,4 @@
-// app/feedback/page.tsx - Updated Feedback Page
+// app/feedback/page.tsx - Updated to focus on 7 specific metrics without overall score
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -37,7 +37,6 @@ interface SessionData {
 }
 
 interface FeedbackData {
-  overall_score: number;
   speech_analysis: {
     filler_words: {
       count: number;
@@ -202,16 +201,8 @@ export default function UpdatedFeedbackPage() {
     const userText = userMessages.map(msg => msg.message).join(' ');
     const wordCount = userText.split(' ').length;
     const estimatedWPM = data.duration > 0 ? Math.round(wordCount / (data.duration * 0.6)) : 0;
-    
-    // Calculate score based on objectives completed and conversation quality
-    let score = 2.0;
-    score += (data.objectivesCompleted / data.objectives.length) * 2.0;
-    score += data.exchanges >= 4 ? 0.5 : 0;
-    score += data.duration >= 3 ? 0.5 : 0;
-    score = Math.min(5.0, score);
 
     return {
-      overall_score: score,
       speech_analysis: {
         filler_words: {
           count: Math.floor(Math.random() * 3) + 1,
@@ -284,20 +275,6 @@ export default function UpdatedFeedbackPage() {
     return roleMap[role] || 'Professional';
   };
 
-  const getScoreColor = (score: number) => {
-    if (score >= 4.5) return 'text-green-600';
-    if (score >= 3.5) return 'text-blue-600';
-    if (score >= 2.5) return 'text-yellow-600';
-    return 'text-red-600';
-  };
-
-  const getScoreEmoji = (score: number) => {
-    if (score >= 4.5) return '🌟';
-    if (score >= 3.5) return '👍';
-    if (score >= 2.5) return '👌';
-    return '💪';
-  };
-
   const getRoleEmoji = (role: string) => {
     const emojiMap: Record<string, string> = {
       'sales': '💼',
@@ -312,6 +289,37 @@ export default function UpdatedFeedbackPage() {
       'doctor': '🩺'
     };
     return emojiMap[role] || '💬';
+  };
+
+  const getFillerWordsColor = (count: number) => {
+    if (count <= 2) return 'text-green-600';
+    if (count <= 5) return 'text-yellow-600';
+    return 'text-red-600';
+  };
+
+  const getMetricStatus = (value: string | number, type: string) => {
+    switch (type) {
+      case 'filler_words':
+        const count = value as number;
+        if (count <= 2) return { color: 'text-green-600', status: 'Excellent' };
+        if (count <= 5) return { color: 'text-yellow-600', status: 'Good' };
+        return { color: 'text-red-600', status: 'Needs Work' };
+      
+      case 'speaking_speed':
+        const assessment = value as string;
+        if (assessment.includes('Appropriate')) return { color: 'text-green-600', status: 'Perfect' };
+        if (assessment.includes('fast') || assessment.includes('slow')) return { color: 'text-yellow-600', status: 'Adjust' };
+        return { color: 'text-blue-600', status: 'Good' };
+      
+      case 'talk_time':
+        const percentage = value as number;
+        if (percentage >= 40 && percentage <= 60) return { color: 'text-green-600', status: 'Balanced' };
+        if (percentage >= 30 && percentage <= 70) return { color: 'text-yellow-600', status: 'Adjust' };
+        return { color: 'text-red-600', status: 'Imbalanced' };
+      
+      default:
+        return { color: 'text-blue-600', status: 'Good' };
+    }
   };
 
   const backToDashboard = () => {
@@ -382,11 +390,11 @@ export default function UpdatedFeedbackPage() {
         {/* Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full mb-6">
-            <span className="text-3xl text-white">🎯</span>
+            <span className="text-3xl text-white">📊</span>
           </div>
-          <h1 className="text-4xl font-bold text-gray-900 mb-3">Session Complete!</h1>
+          <h1 className="text-4xl font-bold text-gray-900 mb-3">Communication Analysis Complete!</h1>
           <p className="text-xl text-gray-600">
-            Your performance analysis is ready
+            Your 7-metric performance breakdown is ready
           </p>
         </div>
 
@@ -402,14 +410,6 @@ export default function UpdatedFeedbackPage() {
                   Conversing with {sessionData.scenario.character_name} • {sessionData.scenario.difficulty} level
                 </p>
               </div>
-            </div>
-            
-            <div className="text-center">
-              <div className={`text-4xl font-bold mb-2 ${getScoreColor(feedback.overall_score)}`}>
-                {getScoreEmoji(feedback.overall_score)} {feedback.overall_score.toFixed(1)}
-              </div>
-              <p className="text-sm text-gray-600">Overall Score</p>
-              <p className="text-xs text-gray-500 mt-1">Out of 5.0</p>
             </div>
           </div>
 
@@ -437,9 +437,9 @@ export default function UpdatedFeedbackPage() {
         {/* Navigation Tabs */}
         <div className="flex space-x-4 mb-8 overflow-x-auto">
           {[
-            { id: 'overview', label: '📊 Overview' },
-            { id: 'objectives', label: '🎯 Objectives' },
-            { id: 'speech', label: '🎤 Communication' }
+            { id: 'overview', label: '📊 7-Metric Overview' },
+            { id: 'speech', label: '🎤 Speech Analysis' },
+            { id: 'objectives', label: '🎯 Objectives' }
           ].map((tab) => (
             <button
               key={tab.id}
@@ -457,31 +457,287 @@ export default function UpdatedFeedbackPage() {
 
         {/* Tab Content */}
         {activeTab === 'overview' && (
-          <div className="space-y-8">
-            {/* Key Insights */}
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-8 border border-blue-200">
-              <h3 className="text-xl font-bold text-blue-900 mb-6 flex items-center">
-                <span className="text-2xl mr-3">💡</span>
-                Key Performance Insights
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-white rounded-lg p-4 border border-blue-200">
-                  <h4 className="font-semibold text-blue-900 mb-2">Objectives Completed</h4>
-                  <p className="text-blue-800 text-sm">
-                    You successfully completed {sessionData.objectivesCompleted} out of {sessionData.objectives.length} scenario objectives ({Math.round((sessionData.objectivesCompleted/sessionData.objectives.length)*100)}%)
-                  </p>
+          <div className="space-y-6">
+            {/* 7 Key Metrics Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              
+              {/* Filler Words */}
+              <div className="bg-white rounded-2xl shadow-lg border border-white/20 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center space-x-3">
+                    <span className="text-2xl">🗣️</span>
+                    <h3 className="font-bold text-gray-900">Filler Words</h3>
+                  </div>
+                  <div className={`text-2xl font-bold ${getFillerWordsColor(feedback.speech_analysis.filler_words.count)}`}>
+                    {feedback.speech_analysis.filler_words.count}
+                  </div>
                 </div>
-                <div className="bg-white rounded-lg p-4 border border-blue-200">
-                  <h4 className="font-semibold text-blue-900 mb-2">Conversation Quality</h4>
-                  <p className="text-blue-800 text-sm">
-                    {feedback.conversation_stats.natural_ending ? 'Natural conversation flow with smooth conclusion' : `Engaged conversation with ${feedback.conversation_stats.total_exchanges} meaningful exchanges`}
-                  </p>
+                <p className="text-sm text-gray-600 mb-2">{feedback.speech_analysis.filler_words.impact}</p>
+                <div className={`px-3 py-1 rounded-full text-xs font-medium ${
+                  getMetricStatus(feedback.speech_analysis.filler_words.count, 'filler_words').color.replace('text-', 'bg-').replace('-600', '-100')
+                } ${getMetricStatus(feedback.speech_analysis.filler_words.count, 'filler_words').color}`}>
+                  {getMetricStatus(feedback.speech_analysis.filler_words.count, 'filler_words').status}
+                </div>
+              </div>
+
+              {/* Speaking Speed */}
+              <div className="bg-white rounded-2xl shadow-lg border border-white/20 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center space-x-3">
+                    <span className="text-2xl">⚡</span>
+                    <h3 className="font-bold text-gray-900">Speaking Speed</h3>
+                  </div>
+                  <div className="text-lg font-bold text-blue-600">
+                    {feedback.speech_analysis.speaking_speed.speed}
+                  </div>
+                </div>
+                <p className="text-sm text-gray-600 mb-2">{feedback.speech_analysis.speaking_speed.assessment}</p>
+                <div className={`px-3 py-1 rounded-full text-xs font-medium ${
+                  getMetricStatus(feedback.speech_analysis.speaking_speed.assessment, 'speaking_speed').color.replace('text-', 'bg-').replace('-600', '-100')
+                } ${getMetricStatus(feedback.speech_analysis.speaking_speed.assessment, 'speaking_speed').color}`}>
+                  {getMetricStatus(feedback.speech_analysis.speaking_speed.assessment, 'speaking_speed').status}
+                </div>
+              </div>
+
+              {/* Inclusive Language */}
+              <div className="bg-white rounded-2xl shadow-lg border border-white/20 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center space-x-3">
+                    <span className="text-2xl">🤝</span>
+                    <h3 className="font-bold text-gray-900">Inclusive Language</h3>
+                  </div>
+                  <div className="text-lg font-bold text-green-600">✓</div>
+                </div>
+                <p className="text-sm text-gray-600 mb-2">{feedback.speech_analysis.inclusive_language.issues}</p>
+                <div className="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-600">
+                  Excellent
+                </div>
+              </div>
+
+              {/* Word Confidence */}
+              <div className="bg-white rounded-2xl shadow-lg border border-white/20 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center space-x-3">
+                    <span className="text-2xl">💪</span>
+                    <h3 className="font-bold text-gray-900">Word Confidence</h3>
+                  </div>
+                  <div className="text-lg font-bold text-purple-600">
+                    {feedback.speech_analysis.weak_words.weak_words.length === 0 ? 'Strong' : 'Improve'}
+                  </div>
+                </div>
+                <p className="text-sm text-gray-600 mb-2">{feedback.speech_analysis.weak_words.professional_impact}</p>
+                <div className={`px-3 py-1 rounded-full text-xs font-medium ${
+                  feedback.speech_analysis.weak_words.weak_words.length === 0 ? 'bg-green-100 text-green-600' : 'bg-yellow-100 text-yellow-600'
+                }`}>
+                  {feedback.speech_analysis.weak_words.weak_words.length === 0 ? 'Confident' : 'Room for Growth'}
+                </div>
+              </div>
+
+              {/* Repetition */}
+              <div className="bg-white rounded-2xl shadow-lg border border-white/20 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center space-x-3">
+                    <span className="text-2xl">🔄</span>
+                    <h3 className="font-bold text-gray-900">Repetition</h3>
+                  </div>
+                  <div className="text-lg font-bold text-blue-600">
+                    {feedback.speech_analysis.repetition.repeated_words.length}
+                  </div>
+                </div>
+                <p className="text-sm text-gray-600 mb-2">{feedback.speech_analysis.repetition.impact}</p>
+                <div className={`px-3 py-1 rounded-full text-xs font-medium ${
+                  feedback.speech_analysis.repetition.repeated_words.length === 0 ? 'bg-green-100 text-green-600' : 'bg-yellow-100 text-yellow-600'
+                }`}>
+                  {feedback.speech_analysis.repetition.repeated_words.length === 0 ? 'Varied' : 'Some Repetition'}
+                </div>
+              </div>
+
+              {/* Talk Time */}
+              <div className="bg-white rounded-2xl shadow-lg border border-white/20 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center space-x-3">
+                    <span className="text-2xl">⏰</span>
+                    <h3 className="font-bold text-gray-900">Talk Time</h3>
+                  </div>
+                  <div className={`text-lg font-bold ${getMetricStatus(feedback.speech_analysis.talk_time.percentage, 'talk_time').color}`}>
+                    {feedback.speech_analysis.talk_time.percentage}%
+                  </div>
+                </div>
+                <p className="text-sm text-gray-600 mb-2">{feedback.speech_analysis.talk_time.balance_assessment}</p>
+                <div className={`px-3 py-1 rounded-full text-xs font-medium ${
+                  getMetricStatus(feedback.speech_analysis.talk_time.percentage, 'talk_time').color.replace('text-', 'bg-').replace('-600', '-100')
+                } ${getMetricStatus(feedback.speech_analysis.talk_time.percentage, 'talk_time').color}`}>
+                  {getMetricStatus(feedback.speech_analysis.talk_time.percentage, 'talk_time').status}
+                </div>
+              </div>
+
+            </div>
+
+            {/* Objectives Summary */}
+            <div className="bg-white rounded-2xl shadow-lg border border-white/20 p-8">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center space-x-3">
+                  <span className="text-2xl">🎯</span>
+                  <h3 className="text-xl font-bold text-gray-900">Objectives Completion</h3>
+                </div>
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-green-600">{sessionData.objectivesCompleted}/{sessionData.objectives.length}</div>
+                  <div className="text-sm text-gray-600">Completed</div>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <h4 className="font-semibold text-green-800 mb-2">✅ Completed Objectives</h4>
+                  <div className="space-y-2">
+                    {feedback.objectives_analysis.completed.map((objective, index) => (
+                      <div key={index} className="p-2 bg-green-50 border border-green-200 rounded text-sm text-green-800">
+                        {objective}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                
+                {feedback.objectives_analysis.missed.length > 0 && (
+                  <div>
+                    <h4 className="font-semibold text-red-800 mb-2">⏳ Areas for Next Session</h4>
+                    <div className="space-y-2">
+                      {feedback.objectives_analysis.missed.map((objective, index) => (
+                        <div key={index} className="p-2 bg-red-50 border border-red-200 rounded text-sm text-red-800">
+                          {objective}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Speech Tab */}
+        {activeTab === 'speech' && (
+          <div className="space-y-8">
+            <div className="bg-white rounded-2xl shadow-lg border border-white/20 p-8">
+              <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
+                <span className="text-2xl mr-3">🎤</span>
+                Detailed Speech Analysis
+              </h3>
+              
+              <div className="space-y-6">
+                {/* Filler Words Detail */}
+                <div className="border border-gray-200 rounded-lg p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-lg font-semibold text-gray-900 flex items-center">
+                      <span className="text-xl mr-2">🗣️</span>
+                      Filler Words Analysis
+                    </h4>
+                    <span className={`text-xl font-bold ${getFillerWordsColor(feedback.speech_analysis.filler_words.count)}`}>
+                      {feedback.speech_analysis.filler_words.count} detected
+                    </span>
+                  </div>
+                  <p className="text-gray-700 mb-3">{feedback.speech_analysis.filler_words.impact}</p>
+                  {feedback.speech_analysis.filler_words.examples.length > 0 && (
+                    <div className="bg-gray-50 rounded p-3">
+                      <p className="text-sm text-gray-600">Examples: {feedback.speech_analysis.filler_words.examples.join(', ')}</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Speaking Speed Detail */}
+                <div className="border border-gray-200 rounded-lg p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-lg font-semibold text-gray-900 flex items-center">
+                      <span className="text-xl mr-2">⚡</span>
+                      Speaking Speed
+                    </h4>
+                    <span className="text-xl font-bold text-blue-600">{feedback.speech_analysis.speaking_speed.speed}</span>
+                  </div>
+                  <p className="text-gray-700 mb-3">{feedback.speech_analysis.speaking_speed.assessment}</p>
+                  <p className="text-sm text-blue-600 bg-blue-50 rounded p-3">{feedback.speech_analysis.speaking_speed.recommendation}</p>
+                </div>
+
+                {/* Talk Time Detail */}
+                <div className="border border-gray-200 rounded-lg p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-lg font-semibold text-gray-900 flex items-center">
+                      <span className="text-xl mr-2">⏰</span>
+                      Talk Time Balance
+                    </h4>
+                    <span className={`text-xl font-bold ${getMetricStatus(feedback.speech_analysis.talk_time.percentage, 'talk_time').color}`}>
+                      {feedback.speech_analysis.talk_time.percentage}%
+                    </span>
+                  </div>
+                  <p className="text-gray-700 mb-3">{feedback.speech_analysis.talk_time.balance_assessment}</p>
+                  <p className="text-sm text-blue-600 bg-blue-50 rounded p-3">{feedback.speech_analysis.talk_time.recommendation}</p>
+                </div>
+
+                {/* Word Confidence Detail */}
+                <div className="border border-gray-200 rounded-lg p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-lg font-semibold text-gray-900 flex items-center">
+                      <span className="text-xl mr-2">💪</span>
+                      Word Confidence
+                    </h4>
+                    <span className="text-xl font-bold text-purple-600">
+                      {feedback.speech_analysis.weak_words.weak_words.length === 0 ? 'Strong' : `${feedback.speech_analysis.weak_words.weak_words.length} weak words`}
+                    </span>
+                  </div>
+                  <p className="text-gray-700 mb-3">{feedback.speech_analysis.weak_words.professional_impact}</p>
+                  {feedback.speech_analysis.weak_words.weak_words.length > 0 && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="bg-red-50 rounded p-3">
+                        <p className="text-sm font-medium text-red-800 mb-2">Weak Words Detected:</p>
+                        <p className="text-sm text-red-600">{feedback.speech_analysis.weak_words.weak_words.join(', ')}</p>
+                      </div>
+                      {feedback.speech_analysis.weak_words.strong_alternatives.length > 0 && (
+                        <div className="bg-green-50 rounded p-3">
+                          <p className="text-sm font-medium text-green-800 mb-2">Strong Alternatives:</p>
+                          <p className="text-sm text-green-600">{feedback.speech_analysis.weak_words.strong_alternatives.join(', ')}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Inclusive Language Detail */}
+                <div className="border border-gray-200 rounded-lg p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-lg font-semibold text-gray-900 flex items-center">
+                      <span className="text-xl mr-2">🤝</span>
+                      Inclusive Language
+                    </h4>
+                    <span className="text-xl font-bold text-green-600">✓</span>
+                  </div>
+                  <p className="text-gray-700 mb-3">{feedback.speech_analysis.inclusive_language.issues}</p>
+                  <p className="text-sm text-green-600 bg-green-50 rounded p-3">{feedback.speech_analysis.inclusive_language.suggestions}</p>
+                </div>
+
+                {/* Repetition Detail */}
+                <div className="border border-gray-200 rounded-lg p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-lg font-semibold text-gray-900 flex items-center">
+                      <span className="text-xl mr-2">🔄</span>
+                      Repetition Analysis
+                    </h4>
+                    <span className="text-xl font-bold text-blue-600">
+                      {feedback.speech_analysis.repetition.repeated_words.length === 0 ? 'None detected' : `${feedback.speech_analysis.repetition.repeated_words.length} patterns`}
+                    </span>
+                  </div>
+                  <p className="text-gray-700 mb-3">{feedback.speech_analysis.repetition.impact}</p>
+                  {feedback.speech_analysis.repetition.repeated_words.length > 0 && (
+                    <div className="bg-yellow-50 rounded p-3">
+                      <p className="text-sm font-medium text-yellow-800 mb-2">Repeated Words/Phrases:</p>
+                      <p className="text-sm text-yellow-600">{feedback.speech_analysis.repetition.repeated_words.join(', ')}</p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
           </div>
         )}
 
+        {/* Objectives Tab */}
         {activeTab === 'objectives' && (
           <div className="space-y-8">
             <div className="bg-white rounded-2xl shadow-lg p-8 border border-white/20">
@@ -529,47 +785,8 @@ export default function UpdatedFeedbackPage() {
               </div>
 
               <div className="bg-blue-50 rounded-lg p-6 border border-blue-200">
-                <h4 className="font-semibold text-blue-900 mb-3">Next Steps</h4>
+                <h4 className="font-semibold text-blue-900 mb-3">Next Steps & Recommendations</h4>
                 <p className="text-blue-800">{feedback.objectives_analysis.next_steps}</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'speech' && (
-          <div className="space-y-8">
-            <div className="bg-white rounded-2xl shadow-lg p-8 border border-white/20">
-              <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
-                <span className="text-2xl mr-3">🎤</span>
-                Communication Analysis
-              </h3>
-              
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <h4 className="font-semibold text-gray-900 mb-2">Speaking Pace</h4>
-                    <p className="text-gray-700">{feedback.speech_analysis.speaking_speed.assessment}</p>
-                    <p className="text-sm text-gray-600 mt-1">{feedback.speech_analysis.speaking_speed.recommendation}</p>
-                  </div>
-                  
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <h4 className="font-semibold text-gray-900 mb-2">Language Quality</h4>
-                    <p className="text-gray-700">{feedback.speech_analysis.weak_words.professional_impact}</p>
-                  </div>
-                </div>
-                
-                <div className="space-y-4">
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <h4 className="font-semibold text-gray-900 mb-2">Talk Time Balance</h4>
-                    <p className="text-gray-700">{feedback.speech_analysis.talk_time.balance_assessment}</p>
-                    <p className="text-sm text-gray-600 mt-1">{feedback.speech_analysis.talk_time.recommendation}</p>
-                  </div>
-                  
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <h4 className="font-semibold text-gray-900 mb-2">Overall Communication</h4>
-                    <p className="text-gray-700">Professional and effective communication throughout the session</p>
-                  </div>
-                </div>
               </div>
             </div>
           </div>
@@ -584,8 +801,14 @@ export default function UpdatedFeedbackPage() {
             🎯 Practice Again
           </button>
           <button
-            onClick={() => router.push('/history')}
+            onClick={() => router.push('/analytics')}
             className="bg-purple-600 text-white px-8 py-4 rounded-xl text-lg font-semibold hover:bg-purple-700 transition-colors"
+          >
+            📊 View Analytics
+          </button>
+          <button
+            onClick={() => router.push('/history')}
+            className="bg-green-600 text-white px-8 py-4 rounded-xl text-lg font-semibold hover:bg-green-700 transition-colors"
           >
             📚 View History
           </button>
@@ -600,11 +823,12 @@ export default function UpdatedFeedbackPage() {
         {/* Analysis Info */}
         <div className="text-center mt-8 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
           <h4 className="text-lg font-semibold text-blue-800 mb-3">
-            🎯 Performance Evaluation Complete
+            📊 7-Metric Communication Analysis
           </h4>
           <p className="text-blue-700 text-sm leading-relaxed">
-            Your score is based on scenario objective completion, conversation engagement, 
-            and overall communication effectiveness. Keep practicing to improve your professional skills!
+            Your performance is evaluated across 7 key communication areas: filler words, speaking speed, 
+            inclusive language, word confidence, repetition patterns, talk time balance, and objective completion. 
+            Keep practicing to improve in each area!
           </p>
         </div>
       </div>
