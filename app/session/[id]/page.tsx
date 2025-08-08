@@ -1,4 +1,4 @@
-// app/session/[id]/page.tsx - Simplified with browser speech APIs
+// app/session/[id]/page.tsx - Fixed Session with Objectives Display
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -21,13 +21,24 @@ interface ConversationMessage {
   confidence?: number;
 }
 
-export default function SimplifiedSessionPage({ params }: { params: { id: string } }) {
+interface ObjectiveProgress {
+  id: string;
+  text: string;
+  completed: boolean;
+  evidence?: string;
+}
+
+export default function FixedSessionPage({ params }: { params: { id: string } }) {
   // Core state
   const [scenario, setScenario] = useState<Scenario | null>(null);
   const [conversation, setConversation] = useState<ConversationMessage[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isActive, setIsActive] = useState(false);
   const [startTime] = useState(Date.now());
+  
+  // Objectives state
+  const [objectives, setObjectives] = useState<ObjectiveProgress[]>([]);
+  const [objectivesCompleted, setObjectivesCompleted] = useState(0);
   
   // Speech state
   const [isListening, setIsListening] = useState(false);
@@ -46,6 +57,64 @@ export default function SimplifiedSessionPage({ params }: { params: { id: string
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   
   const router = useRouter();
+
+  // Get scenario objectives based on role
+  const getScenarioObjectives = (role: string): string[] => {
+    const objectiveMap: Record<string, string[]> = {
+      'sales': [
+        'Build rapport and establish trust with the prospect',
+        'Identify customer needs and pain points through questioning',
+        'Present solution benefits clearly and guide toward next steps'
+      ],
+      'project-manager': [
+        'Clarify project scope, timeline, and deliverables',
+        'Identify stakeholders and manage expectations',
+        'Establish clear next steps and accountability'
+      ],
+      'product-manager': [
+        'Gather comprehensive user requirements and feedback',
+        'Prioritize features based on business impact',
+        'Align stakeholders on product roadmap decisions'
+      ],
+      'leader': [
+        'Communicate organizational vision and strategic direction',
+        'Inspire and motivate team members toward common goals',
+        'Demonstrate emotional intelligence and active listening'
+      ],
+      'manager': [
+        'Provide specific, constructive feedback on performance',
+        'Set clear expectations and measurable goals',
+        'Support professional development and career growth'
+      ],
+      'support-agent': [
+        'Quickly understand and diagnose customer issues',
+        'Provide clear, step-by-step solutions and guidance',
+        'Ensure complete issue resolution and customer satisfaction'
+      ],
+      'data-analyst': [
+        'Understand business questions and analytical requirements',
+        'Communicate findings clearly to non-technical stakeholders',
+        'Provide actionable insights and data-driven recommendations'
+      ],
+      'engineer': [
+        'Understand technical requirements and system constraints',
+        'Communicate technical concepts to non-technical stakeholders',
+        'Collaborate effectively on solution architecture decisions'
+      ],
+      'nurse': [
+        'Provide compassionate and professional patient care',
+        'Communicate clearly about procedures and care plans',
+        'Coordinate effectively with medical team members'
+      ],
+      'doctor': [
+        'Gather comprehensive patient history and symptoms',
+        'Explain medical conditions and treatment options clearly',
+        'Involve patients in treatment decisions and ensure informed consent'
+      ]
+    };
+    
+    return objectiveMap[role] || objectiveMap['sales'];
+  };
 
   // Initialize session
   useEffect(() => {
@@ -73,6 +142,15 @@ export default function SimplifiedSessionPage({ params }: { params: { id: string
 
       const scenarioData = JSON.parse(storedScenario);
       setScenario(scenarioData);
+      
+      // Initialize objectives
+      const scenarioObjectives = getScenarioObjectives(scenarioData.role);
+      const objectiveProgress: ObjectiveProgress[] = scenarioObjectives.map((obj, index) => ({
+        id: `obj_${index + 1}`,
+        text: obj,
+        completed: false
+      }));
+      setObjectives(objectiveProgress);
       
       // Create session
       const sessionResponse = await fetch('/api/sessions', {
@@ -129,8 +207,8 @@ export default function SimplifiedSessionPage({ params }: { params: { id: string
       setHasPermission(true);
       setError('');
       
-      // Generate greeting
-      const greeting = `Hi, I'm ${scenario.character_name}. I understand you wanted to discuss ${scenario.title}. How can I help you today?`;
+      // Generate proper character greeting
+      const greeting = getCharacterGreeting(scenario);
       
       const aiMessage: ConversationMessage = {
         speaker: 'ai',
@@ -158,6 +236,30 @@ export default function SimplifiedSessionPage({ params }: { params: { id: string
       console.error('Microphone permission error:', err);
       setError('Microphone access required. Please allow access and refresh.');
     }
+  };
+
+  const getCharacterGreeting = (scenario: Scenario): string => {
+    const greetings: Record<string, string[]> = {
+      'sales': [
+        `Hi, I'm ${scenario.character_name}. I understand you wanted to discuss ${scenario.title}. I'm interested to learn more about what you're offering.`,
+        `Hello! I'm ${scenario.character_name}. I've heard you might have a solution that could help us with ${scenario.title}. Tell me more.`
+      ],
+      'project-manager': [
+        `Hi, I'm ${scenario.character_name}. I'm here for our meeting about ${scenario.title}. What's our main focus today?`,
+        `Hello! Thanks for setting up this meeting about ${scenario.title}. What should we prioritize?`
+      ],
+      'support-agent': [
+        `Hi there! I'm ${scenario.character_name} and I need some help. I'm having an issue related to ${scenario.title}. Can you assist me?`,
+        `Hello, I'm ${scenario.character_name}. I'm calling because I'm experiencing some problems with ${scenario.title}. Can you help?`
+      ],
+      'manager': [
+        `Hi, thanks for meeting with me today. I wanted to discuss ${scenario.title}. How do you think things are going so far?`,
+        `Hello! I appreciate you taking the time to chat about ${scenario.title}. What's your perspective on this?`
+      ]
+    };
+
+    const roleGreetings = greetings[scenario.role] || greetings['sales'];
+    return roleGreetings[Math.floor(Math.random() * roleGreetings.length)];
   };
 
   const speakMessage = async (text: string): Promise<void> => {
@@ -307,6 +409,9 @@ export default function SimplifiedSessionPage({ params }: { params: { id: string
       setConversation(finalConversation);
       await saveConversation(finalConversation);
       
+      // Update objectives based on conversation
+      updateObjectiveProgress(finalConversation);
+      
       // Check for natural ending
       if (aiResponse.shouldEndConversation && !aiSuggestedEnd) {
         setAiSuggestedEnd(true);
@@ -337,6 +442,43 @@ export default function SimplifiedSessionPage({ params }: { params: { id: string
     }
   };
 
+  const updateObjectiveProgress = (conversationHistory: ConversationMessage[]) => {
+    if (!scenario) return;
+    
+    const userMessages = conversationHistory.filter(msg => msg.speaker === 'user');
+    const conversationText = userMessages.map(msg => msg.message.toLowerCase()).join(' ');
+    
+    // Simple keyword-based objective detection
+    const updatedObjectives = objectives.map(obj => {
+      let completed = false;
+      let evidence = '';
+      
+      // Basic pattern matching for different objectives
+      if (obj.text.includes('rapport') || obj.text.includes('trust')) {
+        const rapportWords = ['nice to meet', 'pleasure', 'understand', 'appreciate', 'thanks'];
+        completed = rapportWords.some(word => conversationText.includes(word));
+        if (completed) evidence = 'Used positive language and showed appreciation';
+      }
+      
+      if (obj.text.includes('needs') || obj.text.includes('requirements')) {
+        const questionWords = ['what', 'how', 'why', 'when', 'where', 'tell me', 'explain'];
+        completed = questionWords.some(word => conversationText.includes(word));
+        if (completed) evidence = 'Asked questions to understand needs';
+      }
+      
+      if (obj.text.includes('solution') || obj.text.includes('benefits')) {
+        const solutionWords = ['we can', 'this will', 'help you', 'benefit', 'solution'];
+        completed = solutionWords.some(word => conversationText.includes(word));
+        if (completed) evidence = 'Presented solutions or benefits';
+      }
+      
+      return { ...obj, completed, evidence };
+    });
+    
+    setObjectives(updatedObjectives);
+    setObjectivesCompleted(updatedObjectives.filter(obj => obj.completed).length);
+  };
+
   const getAIResponse = async (scenario: Scenario, userMessage: string, conversationHistory: ConversationMessage[]) => {
     try {
       const response = await fetch('/api/ai-conversation', {
@@ -363,17 +505,7 @@ export default function SimplifiedSessionPage({ params }: { params: { id: string
       return data.data;
     } catch (error) {
       console.error('Error getting AI response:', error);
-      
-      // Fallback response
-      const exchanges = Math.floor(conversationHistory.length / 2);
-      const shouldSuggestEnding = exchanges >= 6;
-      
-      return {
-        response: shouldSuggestEnding 
-          ? "Thank you for this great discussion. I feel we've covered the key points well."
-          : "That's interesting. Could you tell me more about that?",
-        shouldEndConversation: shouldSuggestEnding
-      };
+      throw error; // Re-throw to trigger error handling
     }
   };
 
@@ -408,14 +540,11 @@ export default function SimplifiedSessionPage({ params }: { params: { id: string
       const exchanges = Math.floor(conversation.length / 2);
       
       try {
-        // Calculate score
-        let score = 2.0;
-        score += exchanges >= 2 ? 0.5 : 0;
-        score += exchanges >= 4 ? 0.5 : 0;
-        score += exchanges >= 6 ? 0.5 : 0;
-        score += exchanges >= 8 ? 0.5 : 0;
-        score += duration >= 3 ? 0.5 : 0;
-        score += aiSuggestedEnd ? 0.5 : 0;
+        // Calculate score based on objectives and conversation quality
+        let score = 2.0; // Base score
+        score += (objectivesCompleted / objectives.length) * 2.0; // Up to 2 points for objectives
+        score += exchanges >= 4 ? 0.5 : 0; // Engagement bonus
+        score += duration >= 3 ? 0.5 : 0; // Duration bonus
         score = Math.min(5.0, score);
         
         await fetch('/api/sessions', {
@@ -428,301 +557,4 @@ export default function SimplifiedSessionPage({ params }: { params: { id: string
             overall_score: score,
             conversation_metadata: {
               natural_ending: aiSuggestedEnd,
-              session_quality: exchanges >= 8 ? 'excellent' : exchanges >= 6 ? 'good' : 'basic'
-            }
-          })
-        });
-
-      } catch (err) {
-        console.error('Error saving session data:', err);
-      }
-    }
-    
-    // Prepare for feedback
-    const sessionData = {
-      scenario,
-      conversation,
-      duration: Math.floor((Date.now() - startTime) / 60000),
-      exchanges: Math.floor(conversation.length / 2),
-      userEmail: localStorage.getItem('userEmail'),
-      sessionId,
-      sessionContext: {
-        startTime,
-        naturalEnding: aiSuggestedEnd,
-        sessionQuality: conversation.length >= 12 ? 'excellent' : conversation.length >= 8 ? 'good' : 'basic'
-      }
-    };
-    
-    localStorage.setItem('lastSession', JSON.stringify(sessionData));
-    router.push('/feedback');
-  };
-
-  // Get status info for UI
-  const getStatusInfo = () => {
-    const exchanges = Math.floor(conversation.length / 2);
-    
-    if (!scenario) {
-      return { icon: '⏳', title: 'Loading...', message: 'Setting up session', color: 'bg-gray-500' };
-    }
-    
-    if (conversation.length === 0) {
-      return { icon: '🎯', title: 'Ready to Start', message: `Practice with ${scenario.character_name}`, color: 'bg-blue-500' };
-    }
-    
-    if (isProcessing) {
-      return { icon: '🤖', title: 'AI Thinking...', message: `${scenario.character_name} is processing`, color: 'bg-orange-500' };
-    }
-    
-    if (isSpeaking) {
-      return { icon: '🔊', title: `${scenario.character_name} Speaking`, message: 'AI is responding', color: 'bg-purple-500' };
-    }
-    
-    if (isListening) {
-      return { 
-        icon: '🎤', 
-        title: aiSuggestedEnd ? 'Natural Conclusion Ready' : 'Listening...', 
-        message: aiSuggestedEnd ? 'Conversation completed - ready for feedback' : 'Speak your message',
-        color: aiSuggestedEnd ? 'bg-green-600' : 'bg-green-500'
-      };
-    }
-    
-    return { icon: '💬', title: 'In Conversation', message: `${exchanges} exchanges completed`, color: 'bg-blue-600' };
-  };
-
-  // Loading state
-  if (!scenario) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="text-center bg-white rounded-2xl p-8 shadow-xl">
-          <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Loading Session</h2>
-          <p className="text-gray-600">Setting up your practice session...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Error state
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-red-50 to-pink-100 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
-          <div className="text-6xl mb-6">😓</div>
-          <h2 className="text-2xl font-bold text-red-600 mb-4">Session Error</h2>
-          <p className="text-gray-700 mb-6">{error}</p>
-          
-          <div className="space-y-3">
-            <button
-              onClick={() => {
-                setError('');
-                if (sessionId) startConversation();
-              }}
-              className="w-full bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600"
-            >
-              Try Again
-            </button>
-            <button
-              onClick={() => router.push('/dashboard')}
-              className="w-full bg-gray-500 text-white px-6 py-3 rounded-lg hover:bg-gray-600"
-            >
-              Back to Dashboard
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  const statusInfo = getStatusInfo();
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      {/* Header */}
-      <header className="bg-white/90 backdrop-blur-sm border-b border-white/20">
-        <div className="max-w-6xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center text-white text-xl font-bold">
-                🎯
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">{scenario.title}</h1>
-                <p className="text-sm text-gray-600">
-                  {scenario.character_name} • {scenario.difficulty} level
-                </p>
-              </div>
-            </div>
-            
-            <button
-              onClick={endSession}
-              disabled={isEnding}
-              className={`px-8 py-3 rounded-xl font-bold text-lg transition-all ${
-                isEnding 
-                  ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
-                  : aiSuggestedEnd
-                    ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700 animate-pulse'
-                    : 'bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700'
-              }`}
-            >
-              {isEnding ? 'Ending...' : aiSuggestedEnd ? '🎉 Get Feedback' : '🛑 End Session'}
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* Status Bar */}
-      <div className={`${statusInfo.color} text-white px-6 py-4`}>
-        <div className="max-w-6xl mx-auto">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <span className="text-2xl">{statusInfo.icon}</span>
-              <div>
-                <div className="font-semibold text-lg">{statusInfo.title}</div>
-                <div className="text-sm opacity-90">{statusInfo.message}</div>
-              </div>
-            </div>
-            
-            <div className="flex items-center space-x-6 text-sm">
-              <div className="text-center">
-                <div className="font-bold">{Math.floor(conversation.length / 2)}</div>
-                <div className="opacity-75">Exchanges</div>
-              </div>
-              <div className="text-center">
-                <div className="font-bold">{Math.floor((Date.now() - startTime) / 60000)}m</div>
-                <div className="opacity-75">Duration</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <main className="max-w-4xl mx-auto px-4 py-6">
-        <div className="bg-white rounded-2xl shadow-lg border border-white/20 min-h-[600px]">
-          <div className="p-6">
-            
-            {/* Start Screen */}
-            {conversation.length === 0 ? (
-              <div className="text-center py-16">
-                <div className="text-6xl mb-6">🎯</div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-4">Ready to Practice!</h3>
-                <p className="text-gray-600 text-lg mb-6 max-w-md mx-auto">
-                  Practice with <strong>{scenario.character_name}</strong>, 
-                  a {scenario.character_role}. This is a {scenario.difficulty} level scenario.
-                </p>
-                
-                {!hasPermission ? (
-                  <button
-                    onClick={startConversation}
-                    className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-8 py-4 rounded-xl text-lg font-semibold hover:from-blue-600 hover:to-indigo-700 transition-all shadow-lg"
-                  >
-                    🎤 Start Conversation
-                  </button>
-                ) : (
-                  <div className="text-blue-600">
-                    <div className="w-8 h-8 border-3 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                    <p className="text-lg">Starting conversation...</p>
-                  </div>
-                )}
-              </div>
-            ) : (
-              
-              /* Conversation Messages */
-              <div className="space-y-6 max-h-96 overflow-y-auto">
-                {conversation.map((message, index) => (
-                  <div
-                    key={index}
-                    className={`flex items-start space-x-3 ${
-                      message.speaker === 'user' ? 'flex-row-reverse space-x-reverse' : ''
-                    }`}
-                  >
-                    {/* Avatar */}
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0 ${
-                      message.speaker === 'user' 
-                        ? 'bg-gradient-to-br from-blue-500 to-indigo-600' 
-                        : 'bg-gradient-to-br from-purple-500 to-pink-600'
-                    }`}>
-                      {message.speaker === 'user' ? '👤' : '🤖'}
-                    </div>
-                    
-                    {/* Message Bubble */}
-                    <div className={`flex-1 max-w-md p-4 rounded-2xl ${
-                      message.speaker === 'user'
-                        ? 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white'
-                        : 'bg-gradient-to-br from-gray-100 to-gray-50 text-gray-900 border border-gray-200'
-                    }`}>
-                      <div className={`text-xs mb-2 font-medium ${
-                        message.speaker === 'user' ? 'text-blue-100' : 'text-gray-500'
-                      }`}>
-                        {message.speaker === 'user' ? 'You' : scenario.character_name}
-                        {message.confidence && (
-                          <span className="ml-2 bg-blue-600 px-2 py-1 rounded-full text-xs">
-                            {Math.round(message.confidence * 100)}%
-                          </span>
-                        )}
-                      </div>
-                      <div className="leading-relaxed">{message.message}</div>
-                    </div>
-                  </div>
-                ))}
-                
-                {/* Current transcript */}
-                {currentTranscript && isListening && (
-                  <div className="flex items-start space-x-3 flex-row-reverse space-x-reverse">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold flex-shrink-0">
-                      👤
-                    </div>
-                    <div className="flex-1 max-w-md p-4 rounded-2xl bg-yellow-50 border-2 border-dashed border-yellow-300 text-yellow-800">
-                      <div className="text-xs mb-2 font-medium text-yellow-600">
-                        You (speaking...)
-                      </div>
-                      <div className="leading-relaxed">{currentTranscript}</div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Processing indicator */}
-                {isProcessing && (
-                  <div className="flex items-center justify-center py-4">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce"></div>
-                      <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                      <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                      <span className="text-purple-600 text-sm ml-2">{scenario.character_name} is thinking...</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Natural ending suggestion */}
-        {aiSuggestedEnd && !isEnding && (
-          <div className="mt-6 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-6 text-center">
-            <div className="text-4xl mb-4">🎯</div>
-            <h3 className="text-xl font-semibold text-green-800 mb-2">Perfect Natural Conclusion!</h3>
-            <p className="text-green-700 mb-4">
-              Your conversation with {scenario.character_name} reached a natural end. 
-              Ready to get feedback on your {Math.floor(conversation.length / 2)}-exchange conversation!
-            </p>
-            <div className="flex justify-center space-x-4">
-              <button
-                onClick={endSession}
-                className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-6 py-3 rounded-lg font-medium hover:from-green-700 hover:to-emerald-700"
-              >
-                🎉 Get Feedback
-              </button>
-              <button
-                onClick={() => setAiSuggestedEnd(false)}
-                className="bg-gray-500 text-white px-6 py-3 rounded-lg font-medium hover:bg-gray-600"
-              >
-                Continue Talking
-              </button>
-            </div>
-          </div>
-        )}
-      </main>
-    </div>
-  );
-}
+              session_quality
