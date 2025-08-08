@@ -1,4 +1,4 @@
-// app/api/sessions/route.ts - Clean Sessions Route
+// app/api/sessions/route.ts - Fixed Sessions Route with Proper Completion Tracking
 import { createClient } from '@supabase/supabase-js';
 
 // Create a new session
@@ -20,8 +20,6 @@ export async function POST(request: Request) {
     
     if (!supabaseUrl || !supabaseServiceKey) {
       console.error('❌ Missing Supabase configuration');
-      console.error('SUPABASE_URL:', supabaseUrl ? 'Set' : 'Missing');
-      console.error('SUPABASE_SERVICE_ROLE_KEY:', supabaseServiceKey ? 'Set' : 'Missing');
       return Response.json(
         { 
           success: false, 
@@ -83,7 +81,7 @@ export async function POST(request: Request) {
     // Verify scenario exists
     const { data: scenario, error: scenarioError } = await supabaseAnon
       .from('scenarios')
-      .select('id, title, character_name')
+      .select('id, title, character_name, role')
       .eq('id', scenario_id)
       .single();
 
@@ -104,7 +102,9 @@ export async function POST(request: Request) {
         user_email: user_email,
         conversation: [],
         session_status: 'active',
-        start_time: new Date().toISOString()
+        start_time: new Date().toISOString(),
+        overall_score: 0,
+        duration_minutes: 0
       })
       .select(`
         *,
@@ -139,10 +139,17 @@ export async function POST(request: Request) {
   }
 }
 
-// Update session
+// Update session with proper completion tracking
 export async function PUT(request: Request) {
   try {
-    const { session_id, conversation, session_status, duration_minutes, overall_score, conversation_metadata } = await request.json();
+    const { 
+      session_id, 
+      conversation, 
+      session_status, 
+      duration_minutes, 
+      overall_score, 
+      conversation_metadata 
+    } = await request.json();
     
     if (!session_id) {
       return Response.json(
@@ -163,20 +170,32 @@ export async function PUT(request: Request) {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
-    const updateData: any = {};
+    // Get current session to track completion
+    const { data: currentSession } = await supabase
+      .from('sessions')
+      .select('session_status, user_email, user_id')
+      .eq('id', session_id)
+      .single();
+
+    const updateData: any = {
+      updated_at: new Date().toISOString()
+    };
+    
     if (conversation) updateData.conversation = conversation;
     if (session_status) updateData.session_status = session_status;
     if (duration_minutes !== undefined) updateData.duration_minutes = duration_minutes;
     if (overall_score !== undefined) updateData.overall_score = overall_score;
     if (conversation_metadata) updateData.conversation_metadata = conversation_metadata;
-    
-    updateData.updated_at = new Date().toISOString();
 
+    // Update session
     const { data: session, error } = await supabase
       .from('sessions')
       .update(updateData)
       .eq('id', session_id)
-      .select()
+      .select(`
+        *,
+        scenarios:scenarios(title, character_name, role, difficulty)
+      `)
       .single();
 
     if (error) {
@@ -186,6 +205,38 @@ export async function PUT(request: Request) {
         { status: 500 }
       );
     }
+
+    // If session is being completed, update user stats and progress
+    if (session_status === 'completed' && currentSession?.session_status !== 'completed') {
+      console.log('🏁 Session completed, updating user progress');
+      
+      try {
+        // Update user total stats
+        if (currentSession?.user_id) {
+          await supabase.rpc('increment_user_stats', {
+            user_id: currentSession.user_id,
+            session_minutes: duration_minutes || 0,
+            session_score: overall_score || 0
+          });
+        }
+
+        // Update role-specific progress
+        if (session.scenarios?.role && currentSession?.user_email) {
+          await updateUserProgress(
+            supabase, 
+            currentSession.user_email, 
+            session.scenarios.role, 
+            overall_score || 0,
+            duration_minutes || 0
+          );
+        }
+      } catch (progressError) {
+        console.error('⚠️ Error updating progress (non-critical):', progressError);
+        // Don't fail the session update if progress update fails
+      }
+    }
+
+    console.log(`✅ Session ${session_status ? 'completed' : 'updated'}:`, session_id);
 
     return Response.json({
       success: true,
@@ -201,12 +252,13 @@ export async function PUT(request: Request) {
   }
 }
 
-// Get session
+// Get sessions with proper filtering
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const session_id = searchParams.get('session_id');
     const user_email = searchParams.get('user_email');
+    const status = searchParams.get('status');
     
     if (!session_id && !user_email) {
       return Response.json(
@@ -227,12 +279,24 @@ export async function GET(request: Request) {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
     
-    let query = supabase.from('sessions').select('*');
+    let query = supabase
+      .from('sessions')
+      .select(`
+        *,
+        scenarios:scenarios(title, character_name, character_role, role, difficulty)
+      `);
     
     if (session_id) {
       query = query.eq('id', session_id);
     } else if (user_email) {
-      query = query.eq('user_email', user_email).order('created_at', { ascending: false });
+      query = query.eq('user_email', user_email);
+      
+      // Filter by status if provided
+      if (status) {
+        query = query.eq('session_status', status);
+      }
+      
+      query = query.order('start_time', { ascending: false });
     }
 
     const { data: sessions, error } = await query;
@@ -245,6 +309,8 @@ export async function GET(request: Request) {
       );
     }
 
+    console.log(`✅ Retrieved ${sessions?.length || 0} sessions`);
+
     return Response.json({
       success: true,
       data: session_id ? sessions?.[0] : sessions
@@ -256,5 +322,72 @@ export async function GET(request: Request) {
       { success: false, error: 'Internal server error' },
       { status: 500 }
     );
+  }
+}
+
+// Helper function to update user progress
+async function updateUserProgress(
+  supabase: any, 
+  userEmail: string, 
+  role: string, 
+  score: number, 
+  duration: number
+) {
+  try {
+    // Get current progress for this role
+    const { data: existingProgress } = await supabase
+      .from('user_progress')
+      .select('*')
+      .eq('user_email', userEmail)
+      .eq('role', role)
+      .single();
+
+    if (existingProgress) {
+      // Update existing progress
+      const newTotalSessions = existingProgress.total_sessions + 1;
+      const newTotalMinutes = existingProgress.total_minutes + duration;
+      const newAverageScore = ((existingProgress.average_score * existingProgress.total_sessions) + score) / newTotalSessions;
+      const newBestScore = Math.max(existingProgress.best_score || 0, score);
+
+      await supabase
+        .from('user_progress')
+        .update({
+          total_sessions: newTotalSessions,
+          total_minutes: newTotalMinutes,
+          average_score: Math.round(newAverageScore * 100) / 100,
+          best_score: newBestScore,
+          last_session_date: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_email', userEmail)
+        .eq('role', role);
+    } else {
+      // Create new progress record
+      const { data: user } = await supabase
+        .from('users')
+        .select('id')
+        .eq('email', userEmail)
+        .single();
+
+      if (user) {
+        await supabase
+          .from('user_progress')
+          .insert({
+            user_id: user.id,
+            user_email: userEmail,
+            role: role,
+            total_sessions: 1,
+            total_minutes: duration,
+            average_score: score,
+            best_score: score,
+            last_session_date: new Date().toISOString(),
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+      }
+    }
+  } catch (error) {
+    console.error('Error updating user progress:', error);
+    throw error;
   }
 }
