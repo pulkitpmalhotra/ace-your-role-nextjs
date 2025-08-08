@@ -38,7 +38,6 @@ export async function GET(request: Request) {
       authUrl.searchParams.set('response_type', 'code');
       authUrl.searchParams.set('scope', 'openid email profile');
       authUrl.searchParams.set('access_type', 'offline');
-      authUrl.searchParams.set('prompt', 'consent');
 
       return Response.json({
         success: true,
