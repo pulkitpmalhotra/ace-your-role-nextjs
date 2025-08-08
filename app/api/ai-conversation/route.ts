@@ -1,4 +1,7 @@
-// app/api/ai-conversation/route.ts - Enhanced AI Conversation Flow with Better Responses
+// app/api/ai-conversation/route.ts - Enhanced with Vercel AI SDK
+import { google } from '@ai-sdk/google';
+import { generateText } from 'ai';
+
 export async function POST(request: Request) {
   try {
     const { scenario, userMessage, conversationHistory, sessionId } = await request.json();
@@ -18,85 +21,66 @@ export async function POST(request: Request) {
       return generateContextualFallback(scenario, userMessage, conversationHistory);
     }
 
-    console.log('🤖 Generating enhanced AI response with Gemini...');
+    console.log('🤖 Generating enhanced AI response with Gemini 2.5 Flash Lite...');
 
     // Build enhanced conversation prompt
     const prompt = buildEnhancedConversationPrompt(scenario, userMessage, conversationHistory);
 
-    // Call Gemini API with enhanced configuration
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-exp:generateContent?key=${GOOGLE_AI_API_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.9, // Higher for more natural responses
-            topK: 40,
-            topP: 0.95,
-            maxOutputTokens: 200, // Shorter for conversation flow
-            candidateCount: 1,
-          },
-          safetySettings: [
-            {
-              category: "HARM_CATEGORY_HARASSMENT",
-              threshold: "BLOCK_MEDIUM_AND_ABOVE"
-            },
-            {
-              category: "HARM_CATEGORY_HATE_SPEECH",
-              threshold: "BLOCK_MEDIUM_AND_ABOVE"
-            },
-            {
-              category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-              threshold: "BLOCK_MEDIUM_AND_ABOVE"
-            },
-            {
-              category: "HARM_CATEGORY_DANGEROUS_CONTENT",
-              threshold: "BLOCK_MEDIUM_AND_ABOVE"
-            }
-          ]
-        })
+    try {
+      // Use Vercel AI SDK with Gemini 2.5 Flash Lite
+      const { text: aiResponse } = await generateText({
+        model: google('gemini-2.5-flash-lite', {
+          apiKey: GOOGLE_AI_API_KEY,
+        }),
+        prompt: prompt,
+        temperature: 0.9, // Higher for more natural responses
+        maxTokens: 200, // Shorter for conversation flow
+        topP: 0.95,
+        topK: 40,
+        frequencyPenalty: 0.3, // Reduce repetition
+        presencePenalty: 0.2, // Encourage diverse responses
+      });
+
+      if (!aiResponse || aiResponse.trim().length === 0) {
+        console.error('❌ Empty response from Gemini');
+        return generateContextualFallback(scenario, userMessage, conversationHistory);
       }
-    );
 
-    if (!response.ok) {
-      console.error('❌ Gemini API failed:', response.status);
-      return generateContextualFallback(scenario, userMessage, conversationHistory);
-    }
-
-    const data = await response.json();
-    const aiResponse = data.candidates?.[0]?.content?.parts?.[0]?.text;
-
-    if (!aiResponse) {
-      console.error('❌ No response from Gemini');
-      return generateContextualFallback(scenario, userMessage, conversationHistory);
-    }
-
-    // Process and validate response
-    const cleanResponse = cleanAIResponse(aiResponse);
-    
-    // Ensure response is conversational and not too long
-    if (cleanResponse.length > 300) {
-      console.log('⚠️ Response too long, using fallback');
-      return generateContextualFallback(scenario, userMessage, conversationHistory);
-    }
-    
-    const shouldEnd = shouldEndConversation(conversationHistory);
-    const emotion = determineEmotion(conversationHistory, scenario);
-
-    console.log('✅ Enhanced Gemini response generated successfully');
-
-    return Response.json({
-      success: true,
-      data: {
-        response: cleanResponse,
-        character: scenario.character_name,
-        emotion: emotion,
-        shouldEndConversation: shouldEnd,
-        model: 'gemini-2.0-flash-enhanced'
+      // Process and validate response
+      const cleanResponse = cleanAIResponse(aiResponse);
+      
+      // Ensure response is conversational and not too long
+      if (cleanResponse.length > 300) {
+        console.log('⚠️ Response too long, using fallback');
+        return generateContextualFallback(scenario, userMessage, conversationHistory);
       }
-    });
+      
+      // Check if response sounds too AI-like
+      if (isAILikeResponse(cleanResponse)) {
+        console.log('⚠️ Response sounds too AI-like, using fallback');
+        return generateContextualFallback(scenario, userMessage, conversationHistory);
+      }
+      
+      const shouldEnd = shouldEndConversation(conversationHistory);
+      const emotion = determineEmotion(conversationHistory, scenario);
+
+      console.log('✅ Enhanced Gemini 2.5 Flash Lite response generated successfully');
+
+      return Response.json({
+        success: true,
+        data: {
+          response: cleanResponse,
+          character: scenario.character_name,
+          emotion: emotion,
+          shouldEndConversation: shouldEnd,
+          model: 'gemini-2.5-flash-lite'
+        }
+      });
+
+    } catch (aiError) {
+      console.error('❌ Vercel AI SDK error:', aiError);
+      return generateContextualFallback(scenario, userMessage, conversationHistory);
+    }
 
   } catch (error) {
     console.error('❌ AI Conversation error:', error);
@@ -132,6 +116,7 @@ CRITICAL INSTRUCTIONS:
 - Give them opportunities to practice the scenario objectives
 - Keep responses short and conversational (1-2 sentences max)
 - Be authentic and realistic
+- NEVER say things like "How can I help you" or "I'm here to assist"
 
 SCENARIO: "${scenario.title}"
 Your role: ${scenario.character_name} (${scenario.character_role})
@@ -158,6 +143,7 @@ NOW RESPOND AS ${scenario.character_name}:
 - Keep it conversational (1-2 sentences)
 - Stay completely in character
 - DO NOT sound like an AI assistant
+- DO NOT use phrases like "How can I help" or "I'm here to assist"
 
 Your response as ${scenario.character_name}:`;
 }
@@ -194,6 +180,28 @@ function getStageGuidelines(stage: string, role: string, userRole: string): stri
   };
 
   return guidelines[stage][role] || guidelines[stage]['default'];
+}
+
+function isAILikeResponse(response: string): boolean {
+  const aiPhrases = [
+    'how can i help',
+    'how may i assist',
+    'i\'m here to help',
+    'i\'m an ai',
+    'as an ai',
+    'i don\'t have personal',
+    'i\'m not able to',
+    'i cannot',
+    'i\'m designed to',
+    'my purpose is',
+    'i was created to',
+    'let me assist you',
+    'how can i be of service',
+    'what can i do for you'
+  ];
+  
+  const lowerResponse = response.toLowerCase();
+  return aiPhrases.some(phrase => lowerResponse.includes(phrase));
 }
 
 function shouldEndConversation(conversationHistory: any[]): boolean {
@@ -323,6 +331,7 @@ function cleanAIResponse(response: string): string {
     .replace(/\s+/g, ' ') // Replace multiple spaces with single space
     .replace(/^(As |I am |I'm |My name is |Hello,? I'm |Hi,? I'm )/i, '') // Remove AI-like introductions
     .replace(/(How can I help|How may I assist|What can I do for)/i, '') // Remove assistant language
+    .replace(/^(Sure|Certainly|Of course|Absolutely)[,!]?\s*/i, '') // Remove AI affirmations
     .trim();
 }
 
@@ -384,6 +393,40 @@ function generateContextualFallback(scenario: any, userMessage: string, conversa
         "Perfect. I'll make sure to document this solution for future reference.",
         "I'm glad we got that sorted out. Don't hesitate to reach out if you need more help."
       ]
+    },
+    'manager': {
+      opening: [
+        "Thanks for bringing this to my attention. What's your perspective on the situation?",
+        "I appreciate you coming to me with this. Can you help me understand the context?",
+        "That's an important point. What do you think would be the best approach?"
+      ],
+      middle: [
+        "I see what you mean. What kind of support would be most helpful?",
+        "That's valuable feedback. How do you think we should move forward?",
+        "Good insight. What obstacles do you see, and how might we address them?"
+      ],
+      closing: [
+        "This has been a productive conversation. What are your next steps?",
+        "I think we have a clear path forward. How can I support you on this?",
+        "Let's schedule a follow-up to check on progress. When works best for you?"
+      ]
+    },
+    'leader': {
+      opening: [
+        "That's an important strategic consideration. How do you see this fitting with our goals?",
+        "I appreciate you thinking about the bigger picture. What's driving this initiative?",
+        "That's insightful. How do you think this will impact the team and organization?"
+      ],
+      middle: [
+        "I see the potential here. What would successful implementation look like?",
+        "That's a compelling vision. What are the key milestones we should focus on?",
+        "Good thinking. How do we ensure this aligns with our organizational values?"
+      ],
+      closing: [
+        "This sounds like a strategic priority. How do we build momentum around this?",
+        "I'm excited about this direction. What resources do you need to make it happen?",
+        "Let's create a roadmap for this. When should we reconvene to track progress?"
+      ]
     }
   };
   
@@ -418,8 +461,4 @@ function generateContextualFallback(scenario: any, userMessage: string, conversa
       model: 'enhanced-contextual-fallback'
     }
   });
-}
-
-function generateFallbackResponse(scenario: any) {
-  return generateContextualFallback(scenario, '', []);
 }
