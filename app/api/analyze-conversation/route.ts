@@ -55,8 +55,6 @@ export async function POST(request: Request) {
 }
 
 async function performFocusedSpeechAnalysis(conversation: any[], scenario: any, sessionData: any) {
-  const GOOGLE_AI_API_KEY = process.env.GOOGLE_AI_API_KEY!;
-  
   const userMessages = conversation.filter(msg => msg.speaker === 'user');
   const userRole = getUserRole(scenario.role);
   const totalDuration = sessionData?.duration || 0;
@@ -73,10 +71,9 @@ async function performFocusedSpeechAnalysis(conversation: any[], scenario: any, 
   
   try {
     // Use Vercel AI SDK with Gemini 2.0 Flash Experimental
+    // API key should be set in environment as GOOGLE_GENERATIVE_AI_API_KEY
     const { text: aiAnalysis } = await generateText({
-      model: google('gemini-2.0-flash-exp', {
-        apiKey: GOOGLE_AI_API_KEY,
-      }),
+      model: google('gemini-2.0-flash-exp'),
       prompt: analysisPrompt,
       temperature: 0.2, // Lower for more consistent analysis
       maxTokens: 1500,
