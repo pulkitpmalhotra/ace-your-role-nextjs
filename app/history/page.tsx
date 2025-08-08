@@ -99,100 +99,101 @@ export default function HistoryPage() {
     }
   };
 
-  const loadHistoryData = async (email: string) => {
-    try {
-      console.log('📊 Fetching sessions from API for:', email);
-      
-      // Use basic fetch without auth headers
-      const sessionsUrl = `/api/sessions?user_email=${encodeURIComponent(email)}`;
-      console.log('📊 Sessions API URL:', sessionsUrl);
-      
-      const sessionsResponse = await fetch(sessionsUrl);
-      console.log('📊 Sessions API response status:', sessionsResponse.status);
-      
-      if (!sessionsResponse.ok) {
-        const errorText = await sessionsResponse.text();
-        console.error('❌ Sessions API failed:', sessionsResponse.status, errorText);
-        throw new Error(`Failed to load session history: ${sessionsResponse.status}`);
-      }
+  import { fetchUserSessions } from '@/lib/api';
 
-      const sessionsData = await sessionsResponse.json();
-      console.log('📊 Sessions API response success:', sessionsData.success);
-      
-      if (!sessionsData.success) {
-        console.error('❌ Sessions API returned error:', sessionsData.error);
-        throw new Error(sessionsData.error || 'Failed to load sessions');
-      }
-
-      let sessions = sessionsData.data || [];
-      console.log('📊 Sessions loaded:', sessions.length);
-
-      // Ensure sessions is an array
-      if (!Array.isArray(sessions)) {
-        console.error('❌ Sessions data is not an array:', typeof sessions, sessions);
-        sessions = [];
-      }
-
-      // Log first session for debugging
-      if (sessions.length > 0) {
-        console.log('📊 First session sample:', JSON.stringify(sessions[0], null, 2));
-      }
-
-      // Filter and process sessions
-      const validSessions = sessions.filter((session: any) => {
-        const isValid = session && session.id && session.start_time;
-        if (!isValid) {
-          console.warn('⚠️ Invalid session found:', session);
-        }
-        return isValid;
-      });
-
-      console.log('📊 Valid sessions:', validSessions.length);
-
-      // Calculate summary statistics
-      const completedSessions = validSessions.filter((s: Session) => s.session_status === 'completed');
-      console.log('📊 Completed sessions:', completedSessions.length);
-
-      const totalMinutes = completedSessions.reduce((sum: number, s: Session) => sum + (s.duration_minutes || 0), 0);
-      const averageScore = completedSessions.length > 0 
-        ? completedSessions.reduce((sum: number, s: Session) => sum + (s.overall_score || 0), 0) / completedSessions.length
-        : 0;
-      const bestScore = completedSessions.length > 0 
-        ? Math.max(...completedSessions.map((s: Session) => s.overall_score || 0))
-        : 0;
-      
-      // Get unique roles practiced
-      const rolesSet = new Set<string>();
-      validSessions.forEach((s: Session) => {
-        if (s.scenarios?.role) {
-          rolesSet.add(s.scenarios.role);
-        }
-      });
-      const rolesPracticed = Array.from(rolesSet);
-
-      const summary = {
-        total_sessions: validSessions.length,
-        total_minutes: totalMinutes,
-        average_score: Math.round(averageScore * 100) / 100,
-        best_score: Math.round(bestScore * 100) / 100,
-        completed_sessions: completedSessions.length,
-        roles_practiced: rolesPracticed
-      };
-
-      console.log('📊 Summary calculated:', summary);
-
-      setHistoryData({ 
-        sessions: validSessions, 
-        summary 
-      });
-      
-      console.log(`✅ Successfully loaded ${validSessions.length} sessions`);
-      
-    } catch (error) {
-      console.error('❌ Error loading history data:', error);
-      setError(`Failed to load session history: ${error instanceof Error ? error.message : 'Unknown error'}`);
+const loadHistoryData = async (email: string) => {
+  try {
+    console.log('📊 Fetching sessions from API for:', email);
+    
+    // Use the secure API function that includes headers
+    const sessionsData = await fetchUserSessions(email);
+    console.log('📊 Sessions API response success:', sessionsData.success);
+    
+    if (!sessionsData.success) {
+      console.error('❌ Sessions API returned error:', sessionsData.error);
+      throw new Error(sessionsData.error || 'Failed to load sessions');
     }
-  };
+
+    let sessions = sessionsData.data || [];
+    console.log('📊 Sessions loaded:', sessions.length);
+
+    // Rest of your existing processing code remains the same...
+    
+    // Ensure sessions is an array
+    if (!Array.isArray(sessions)) {
+      console.error('❌ Sessions data is not an array:', typeof sessions, sessions);
+      sessions = [];
+    }
+
+    // Log first session for debugging
+    if (sessions.length > 0) {
+      console.log('📊 First session sample:', JSON.stringify(sessions[0], null, 2));
+    }
+
+    // Filter and process sessions
+    const validSessions = sessions.filter((session: any) => {
+      const isValid = session && session.id && session.start_time;
+      if (!isValid) {
+        console.warn('⚠️ Invalid session found:', session);
+      }
+      return isValid;
+    });
+
+    console.log('📊 Valid sessions:', validSessions.length);
+
+    // Calculate summary statistics
+    const completedSessions = validSessions.filter((s: Session) => s.session_status === 'completed');
+    console.log('📊 Completed sessions:', completedSessions.length);
+
+    const totalMinutes = completedSessions.reduce((sum: number, s: Session) => sum + (s.duration_minutes || 0), 0);
+    const averageScore = completedSessions.length > 0 
+      ? completedSessions.reduce((sum: number, s: Session) => sum + (s.overall_score || 0), 0) / completedSessions.length
+      : 0;
+    const bestScore = completedSessions.length > 0 
+      ? Math.max(...completedSessions.map((s: Session) => s.overall_score || 0))
+      : 0;
+    
+    // Get unique roles practiced
+    const rolesSet = new Set<string>();
+    validSessions.forEach((s: Session) => {
+      if (s.scenarios?.role) {
+        rolesSet.add(s.scenarios.role);
+      }
+    });
+    const rolesPracticed = Array.from(rolesSet);
+
+    const summary = {
+      total_sessions: validSessions.length,
+      total_minutes: totalMinutes,
+      average_score: Math.round(averageScore * 100) / 100,
+      best_score: Math.round(bestScore * 100) / 100,
+      completed_sessions: completedSessions.length,
+      roles_practiced: rolesPracticed
+    };
+
+    console.log('📊 Summary calculated:', summary);
+
+    setHistoryData({ 
+      sessions: validSessions, 
+      summary 
+    });
+    
+    console.log(`✅ Successfully loaded ${validSessions.length} sessions`);
+    
+  } catch (error) {
+    console.error('❌ Error loading history data:', error);
+    
+    // Handle authentication errors
+    if (error instanceof Error && error.message.includes('Authentication required')) {
+      console.log('❌ Authentication required, redirecting to login');
+      localStorage.clear();
+      router.push('/');
+      return;
+    }
+    
+    setError(`Failed to load session history: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+};
 
   const filteredSessions = historyData?.sessions.filter(session => {
     // Filter by completion status
