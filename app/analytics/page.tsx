@@ -131,7 +131,6 @@ export default function FocusedAnalyticsPage() {
 
   const loadFocusedAnalyticsData = async (email: string) => {
     try {
-      // Load progress data
       const progressResponse = await fetch(`/api/progress?user_email=${encodeURIComponent(email)}`);
       const sessionsResponse = await fetch(`/api/sessions?user_email=${encodeURIComponent(email)}`);
       
@@ -146,7 +145,6 @@ export default function FocusedAnalyticsPage() {
         throw new Error('Invalid analytics data received');
       }
 
-      // Process and enhance the data with focused speech analysis
       const focusedData = processFocusedAnalytics(
         progressData.data || { progress: [], summary: {}, recent_sessions: [] },
         sessionsData.data || []
@@ -162,24 +160,20 @@ export default function FocusedAnalyticsPage() {
   };
 
   const processFocusedAnalytics = (progressData: any, sessionsData: any[]): FocusedAnalyticsData => {
-    // Process sessions to extract focused speech analytics
     const focusedSessions = sessionsData.map(session => ({
       ...session,
       speech_analysis: extractFocusedSpeechAnalysis(session),
       objectives_analysis: extractObjectivesAnalysis(session)
     }));
 
-    // Generate focused progress data with speech metrics
     const focusedProgress = progressData.progress.map((roleProgress: any) => ({
       ...roleProgress,
       speech_metrics: calculateFocusedSpeechMetrics(focusedSessions, roleProgress.role),
       objectives_metrics: calculateObjectivesMetrics(focusedSessions, roleProgress.role)
     }));
 
-    // Calculate focused speech trends over time
     const speechTrends = calculateFocusedSpeechTrends(focusedSessions);
     
-    // Enhanced summary with focused speech improvement metrics
     const focusedSummary = {
       ...progressData.summary,
       speech_improvement_score: calculateSpeechImprovementScore(focusedSessions),
@@ -195,12 +189,10 @@ export default function FocusedAnalyticsPage() {
   };
 
   const extractFocusedSpeechAnalysis = (session: any) => {
-    // Extract focused speech analysis from session metadata
     if (session.analysis_data?.speech_analysis) {
       return session.analysis_data.speech_analysis;
     }
 
-    // Generate basic speech metrics focused on the 7 key areas
     const estimatedFillerWords = Math.floor(Math.random() * 8) + 1;
     const estimatedWPM = Math.floor(Math.random() * 60) + 120;
     const estimatedTalkTime = Math.floor(Math.random() * 40) + 30;
@@ -239,7 +231,6 @@ export default function FocusedAnalyticsPage() {
       return session.analysis_data.objectives_analysis;
     }
 
-    // Generate basic objectives metrics
     const totalObjectives = 5;
     const completedCount = Math.floor(Math.random() * 4) + 1;
     
@@ -265,11 +256,10 @@ export default function FocusedAnalyticsPage() {
 
     const fillerWordsData = roleSessions.map(s => s.speech_analysis?.filler_words?.count || 0);
     const talkTimeData = roleSessions.map(s => s.speech_analysis?.talk_time?.percentage || 50);
-    const weakWordsData = roleSessions.map(s => s.speech_analysis?.weak_words?.weak_words?.length || 0);
     
     return {
       avg_filler_words: Math.round(fillerWordsData.reduce((a, b) => a + b, 0) / fillerWordsData.length),
-      avg_speaking_speed: 150, // Placeholder - would extract from speed analysis
+      avg_speaking_speed: 150,
       avg_talk_time_percentage: Math.round(talkTimeData.reduce((a, b) => a + b, 0) / talkTimeData.length),
       weak_words_trend: roleSessions.length > 3 ? 'improving' as const : 'stable' as const,
       inclusive_language_score: 4.2,
@@ -302,28 +292,28 @@ export default function FocusedAnalyticsPage() {
     const last10Sessions = sessions.slice(0, 10).reverse();
     
     return {
-      filler_words_over_time: last10Sessions.map((session, index) => ({
+      filler_words_over_time: last10Sessions.map((session) => ({
         date: new Date(session.start_time).toLocaleDateString(),
         count: session.speech_analysis?.filler_words?.count || Math.floor(Math.random() * 8) + 1
       })),
-      speaking_speed_over_time: last10Sessions.map((session, index) => ({
+      speaking_speed_over_time: last10Sessions.map((session) => ({
         date: new Date(session.start_time).toLocaleDateString(),
         assessment: session.speech_analysis?.speaking_speed?.assessment || 'Appropriate'
       })),
-      talk_time_balance_over_time: last10Sessions.map((session, index) => ({
+      talk_time_balance_over_time: last10Sessions.map((session) => ({
         date: new Date(session.start_time).toLocaleDateString(),
         percentage: session.speech_analysis?.talk_time?.percentage || 45 + Math.floor(Math.random() * 20)
       })),
-      objective_completion_over_time: last10Sessions.map((session, index) => ({
+      objective_completion_over_time: last10Sessions.map((session) => ({
         date: new Date(session.start_time).toLocaleDateString(),
         completed: session.objectives_analysis?.completed?.length || Math.floor(Math.random() * 4) + 1,
         total: 5
       })),
-      weak_words_over_time: last10Sessions.map((session, index) => ({
+      weak_words_over_time: last10Sessions.map((session) => ({
         date: new Date(session.start_time).toLocaleDateString(),
         count: session.speech_analysis?.weak_words?.weak_words?.length || Math.floor(Math.random() * 5)
       })),
-      inclusive_language_over_time: last10Sessions.map((session, index) => ({
+      inclusive_language_over_time: last10Sessions.map((session) => ({
         date: new Date(session.start_time).toLocaleDateString(),
         score: session.speech_analysis?.inclusive_language?.issues === 'No issues detected' ? 5 : 3 + Math.random() * 2
       }))
@@ -338,7 +328,6 @@ export default function FocusedAnalyticsPage() {
     
     if (olderSessions.length === 0) return 3.5;
     
-    // Compare improvement across focused metrics
     const recentFillerWords = recentSessions.reduce((sum, s) => {
       const count = s.speech_analysis?.filler_words?.count || 5;
       return sum + count;
@@ -411,7 +400,6 @@ export default function FocusedAnalyticsPage() {
     return 'text-red-600';
   };
 
-  // Loading state
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
@@ -424,7 +412,6 @@ export default function FocusedAnalyticsPage() {
     );
   }
 
-  // Error state
   if (error) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-red-50 to-pink-100 flex items-center justify-center">
@@ -530,10 +517,10 @@ export default function FocusedAnalyticsPage() {
         {/* Navigation Tabs */}
         <div className="flex space-x-4 mb-8 overflow-x-auto">
           {[
-            { id: 'overview', label: '📊 Overview', icon: '📊' },
-            { id: 'speech', label: '🎤 Speech Patterns', icon: '🎤' },
-            { id: 'objectives', label: '🎯 Objectives', icon: '🎯' },
-            { id: 'trends', label: '📈 Trends', icon: '📈' }
+            { id: 'overview', label: '📊 Overview' },
+            { id: 'speech', label: '🎤 Speech Patterns' },
+            { id: 'objectives', label: '🎯 Objectives' },
+            { id: 'trends', label: '📈 Trends' }
           ].map((tab) => (
             <button
               key={tab.id}
@@ -595,6 +582,38 @@ export default function FocusedAnalyticsPage() {
                     </div>
                     <div className="text-right">
                       <div className={`text-2xl font-bold ${getScoreColor(roleData.average_score)}`}>
+                        {roleData.average_score.toFixed(1)}
+                      </div>
+                      <div className="text-xs text-gray-500">Average</div>
+                    </div>
+                  </div>
+
+                  {/* Speech Metrics */}
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Filler Words (avg)</span>
+                      <span className={`font-semibold ${getFillerWordsColor(roleData.speech_metrics.avg_filler_words)}`}>
+                        {roleData.speech_metrics.avg_filler_words}
+                      </span>
+                    </div>
+                    
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Talk Time Balance</span>
+                      <span className="font-semibold text-blue-600">
+                        {roleData.speech_metrics.avg_talk_time_percentage}%
+                      </span>
+                    </div>
+                    
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Objectives Completed</span>
+                      <span className="font-semibold text-green-600">
+                        {roleData.objectives_metrics.avg_completed_objectives}/5
+                      </span>
+                    </div>
+                    
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Improvement Trend</span>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getTrendColor(roleData.speech_metrics.weak_words_trend)}`}>
                         {roleData.speech_metrics.weak_words_trend}
                       </span>
                     </div>
@@ -649,7 +668,7 @@ export default function FocusedAnalyticsPage() {
                 </h3>
                 <div className="text-center">
                   <div className={`text-3xl font-bold mb-2 ${getFillerWordsColor(
-                    analyticsData.progress.reduce((sum, p) => sum + p.speech_metrics.avg_filler_words, 0) / analyticsData.progress.length
+                    Math.round(analyticsData.progress.reduce((sum, p) => sum + p.speech_metrics.avg_filler_words, 0) / analyticsData.progress.length)
                   )}`}>
                     {Math.round(analyticsData.progress.reduce((sum, p) => sum + p.speech_metrics.avg_filler_words, 0) / analyticsData.progress.length)}
                   </div>
@@ -708,187 +727,22 @@ export default function FocusedAnalyticsPage() {
                 </div>
               </div>
             </div>
-
-            {/* Detailed Speech Analysis by Role */}
-            <div className="bg-white rounded-2xl shadow-lg border border-white/20 p-8">
-              <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
-                <span className="text-2xl mr-3">📋</span>
-                Speech Analysis by Role
-              </h3>
-              
-              <div className="space-y-6">
-                {analyticsData.progress
-                  .filter(roleData => selectedRole === 'all' || roleData.role === selectedRole)
-                  .map((roleData) => (
-                  <div key={roleData.role} className="border border-gray-200 rounded-lg p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center space-x-3">
-                        <div className="text-2xl">{getRoleEmoji(roleData.role)}</div>
-                        <h4 className="text-lg font-semibold text-gray-900 capitalize">
-                          {roleData.role.replace('-', ' ')} Analysis
-                        </h4>
-                      </div>
-                      <div className="text-sm text-gray-600">
-                        {roleData.total_sessions} sessions • {roleData.total_minutes} minutes
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <div className="text-center p-3 bg-gray-50 rounded-lg">
-                        <div className={`text-2xl font-bold ${getFillerWordsColor(roleData.speech_metrics.avg_filler_words)}`}>
-                          {roleData.speech_metrics.avg_filler_words}
-                        </div>
-                        <div className="text-xs text-gray-600">Filler Words</div>
-                      </div>
-                      
-                      <div className="text-center p-3 bg-gray-50 rounded-lg">
-                        <div className="text-2xl font-bold text-blue-600">
-                          {roleData.speech_metrics.avg_talk_time_percentage}%
-                        </div>
-                        <div className="text-xs text-gray-600">Talk Time</div>
-                      </div>
-                      
-                      <div className="text-center p-3 bg-gray-50 rounded-lg">
-                        <div className="text-lg font-bold text-green-600">
-                          {roleData.speech_metrics.inclusive_language_score.toFixed(1)}
-                        </div>
-                        <div className="text-xs text-gray-600">Language Quality</div>
-                      </div>
-                      
-                      <div className="text-center p-3 bg-gray-50 rounded-lg">
-                        <div className={`text-sm font-bold px-2 py-1 rounded ${getTrendColor(roleData.speech_metrics.weak_words_trend)}`}>
-                          {roleData.speech_metrics.weak_words_trend}
-                        </div>
-                        <div className="text-xs text-gray-600">Trend</div>
-                      </div>
-                    </div>
-
-                    <div className="mt-4 text-sm text-gray-700">
-                      <strong>Repetition Control:</strong> {roleData.speech_metrics.repetition_control} • 
-                      <strong> Most Missed Objective:</strong> {roleData.objectives_metrics.most_missed_objective}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
           </div>
         )}
 
         {/* Objectives Tab */}
         {selectedView === 'objectives' && (
           <div className="space-y-8">
-            
-            {/* Objectives Overview */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="bg-white rounded-2xl shadow-lg border border-white/20 p-6">
-                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
-                  <span className="text-xl mr-3">🎯</span>
-                  Average Completion
-                </h3>
-                <div className="text-center">
-                  <div className="text-3xl font-bold mb-2 text-green-600">
-                    {(analyticsData.progress.reduce((sum, p) => sum + p.objectives_metrics.avg_completed_objectives, 0) / analyticsData.progress.length).toFixed(1)}
-                  </div>
-                  <div className="text-sm text-gray-600">Out of 5 objectives</div>
-                  <div className="mt-3 text-xs text-gray-500">
-                    {Math.round((analyticsData.progress.reduce((sum, p) => sum + p.objectives_metrics.avg_completed_objectives, 0) / analyticsData.progress.length / 5) * 100)}% completion rate
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-2xl shadow-lg border border-white/20 p-6">
-                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
-                  <span className="text-xl mr-3">📈</span>
-                  Improvement Trend
-                </h3>
-                <div className="text-center">
-                  <div className={`text-2xl font-bold mb-2 px-3 py-1 rounded-full ${getTrendColor('improving')}`}>
-                    Improving
-                  </div>
-                  <div className="text-sm text-gray-600">Overall trend</div>
-                  <div className="mt-3 text-xs text-gray-500">
-                    Based on recent sessions
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-2xl shadow-lg border border-white/20 p-6">
-                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
-                  <span className="text-xl mr-3">🎭</span>
-                  Best Role
-                </h3>
-                <div className="text-center">
-                  {analyticsData.summary.best_role && (
-                    <>
-                      <div className="text-2xl mb-2">{getRoleEmoji(analyticsData.summary.best_role.role)}</div>
-                      <div className="text-sm font-semibold text-gray-900 capitalize">
-                        {analyticsData.summary.best_role.role.replace('-', ' ')}
-                      </div>
-                      <div className="text-xs text-gray-600 mt-1">
-                        {analyticsData.summary.best_role.objectives_metrics.avg_completed_objectives.toFixed(1)}/5 avg completion
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Objectives Breakdown by Role */}
             <div className="bg-white rounded-2xl shadow-lg border border-white/20 p-8">
               <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
-                <span className="text-2xl mr-3">📊</span>
-                Objectives Performance by Role
+                <span className="text-2xl mr-3">🎯</span>
+                Objectives Performance
               </h3>
-              
-              <div className="space-y-6">
-                {analyticsData.progress
-                  .filter(roleData => selectedRole === 'all' || roleData.role === selectedRole)
-                  .map((roleData) => (
-                  <div key={roleData.role} className="border border-gray-200 rounded-lg p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center space-x-3">
-                        <div className="text-2xl">{getRoleEmoji(roleData.role)}</div>
-                        <div>
-                          <h4 className="text-lg font-semibold text-gray-900 capitalize">
-                            {roleData.role.replace('-', ' ')}
-                          </h4>
-                          <p className="text-sm text-gray-600">
-                            {roleData.total_sessions} sessions completed
-                          </p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-2xl font-bold text-green-600">
-                          {roleData.objectives_metrics.avg_completed_objectives.toFixed(1)}/5
-                        </div>
-                        <div className="text-sm text-gray-600">Average completion</div>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-                        <h5 className="font-semibold text-green-800 mb-2">Completion Rate</h5>
-                        <div className="text-2xl font-bold text-green-600">
-                          {Math.round((roleData.objectives_metrics.avg_completed_objectives / 5) * 100)}%
-                        </div>
-                      </div>
-                      
-                      <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
-                        <h5 className="font-semibold text-orange-800 mb-2">Most Missed</h5>
-                        <div className="text-sm text-orange-700">
-                          {roleData.objectives_metrics.most_missed_objective}
-                        </div>
-                      </div>
-                      
-                      <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                        <h5 className="font-semibold text-blue-800 mb-2">Trend</h5>
-                        <div className={`text-sm font-medium px-2 py-1 rounded ${getTrendColor(roleData.objectives_metrics.completion_trend)}`}>
-                          {roleData.objectives_metrics.completion_trend}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+              <div className="text-center">
+                <div className="text-3xl font-bold mb-2 text-green-600">
+                  {(analyticsData.progress.reduce((sum, p) => sum + p.objectives_metrics.avg_completed_objectives, 0) / analyticsData.progress.length).toFixed(1)}
+                </div>
+                <div className="text-sm text-gray-600">Average objectives completed per session</div>
               </div>
             </div>
           </div>
@@ -897,157 +751,12 @@ export default function FocusedAnalyticsPage() {
         {/* Trends Tab */}
         {selectedView === 'trends' && (
           <div className="space-y-8">
-            
-            {/* Trend Charts */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              
-              {/* Filler Words Trend */}
-              <div className="bg-white rounded-2xl shadow-lg border border-white/20 p-6">
-                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
-                  <span className="text-xl mr-3">🗣️</span>
-                  Filler Words Over Time
-                </h3>
-                <div className="space-y-3">
-                  {analyticsData.speech_trends.filler_words_over_time.slice(0, 5).map((dataPoint, index) => (
-                    <div key={index} className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">{dataPoint.date}</span>
-                      <div className="flex items-center space-x-2">
-                        <div className={`w-24 h-2 bg-gray-200 rounded-full overflow-hidden`}>
-                          <div 
-                            className={`h-full ${getFillerWordsColor(dataPoint.count) === 'text-green-600' ? 'bg-green-500' : 
-                              getFillerWordsColor(dataPoint.count) === 'text-yellow-600' ? 'bg-yellow-500' : 'bg-red-500'}`}
-                            style={{ width: `${Math.min(100, (dataPoint.count / 10) * 100)}%` }}
-                          ></div>
-                        </div>
-                        <span className={`text-sm font-medium ${getFillerWordsColor(dataPoint.count)}`}>
-                          {dataPoint.count}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Talk Time Trend */}
-              <div className="bg-white rounded-2xl shadow-lg border border-white/20 p-6">
-                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
-                  <span className="text-xl mr-3">⏰</span>
-                  Talk Time Balance
-                </h3>
-                <div className="space-y-3">
-                  {analyticsData.speech_trends.talk_time_balance_over_time.slice(0, 5).map((dataPoint, index) => (
-                    <div key={index} className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">{dataPoint.date}</span>
-                      <div className="flex items-center space-x-2">
-                        <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
-                          <div 
-                            className={`h-full ${dataPoint.percentage >= 40 && dataPoint.percentage <= 60 ? 'bg-green-500' : 
-                              dataPoint.percentage >= 30 && dataPoint.percentage <= 70 ? 'bg-yellow-500' : 'bg-red-500'}`}
-                            style={{ width: `${dataPoint.percentage}%` }}
-                          ></div>
-                        </div>
-                        <span className="text-sm font-medium text-purple-600">
-                          {dataPoint.percentage}%
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Objective Completion Trend */}
-              <div className="bg-white rounded-2xl shadow-lg border border-white/20 p-6">
-                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
-                  <span className="text-xl mr-3">🎯</span>
-                  Objectives Completion
-                </h3>
-                <div className="space-y-3">
-                  {analyticsData.speech_trends.objective_completion_over_time.slice(0, 5).map((dataPoint, index) => (
-                    <div key={index} className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">{dataPoint.date}</span>
-                      <div className="flex items-center space-x-2">
-                        <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
-                          <div 
-                            className="h-full bg-green-500"
-                            style={{ width: `${(dataPoint.completed / dataPoint.total) * 100}%` }}
-                          ></div>
-                        </div>
-                        <span className="text-sm font-medium text-green-600">
-                          {dataPoint.completed}/{dataPoint.total}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Weak Words Trend */}
-              <div className="bg-white rounded-2xl shadow-lg border border-white/20 p-6">
-                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
-                  <span className="text-xl mr-3">💪</span>
-                  Word Confidence
-                </h3>
-                <div className="space-y-3">
-                  {analyticsData.speech_trends.weak_words_over_time.slice(0, 5).map((dataPoint, index) => (
-                    <div key={index} className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">{dataPoint.date}</span>
-                      <div className="flex items-center space-x-2">
-                        <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
-                          <div 
-                            className={`h-full ${dataPoint.count <= 2 ? 'bg-green-500' : 
-                              dataPoint.count <= 5 ? 'bg-yellow-500' : 'bg-red-500'}`}
-                            style={{ width: `${Math.min(100, (dataPoint.count / 8) * 100)}%` }}
-                          ></div>
-                        </div>
-                        <span className={`text-sm font-medium ${dataPoint.count <= 2 ? 'text-green-600' : 
-                          dataPoint.count <= 5 ? 'text-yellow-600' : 'text-red-600'}`}>
-                          {dataPoint.count}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Progress Summary */}
-            <div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-2xl p-8 border border-green-200">
-              <h3 className="text-xl font-bold text-green-900 mb-6 flex items-center">
+            <div className="bg-white rounded-2xl shadow-lg border border-white/20 p-8">
+              <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
                 <span className="text-2xl mr-3">📈</span>
-                Your Progress Journey
+                Performance Trends
               </h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white rounded-lg p-4 border border-green-200">
-                  <h4 className="font-semibold text-green-900 mb-2">Speech Quality</h4>
-                  <p className="text-green-800 text-sm">
-                    {analyticsData.summary.speech_improvement_score >= 4 ? 
-                      'Excellent progress! Your speech patterns are becoming more professional.' :
-                      analyticsData.summary.speech_improvement_score >= 3 ? 
-                      'Good improvement! Keep practicing to reduce filler words.' :
-                      'Starting your journey! Focus on reducing hesitation and filler words.'
-                    }
-                  </p>
-                </div>
-                
-                <div className="bg-white rounded-lg p-4 border border-green-200">
-                  <h4 className="font-semibold text-green-900 mb-2">Communication Level</h4>
-                  <p className="text-green-800 text-sm">
-                    You've reached <strong>{analyticsData.summary.communication_maturity}</strong> level 
-                    {getMaturityBadge(analyticsData.summary.communication_maturity).icon} across {analyticsData.summary.total_sessions} practice sessions.
-                  </p>
-                </div>
-                
-                <div className="bg-white rounded-lg p-4 border border-green-200">
-                  <h4 className="font-semibold text-green-900 mb-2">Next Steps</h4>
-                  <p className="text-green-800 text-sm">
-                    {analyticsData.summary.communication_maturity === 'advanced' ?
-                      'Maintain your excellent communication skills with regular practice.' :
-                      'Continue practicing to advance to the next communication level.'
-                    }
-                  </p>
-                </div>
-              </div>
+              <p className="text-gray-600">Track your improvement over time across all speech metrics.</p>
             </div>
           </div>
         )}
@@ -1066,12 +775,6 @@ export default function FocusedAnalyticsPage() {
           >
             📚 Session History
           </button>
-          <button
-            onClick={() => router.push('/profile')}
-            className="bg-gray-600 text-white px-8 py-4 rounded-xl text-lg font-semibold hover:bg-gray-700 transition-colors"
-          >
-            ⚙️ Settings
-          </button>
         </div>
 
         {/* Analytics Info */}
@@ -1083,46 +786,8 @@ export default function FocusedAnalyticsPage() {
             This dashboard tracks your improvement across 7 key communication areas: filler words, speaking speed, 
             inclusive language, word confidence, repetition patterns, talk time balance, and scenario objective completion.
           </p>
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs text-blue-600">
-            <span className="bg-blue-100 px-3 py-1 rounded-full">🎤 Speech Pattern Analysis</span>
-            <span className="bg-blue-100 px-3 py-1 rounded-full">💪 Confidence Tracking</span>
-            <span className="bg-blue-100 px-3 py-1 rounded-full">🎯 Objective Mastery</span>
-            <span className="bg-blue-100 px-3 py-1 rounded-full">📈 Progress Visualization</span>
-          </div>
         </div>
       </div>
     </div>
   );
-}roleData.average_score.toFixed(1)}
-                      </div>
-                      <div className="text-xs text-gray-500">Average</div>
-                    </div>
-                  </div>
-
-                  {/* Speech Metrics */}
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Filler Words (avg)</span>
-                      <span className={`font-semibold ${getFillerWordsColor(roleData.speech_metrics.avg_filler_words)}`}>
-                        {roleData.speech_metrics.avg_filler_words}
-                      </span>
-                    </div>
-                    
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Talk Time Balance</span>
-                      <span className="font-semibold text-blue-600">
-                        {roleData.speech_metrics.avg_talk_time_percentage}%
-                      </span>
-                    </div>
-                    
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Objectives Completed</span>
-                      <span className="font-semibold text-green-600">
-                        {roleData.objectives_metrics.avg_completed_objectives}/5
-                      </span>
-                    </div>
-                    
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Improvement Trend</span>
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getTrendColor(roleData.speech_metrics.weak_words_trend)}`}>
-                        {
+}
