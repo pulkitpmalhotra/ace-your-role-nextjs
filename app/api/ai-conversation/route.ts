@@ -328,4 +328,136 @@ function cleanAIResponse(response: string): string {
     .replace(/^["']|["']$/g, '') // Remove quotes
     .replace(/\n+/g, ' ') // Replace newlines with spaces
     .replace(/\s+/g, ' ') // Replace multiple spaces with single space
-    .replace(/^(As |I am |I'm |My name is |Hello,? I'm |Hi,? I'm )
+    .replace(/^(As |I am |I'm |My name is |Hello,? I'm |Hi,? I'm )/i, '') // Remove AI-like introductions
+    .replace(/(How can I help|How may I assist|What can I do for)/i, '') // Remove assistant language
+    .replace(/^(Sure|Certainly|Of course|Absolutely)[,!]?\s*/i, '') // Remove AI affirmations
+    .trim();
+}
+
+function generateContextualFallback(scenario: any, userMessage: string, conversationHistory: any[]) {
+  console.log('🔄 Using enhanced contextual fallback');
+  
+  const exchanges = Math.floor((conversationHistory?.length || 0) / 2);
+  const userRole = getUserRole(scenario?.role || 'sales');
+  
+  // Context-aware responses based on what user said and conversation stage
+  const responseTemplates: Record<string, any> = {
+    'sales': {
+      opening: [
+        "That's interesting. Can you tell me more about how this would specifically help our company?",
+        "I see. What makes your solution different from what we're currently using?",
+        "Help me understand - what kind of results have other companies like ours seen?"
+      ],
+      middle: [
+        "That's a good point. What would the implementation process look like for us?",
+        "I appreciate that information. What kind of timeline are we looking at?",
+        "That sounds promising. What are the costs involved?"
+      ],
+      closing: [
+        "I need to think about this. What are the next steps if we want to move forward?",
+        "This seems like it could work for us. Who else would need to be involved in this decision?",
+        "Let me discuss this with my team. When could we schedule a follow-up?"
+      ]
+    },
+    'project-manager': {
+      opening: [
+        "Thanks for bringing this up. What are the main challenges we need to address?",
+        "I understand. How does this affect our current timeline?",
+        "That's helpful context. What resources would we need for this?"
+      ],
+      middle: [
+        "Good point. How should we communicate this to the stakeholders?",
+        "I see the complexity here. What are the biggest risks we should consider?",
+        "That makes sense. How do we ensure we stay on track with deliverables?"
+      ],
+      closing: [
+        "Alright, let's define the action items. Who's responsible for what?",
+        "I think we have a path forward. When should we check in on progress?",
+        "This sounds like a solid plan. What do you need from me to make this successful?"
+      ]
+    },
+    'support-agent': {
+      opening: [
+        "I understand your frustration. Let me see how I can help resolve this issue.",
+        "That sounds concerning. Can you walk me through exactly what happened?",
+        "I appreciate you explaining that. Let me check what options we have available."
+      ],
+      middle: [
+        "That makes sense. Have you tried restarting the application?",
+        "I see the problem. Let me check if this is a known issue on our end.",
+        "That's helpful information. Can you try these steps and let me know what happens?"
+      ],
+      closing: [
+        "Great! It sounds like that resolved the issue. Is there anything else I can help with?",
+        "Perfect. I'll make sure to document this solution for future reference.",
+        "I'm glad we got that sorted out. Don't hesitate to reach out if you need more help."
+      ]
+    },
+    'manager': {
+      opening: [
+        "Thanks for bringing this to my attention. What's your perspective on the situation?",
+        "I appreciate you coming to me with this. Can you help me understand the context?",
+        "That's an important point. What do you think would be the best approach?"
+      ],
+      middle: [
+        "I see what you mean. What kind of support would be most helpful?",
+        "That's valuable feedback. How do you think we should move forward?",
+        "Good insight. What obstacles do you see, and how might we address them?"
+      ],
+      closing: [
+        "This has been a productive conversation. What are your next steps?",
+        "I think we have a clear path forward. How can I support you on this?",
+        "Let's schedule a follow-up to check on progress. When works best for you?"
+      ]
+    },
+    'leader': {
+      opening: [
+        "That's an important strategic consideration. How do you see this fitting with our goals?",
+        "I appreciate you thinking about the bigger picture. What's driving this initiative?",
+        "That's insightful. How do you think this will impact the team and organization?"
+      ],
+      middle: [
+        "I see the potential here. What would successful implementation look like?",
+        "That's a compelling vision. What are the key milestones we should focus on?",
+        "Good thinking. How do we ensure this aligns with our organizational values?"
+      ],
+      closing: [
+        "This sounds like a strategic priority. How do we build momentum around this?",
+        "I'm excited about this direction. What resources do you need to make it happen?",
+        "Let's create a roadmap for this. When should we reconvene to track progress?"
+      ]
+    }
+  };
+  
+  // Determine conversation stage
+  const stage = exchanges < 3 ? 'opening' : exchanges < 6 ? 'middle' : 'closing';
+  
+  // Get appropriate responses for the role and stage
+  const roleResponses = responseTemplates[scenario?.role] || responseTemplates['sales'];
+  const stageResponses = roleResponses[stage] || roleResponses['opening'];
+  
+  // Select a contextual response
+  let selectedResponse = stageResponses[Math.floor(Math.random() * stageResponses.length)];
+  
+  // Make response more contextual based on user message
+  if (userMessage?.toLowerCase().includes('price') || userMessage?.toLowerCase().includes('cost')) {
+    if (scenario?.role === 'sales') {
+      selectedResponse = "That's an important consideration. Can you help me understand your budget range for this type of solution?";
+    }
+  } else if (userMessage?.toLowerCase().includes('time') || userMessage?.toLowerCase().includes('when')) {
+    selectedResponse = "Good question about timing. What's driving the urgency on your end?";
+  } else if (userMessage?.toLowerCase().includes('team') || userMessage?.toLowerCase().includes('people')) {
+    selectedResponse = "That's a key point about the team. How many people would this impact?";
+  }
+
+  return Response.json({
+    success: true,
+    data: {
+      response: selectedResponse,
+      character: scenario?.character_name || 'Professional Contact',
+      emotion: determineEmotion(conversationHistory || [], scenario),
+      shouldEndConversation: shouldEndConversation(conversationHistory || []),
+      model: 'enhanced-contextual-fallback'
+    }
+  });
+}
