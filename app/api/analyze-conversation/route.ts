@@ -1,4 +1,7 @@
-// app/api/analyze-conversation/route.ts - Focused Gemini Speech Analysis
+// app/api/analyze-conversation/route.ts - Updated with Vercel AI SDK
+import { google } from '@ai-sdk/google';
+import { generateText } from 'ai';
+
 export async function POST(request: Request) {
   try {
     const { conversation, scenario, sessionId, sessionData } = await request.json();
@@ -10,7 +13,7 @@ export async function POST(request: Request) {
       );
     }
 
-    console.log('🧠 Focused speech analysis with Gemini...', {
+    console.log('🧠 Focused speech analysis with Vercel AI SDK + Gemini...', {
       sessionId,
       messageCount: conversation.length,
       role: scenario.role
@@ -27,15 +30,15 @@ export async function POST(request: Request) {
       });
     }
 
-    // Perform focused speech analysis
+    // Perform focused speech analysis with Vercel AI SDK
     const analysisResult = await performFocusedSpeechAnalysis(conversation, scenario, sessionData);
     
-    console.log('✅ Focused Gemini speech analysis completed');
+    console.log('✅ Focused Vercel AI SDK + Gemini speech analysis completed');
 
     return Response.json({
       success: true,
       data: analysisResult,
-      source: 'gemini-focused'
+      source: 'vercel-ai-sdk-gemini'
     });
 
   } catch (error) {
@@ -68,37 +71,31 @@ async function performFocusedSpeechAnalysis(conversation: any[], scenario: any, 
     totalDuration
   );
   
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GOOGLE_AI_API_KEY}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: analysisPrompt }] }],
-        generationConfig: {
-          temperature: 0.2, // Lower for more consistent analysis
-          topK: 40,
-          topP: 0.9,
-          maxOutputTokens: 1500,
-          candidateCount: 1,
-        }
+  try {
+    // Use Vercel AI SDK with Gemini 2.0 Flash Experimental
+    const { text: aiAnalysis } = await generateText({
+      model: google('gemini-2.0-flash-exp', {
+        apiKey: GOOGLE_AI_API_KEY,
       }),
-      signal: AbortSignal.timeout(30000)
+      prompt: analysisPrompt,
+      temperature: 0.2, // Lower for more consistent analysis
+      maxTokens: 1500,
+      topP: 0.9,
+      topK: 40,
+      frequencyPenalty: 0.1, // Reduce repetition in analysis
+      presencePenalty: 0.1, // Encourage diverse feedback
+    });
+
+    if (!aiAnalysis || aiAnalysis.trim().length === 0) {
+      throw new Error('Empty analysis from Gemini');
     }
-  );
 
-  if (!response.ok) {
-    throw new Error(`Gemini focused analysis failed: ${response.status}`);
+    return parseFocusedAnalysis(aiAnalysis, conversation, scenario, sessionData, userSpeakingTime);
+
+  } catch (aiError) {
+    console.error('❌ Vercel AI SDK + Gemini analysis error:', aiError);
+    throw new Error(`Gemini analysis failed: ${aiError instanceof Error ? aiError.message : 'Unknown error'}`);
   }
-
-  const data = await response.json();
-  const aiAnalysis = data.candidates?.[0]?.content?.parts?.[0]?.text;
-
-  if (!aiAnalysis) {
-    throw new Error('No focused analysis from Gemini');
-  }
-
-  return parseFocusedAnalysis(aiAnalysis, conversation, scenario, sessionData, userSpeakingTime);
 }
 
 function buildFocusedAnalysisPrompt(
@@ -256,7 +253,7 @@ function parseFocusedAnalysis(
       natural_ending: sessionData?.naturalEnding || false
     },
     
-    analysis_type: 'gemini-focused-speech-analysis',
+    analysis_type: 'vercel-ai-sdk-gemini-focused-analysis',
     timestamp: new Date().toISOString()
   };
 }
