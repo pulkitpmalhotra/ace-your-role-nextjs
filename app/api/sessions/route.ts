@@ -1,4 +1,4 @@
-// app/api/sessions/route.ts - Debug Version with Enhanced Logging
+// app/api/sessions/route.ts - FIXED VERSION with better debugging
 import { createClient } from '@supabase/supabase-js';
 
 // Create a new session
@@ -254,7 +254,7 @@ export async function PUT(request: Request) {
   }
 }
 
-// ENHANCED GET METHOD - Fixed for history page
+// FIXED GET METHOD - Much simpler and more reliable
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -287,75 +287,107 @@ export async function GET(request: Request) {
     
     console.log('🔍 Building query...');
     
-    let query = supabase
-      .from('sessions')
-      .select(`
-        *,
-        scenarios (
-          id,
-          title,
-          character_name,
-          character_role,
-          role,
-          difficulty
-        )
-      `);
-    
     if (session_id) {
-      console.log('🔍 Querying by session_id:', session_id);
-      query = query.eq('id', session_id);
-    } else if (user_email) {
-      console.log('🔍 Querying by user_email:', user_email);
-      query = query.eq('user_email', user_email);
+      // Single session query
+      console.log('🔍 Querying single session:', session_id);
       
-      // Filter by status if provided
-      if (status) {
-        console.log('🔍 Filtering by status:', status);
+      const { data: session, error } = await supabase
+        .from('sessions')
+        .select(`
+          *,
+          scenarios (
+            id, title, character_name, character_role, role, difficulty
+          )
+        `)
+        .eq('id', session_id)
+        .single();
+
+      if (error) {
+        console.error('❌ Single session query error:', error);
+        return Response.json(
+          { success: false, error: 'Session not found', details: error.message },
+          { status: 404 }
+        );
+      }
+
+      console.log('✅ Single session found');
+      return Response.json({ success: true, data: session });
+    } 
+    
+    if (user_email) {
+      // Multiple sessions query for user
+      console.log('🔍 Querying sessions for user:', user_email);
+      
+      // Build query step by step
+      let query = supabase
+        .from('sessions')
+        .select(`
+          *,
+          scenarios (
+            id, title, character_name, character_role, role, difficulty
+          )
+        `)
+        .eq('user_email', user_email);
+      
+      // Add status filter if provided
+      if (status && status !== 'all') {
+        console.log('🔍 Adding status filter:', status);
         query = query.eq('session_status', status);
       }
       
-      query = query.order('start_time', { ascending: false });
-    }
+      // Add ordering and execute
+      const { data: sessions, error, count } = await query
+        .order('start_time', { ascending: false })
+        .limit(100); // Reasonable limit
+      
+      if (error) {
+        console.error('❌ User sessions query error:', error);
+        return Response.json(
+          { 
+            success: false, 
+            error: 'Failed to fetch user sessions', 
+            details: error.message,
+            query_info: { user_email, status }
+          },
+          { status: 500 }
+        );
+      }
 
-    console.log('🔍 Executing query...');
-    const { data: sessions, error } = await query;
+      console.log('✅ User sessions query successful. Sessions found:', sessions?.length || 0);
+      
+      // Enhanced debugging for first session
+      if (sessions && sessions.length > 0) {
+        const firstSession = sessions[0];
+        console.log('📊 First session details:', {
+          id: firstSession.id,
+          user_email: firstSession.user_email,
+          session_status: firstSession.session_status,
+          start_time: firstSession.start_time,
+          has_scenario: !!firstSession.scenarios,
+          scenario_title: firstSession.scenarios?.title || 'No scenario'
+        });
+      } else {
+        console.log('📊 No sessions found for user:', user_email);
+      }
 
-    if (error) {
-      console.error('❌ Supabase query error:', error);
-      return Response.json(
-        { success: false, error: 'Failed to fetch sessions', details: error.message },
-        { status: 500 }
-      );
-    }
-
-    console.log('✅ Query successful. Found sessions:', sessions?.length || 0);
-    
-    // Log first session for debugging
-    if (sessions && sessions.length > 0) {
-      console.log('📊 First session sample:', {
-        id: sessions[0].id,
-        user_email: sessions[0].user_email,
-        session_status: sessions[0].session_status,
-        start_time: sessions[0].start_time,
-        scenario_title: sessions[0].scenarios?.title
+      // Always return array for user queries
+      return Response.json({
+        success: true,
+        data: sessions || [],
+        meta: {
+          total: sessions?.length || 0,
+          user_email: user_email,
+          status_filter: status,
+          query_type: 'user_sessions'
+        }
       });
     }
 
-    // Ensure we always return an array for user_email queries
-    const responseData = session_id ? sessions?.[0] : (sessions || []);
-    
-    console.log('📊 Returning data:', session_id ? 'single session' : `${sessions?.length || 0} sessions`);
-
-    return Response.json({
-      success: true,
-      data: responseData,
-      meta: {
-        total: sessions?.length || 0,
-        query_type: session_id ? 'single' : 'list',
-        user_email: user_email,
-        filters: { status }
-      }
-    });
+    // Should not reach here
+    return Response.json(
+      { success: false, error: 'Invalid query parameters' },
+      { status: 400 }
+    );
 
   } catch (error) {
     console.error('💥 Sessions GET API error:', error);
@@ -368,7 +400,7 @@ export async function GET(request: Request) {
   }
 }
 
-// Helper function to update user progress
+// Helper function to update user progress (unchanged)
 async function updateUserProgress(
   supabase: any, 
   userEmail: string, 
