@@ -1,6 +1,10 @@
 // app/api/sessions/route.ts - FIXED VERSION with better debugging
 import { createClient } from '@supabase/supabase-js';
 
+// Force dynamic rendering
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 // Create a new session
 export async function POST(request: Request) {
   try {
