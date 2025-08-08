@@ -1,68 +1,208 @@
-// app/api/sessions/route.ts - FIXED VERSION with better debugging
+// app/api/sessions/route.ts - SECURE VERSION with proper auth
 import { createClient } from '@supabase/supabase-js';
+import { jwtVerify } from 'jose';
 
-// Force dynamic rendering
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-// Create a new session
+// Helper function to create authenticated Supabase client
+async function createAuthenticatedSupabaseClient(sessionToken: string) {
+  const supabaseUrl = process.env.SUPABASE_URL!;
+  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY!;
+  
+  // Verify the JWT token
+  const secret = new TextEncoder().encode(process.env.NEXTAUTH_SECRET!);
+  const { payload } = await jwtVerify(sessionToken, secret);
+  const userEmail = payload.email as string;
+  
+  if (!userEmail) {
+    throw new Error('Invalid session token');
+  }
+  
+  // Create Supabase client
+  const supabase = createClient(supabaseUrl, supabaseAnonKey);
+  
+  // Set the user context for RLS
+  await supabase.rpc('set_config', {
+    setting_name: 'app.current_user_email',
+    setting_value: userEmail
+  });
+  
+  return { supabase, userEmail };
+}
+
+// Alternative: Use service key for specific operations
+function createServiceSupabase() {
+  const supabaseUrl = process.env.SUPABASE_URL!;
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  
+  return createClient(supabaseUrl, supabaseServiceKey);
+}
+
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const session_id = searchParams.get('session_id');
+    const user_email = searchParams.get('user_email');
+    const status = searchParams.get('status');
+    
+    // Get session token from Authorization header
+    const authHeader = request.headers.get('Authorization');
+    const sessionToken = authHeader?.replace('Bearer ', '');
+    
+    if (!sessionToken) {
+      return Response.json(
+        { success: false, error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    console.log('📊 GET Sessions API called with auth');
+
+    try {
+      // Use authenticated client for user data
+      const { supabase, userEmail } = await createAuthenticatedSupabaseClient(sessionToken);
+      
+      // Verify the requested email matches the authenticated user
+      if (user_email && user_email !== userEmail) {
+        return Response.json(
+          { success: false, error: 'Access denied: can only access your own sessions' },
+          { status: 403 }
+        );
+      }
+      
+      if (session_id) {
+        // Single session query - RLS will ensure user can only see their own
+        const { data: session, error } = await supabase
+          .from('sessions')
+          .select(`
+            *,
+            scenarios (
+              id, title, character_name, character_role, role, difficulty
+            )
+          `)
+          .eq('id', session_id)
+          .single();
+
+        if (error) {
+          console.error('❌ Single session query error:', error);
+          return Response.json(
+            { success: false, error: 'Session not found' },
+            { status: 404 }
+          );
+        }
+
+        return Response.json({ success: true, data: session });
+      } 
+      
+      if (user_email) {
+        // Multiple sessions query - RLS will filter to user's sessions only
+        let query = supabase
+          .from('sessions')
+          .select(`
+            *,
+            scenarios (
+              id, title, character_name, character_role, role, difficulty
+            )
+          `);
+        
+        // Add status filter if provided
+        if (status && status !== 'all') {
+          query = query.eq('session_status', status);
+        }
+        
+        const { data: sessions, error } = await query
+          .order('start_time', { ascending: false })
+          .limit(100);
+        
+        if (error) {
+          console.error('❌ User sessions query error:', error);
+          return Response.json(
+            { success: false, error: 'Failed to fetch sessions' },
+            { status: 500 }
+          );
+        }
+
+        console.log('✅ User sessions loaded:', sessions?.length || 0);
+
+        return Response.json({
+          success: true,
+          data: sessions || [],
+          meta: {
+            total: sessions?.length || 0,
+            user_email: userEmail,
+            status_filter: status
+          }
+        });
+      }
+
+      return Response.json(
+        { success: false, error: 'Session ID or user email required' },
+        { status: 400 }
+      );
+
+    } catch (authError) {
+      console.error('❌ Authentication error:', authError);
+      return Response.json(
+        { success: false, error: 'Invalid authentication token' },
+        { status: 401 }
+      );
+    }
+
+  } catch (error) {
+    console.error('💥 Sessions GET API error:', error);
+    return Response.json(
+      { success: false, error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const { scenario_id, user_email } = await request.json();
     
-    console.log('🎯 Session creation request:', { scenario_id, user_email });
+    // Get session token from Authorization header
+    const authHeader = request.headers.get('Authorization');
+    const sessionToken = authHeader?.replace('Bearer ', '');
     
-    if (!scenario_id || !user_email) {
+    if (!sessionToken) {
       return Response.json(
-        { success: false, error: 'Scenario ID and user email are required' },
-        { status: 400 }
+        { success: false, error: 'Authentication required' },
+        { status: 401 }
       );
     }
 
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const { supabase, userEmail } = await createAuthenticatedSupabaseClient(sessionToken);
     
-    if (!supabaseUrl || !supabaseServiceKey) {
-      console.error('❌ Missing Supabase configuration');
+    // Verify the requested email matches the authenticated user
+    if (user_email !== userEmail) {
       return Response.json(
-        { 
-          success: false, 
-          error: 'Database configuration missing',
-          details: 'Required environment variables not configured'
-        },
-        { status: 500 }
+        { success: false, error: 'Access denied: can only create sessions for yourself' },
+        { status: 403 }
       );
     }
 
-    const supabaseService = createClient(supabaseUrl, supabaseServiceKey);
-    const supabaseAnon = createClient(supabaseUrl, process.env.SUPABASE_ANON_KEY!);
+    // Use service client for creating sessions (needs elevated permissions)
+    const serviceSupabase = createServiceSupabase();
     
-    // Ensure user exists
-    console.log('👤 Checking/creating user:', user_email);
-    
+    // Get or create user
     let user;
-    const { data: existingUser, error: fetchError } = await supabaseService
+    const { data: existingUser, error: fetchError } = await serviceSupabase
       .from('users')
       .select('id, email')
-      .eq('email', user_email)
+      .eq('email', userEmail)
       .single();
-
-    if (fetchError && fetchError.code !== 'PGRST116') {
-      console.error('❌ Error fetching user:', fetchError);
-      return Response.json(
-        { success: false, error: `Database error: ${fetchError.message}` },
-        { status: 500 }
-      );
-    }
 
     if (existingUser) {
       user = existingUser;
-    } else {
-      const { data: newUser, error: createError } = await supabaseService
+    } else if (fetchError?.code === 'PGRST116') {
+      // User doesn't exist, create them
+      const { data: newUser, error: createError } = await serviceSupabase
         .from('users')
         .insert({
-          email: user_email.trim().toLowerCase(),
-          name: user_email.split('@')[0],
+          email: userEmail,
+          name: userEmail.split('@')[0],
           total_sessions: 0,
           total_minutes: 0,
           auth_provider: 'google',
@@ -74,36 +214,41 @@ export async function POST(request: Request) {
       if (createError) {
         console.error('❌ Error creating user:', createError);
         return Response.json(
-          { success: false, error: `Failed to create user: ${createError.message}` },
+          { success: false, error: 'Failed to create user' },
           { status: 500 }
         );
       }
       
       user = newUser;
+    } else {
+      console.error('❌ Error fetching user:', fetchError);
+      return Response.json(
+        { success: false, error: 'Database error' },
+        { status: 500 }
+      );
     }
 
-    // Verify scenario exists
-    const { data: scenario, error: scenarioError } = await supabaseAnon
+    // Verify scenario exists (scenarios are public)
+    const { data: scenario, error: scenarioError } = await supabase
       .from('scenarios')
       .select('id, title, character_name')
       .eq('id', scenario_id)
       .single();
 
     if (scenarioError || !scenario) {
-      console.error('❌ Scenario not found:', scenario_id);
       return Response.json(
         { success: false, error: 'Scenario not found' },
         { status: 404 }
       );
     }
 
-    // Create new session
-    const { data: session, error: sessionError } = await supabaseService
+    // Create session using service client
+    const { data: session, error: sessionError } = await serviceSupabase
       .from('sessions')
       .insert({
         user_id: user.id,
         scenario_id: scenario_id,
-        user_email: user_email,
+        user_email: userEmail,
         conversation: [],
         session_status: 'active',
         start_time: new Date().toISOString(),
@@ -120,30 +265,23 @@ export async function POST(request: Request) {
     if (sessionError) {
       console.error('❌ Error creating session:', sessionError);
       return Response.json(
-        { success: false, error: `Failed to create session: ${sessionError.message}` },
+        { success: false, error: 'Failed to create session' },
         { status: 500 }
       );
     }
 
     console.log('✅ Session created successfully:', session.id);
-
-    return Response.json({
-      success: true,
-      data: session
-    });
+    return Response.json({ success: true, data: session });
 
   } catch (error) {
     console.error('💥 Sessions POST API error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    
     return Response.json(
-      { success: false, error: `Internal server error: ${errorMessage}` },
+      { success: false, error: 'Internal server error' },
       { status: 500 }
     );
   }
 }
 
-// Update session
 export async function PUT(request: Request) {
   try {
     const { 
@@ -162,24 +300,43 @@ export async function PUT(request: Request) {
       );
     }
 
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    // Get session token from Authorization header
+    const authHeader = request.headers.get('Authorization');
+    const sessionToken = authHeader?.replace('Bearer ', '');
     
-    if (!supabaseUrl || !supabaseServiceKey) {
+    if (!sessionToken) {
       return Response.json(
-        { success: false, error: 'Database configuration missing' },
-        { status: 500 }
+        { success: false, error: 'Authentication required' },
+        { status: 401 }
       );
     }
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const { supabase, userEmail } = await createAuthenticatedSupabaseClient(sessionToken);
     
-    // Get current session to track completion
-    const { data: currentSession } = await supabase
+    // Use service client for updates that need elevated permissions
+    const serviceSupabase = createServiceSupabase();
+    
+    // Get current session to verify ownership
+    const { data: currentSession, error: fetchError } = await serviceSupabase
       .from('sessions')
-      .select('session_status, user_email, user_id')
+      .select('user_email, session_status, user_id')
       .eq('id', session_id)
       .single();
+
+    if (fetchError || !currentSession) {
+      return Response.json(
+        { success: false, error: 'Session not found' },
+        { status: 404 }
+      );
+    }
+
+    // Verify ownership
+    if (currentSession.user_email !== userEmail) {
+      return Response.json(
+        { success: false, error: 'Access denied: can only update your own sessions' },
+        { status: 403 }
+      );
+    }
 
     const updateData: any = {
       updated_at: new Date().toISOString()
@@ -191,10 +348,8 @@ export async function PUT(request: Request) {
     if (overall_score !== undefined) updateData.overall_score = overall_score;
     if (conversation_metadata) updateData.conversation_metadata = conversation_metadata;
 
-    console.log('🔄 Updating session:', session_id, 'with data:', updateData);
-
     // Update session
-    const { data: session, error } = await supabase
+    const { data: session, error } = await serviceSupabase
       .from('sessions')
       .update(updateData)
       .eq('id', session_id)
@@ -213,41 +368,7 @@ export async function PUT(request: Request) {
     }
 
     console.log('✅ Session updated successfully:', session_id);
-
-    // If session is being completed, update user stats and progress
-    if (session_status === 'completed' && currentSession?.session_status !== 'completed') {
-      console.log('🏁 Session completed, updating user progress');
-      
-      try {
-        // Update user total stats
-        if (currentSession?.user_id) {
-          await supabase.rpc('increment_user_stats', {
-            user_id: currentSession.user_id,
-            session_minutes: duration_minutes || 0,
-            session_score: overall_score || 0
-          });
-        }
-
-        // Update role-specific progress
-        if (session.scenarios?.role && currentSession?.user_email) {
-          await updateUserProgress(
-            supabase, 
-            currentSession.user_email, 
-            session.scenarios.role, 
-            overall_score || 0,
-            duration_minutes || 0
-          );
-        }
-      } catch (progressError) {
-        console.error('⚠️ Error updating progress (non-critical):', progressError);
-        // Don't fail the session update if progress update fails
-      }
-    }
-
-    return Response.json({
-      success: true,
-      data: session
-    });
+    return Response.json({ success: true, data: session });
 
   } catch (error) {
     console.error('💥 Sessions PUT API error:', error);
@@ -255,218 +376,5 @@ export async function PUT(request: Request) {
       { success: false, error: 'Internal server error' },
       { status: 500 }
     );
-  }
-}
-
-// FIXED GET METHOD - Much simpler and more reliable
-export async function GET(request: Request) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const session_id = searchParams.get('session_id');
-    const user_email = searchParams.get('user_email');
-    const status = searchParams.get('status');
-    
-    console.log('📊 GET Sessions API called with:', { session_id, user_email, status });
-    
-    if (!session_id && !user_email) {
-      console.error('❌ Missing required parameters');
-      return Response.json(
-        { success: false, error: 'Session ID or user email is required' },
-        { status: 400 }
-      );
-    }
-
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_ANON_KEY;
-    
-    if (!supabaseUrl || !supabaseKey) {
-      console.error('❌ Missing Supabase configuration for GET');
-      return Response.json(
-        { success: false, error: 'Database configuration missing' },
-        { status: 500 }
-      );
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseKey);
-    
-    console.log('🔍 Building query...');
-    
-    if (session_id) {
-      // Single session query
-      console.log('🔍 Querying single session:', session_id);
-      
-      const { data: session, error } = await supabase
-        .from('sessions')
-        .select(`
-          *,
-          scenarios (
-            id, title, character_name, character_role, role, difficulty
-          )
-        `)
-        .eq('id', session_id)
-        .single();
-
-      if (error) {
-        console.error('❌ Single session query error:', error);
-        return Response.json(
-          { success: false, error: 'Session not found', details: error.message },
-          { status: 404 }
-        );
-      }
-
-      console.log('✅ Single session found');
-      return Response.json({ success: true, data: session });
-    } 
-    
-    if (user_email) {
-      // Multiple sessions query for user
-      console.log('🔍 Querying sessions for user:', user_email);
-      
-      // Build query step by step
-      let query = supabase
-        .from('sessions')
-        .select(`
-          *,
-          scenarios (
-            id, title, character_name, character_role, role, difficulty
-          )
-        `)
-        .eq('user_email', user_email);
-      
-      // Add status filter if provided
-      if (status && status !== 'all') {
-        console.log('🔍 Adding status filter:', status);
-        query = query.eq('session_status', status);
-      }
-      
-      // Add ordering and execute
-      const { data: sessions, error, count } = await query
-        .order('start_time', { ascending: false })
-        .limit(100); // Reasonable limit
-      
-      if (error) {
-        console.error('❌ User sessions query error:', error);
-        return Response.json(
-          { 
-            success: false, 
-            error: 'Failed to fetch user sessions', 
-            details: error.message,
-            query_info: { user_email, status }
-          },
-          { status: 500 }
-        );
-      }
-
-      console.log('✅ User sessions query successful. Sessions found:', sessions?.length || 0);
-      
-      // Enhanced debugging for first session
-      if (sessions && sessions.length > 0) {
-        const firstSession = sessions[0];
-        console.log('📊 First session details:', {
-          id: firstSession.id,
-          user_email: firstSession.user_email,
-          session_status: firstSession.session_status,
-          start_time: firstSession.start_time,
-          has_scenario: !!firstSession.scenarios,
-          scenario_title: firstSession.scenarios?.title || 'No scenario'
-        });
-      } else {
-        console.log('📊 No sessions found for user:', user_email);
-      }
-
-      // Always return array for user queries
-      return Response.json({
-        success: true,
-        data: sessions || [],
-        meta: {
-          total: sessions?.length || 0,
-          user_email: user_email,
-          status_filter: status,
-          query_type: 'user_sessions'
-        }
-      });
-    }
-
-    // Should not reach here
-    return Response.json(
-      { success: false, error: 'Invalid query parameters' },
-      { status: 400 }
-    );
-
-  } catch (error) {
-    console.error('💥 Sessions GET API error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    
-    return Response.json(
-      { success: false, error: 'Internal server error', details: errorMessage },
-      { status: 500 }
-    );
-  }
-}
-
-// Helper function to update user progress (unchanged)
-async function updateUserProgress(
-  supabase: any, 
-  userEmail: string, 
-  role: string, 
-  score: number, 
-  duration: number
-) {
-  try {
-    // Get current progress for this role
-    const { data: existingProgress } = await supabase
-      .from('user_progress')
-      .select('*')
-      .eq('user_email', userEmail)
-      .eq('role', role)
-      .single();
-
-    if (existingProgress) {
-      // Update existing progress
-      const newTotalSessions = existingProgress.total_sessions + 1;
-      const newTotalMinutes = existingProgress.total_minutes + duration;
-      const newAverageScore = ((existingProgress.average_score * existingProgress.total_sessions) + score) / newTotalSessions;
-      const newBestScore = Math.max(existingProgress.best_score || 0, score);
-
-      await supabase
-        .from('user_progress')
-        .update({
-          total_sessions: newTotalSessions,
-          total_minutes: newTotalMinutes,
-          average_score: Math.round(newAverageScore * 100) / 100,
-          best_score: newBestScore,
-          last_session_date: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .eq('user_email', userEmail)
-        .eq('role', role);
-    } else {
-      // Create new progress record
-      const { data: user } = await supabase
-        .from('users')
-        .select('id')
-        .eq('email', userEmail)
-        .single();
-
-      if (user) {
-        await supabase
-          .from('user_progress')
-          .insert({
-            user_id: user.id,
-            user_email: userEmail,
-            role: role,
-            total_sessions: 1,
-            total_minutes: duration,
-            average_score: score,
-            best_score: score,
-            last_session_date: new Date().toISOString(),
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          });
-      }
-    }
-  } catch (error) {
-    console.error('Error updating user progress:', error);
-    throw error;
   }
 }
