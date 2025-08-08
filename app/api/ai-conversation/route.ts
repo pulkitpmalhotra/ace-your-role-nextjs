@@ -1,4 +1,4 @@
-// app/api/ai-conversation/route.ts - Fixed AI Conversation Flow
+// app/api/ai-conversation/route.ts - Enhanced AI Conversation Flow with Better Responses
 export async function POST(request: Request) {
   try {
     const { scenario, userMessage, conversationHistory, sessionId } = await request.json();
@@ -15,15 +15,15 @@ export async function POST(request: Request) {
     
     if (!GOOGLE_AI_API_KEY) {
       console.error('❌ Missing GOOGLE_AI_API_KEY');
-      return generateFallbackResponse(scenario);
+      return generateContextualFallback(scenario, userMessage, conversationHistory);
     }
 
-    console.log('🤖 Generating AI response with Gemini...');
+    console.log('🤖 Generating enhanced AI response with Gemini...');
 
-    // Build conversation prompt with clear role definition
-    const prompt = buildClearConversationPrompt(scenario, userMessage, conversationHistory);
+    // Build enhanced conversation prompt
+    const prompt = buildEnhancedConversationPrompt(scenario, userMessage, conversationHistory);
 
-    // Call Gemini API
+    // Call Gemini API with enhanced configuration
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GOOGLE_AI_API_KEY}`,
       {
@@ -32,33 +32,60 @@ export async function POST(request: Request) {
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
-            temperature: 0.8,
+            temperature: 0.9, // Higher for more natural responses
             topK: 40,
-            topP: 0.9,
-            maxOutputTokens: 300,
+            topP: 0.95,
+            maxOutputTokens: 200, // Shorter for conversation flow
             candidateCount: 1,
-          }
+          },
+          safetySettings: [
+            {
+              category: "HARM_CATEGORY_HARASSMENT",
+              threshold: "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+              category: "HARM_CATEGORY_HATE_SPEECH",
+              threshold: "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+              category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+              threshold: "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+              category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+              threshold: "BLOCK_MEDIUM_AND_ABOVE"
+            }
+          ]
         })
       }
     );
 
     if (!response.ok) {
-      throw new Error(`Gemini API failed: ${response.status}`);
+      console.error('❌ Gemini API failed:', response.status);
+      return generateContextualFallback(scenario, userMessage, conversationHistory);
     }
 
     const data = await response.json();
     const aiResponse = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
     if (!aiResponse) {
-      throw new Error('No response from Gemini');
+      console.error('❌ No response from Gemini');
+      return generateContextualFallback(scenario, userMessage, conversationHistory);
     }
 
-    // Process response
+    // Process and validate response
     const cleanResponse = cleanAIResponse(aiResponse);
+    
+    // Ensure response is conversational and not too long
+    if (cleanResponse.length > 300) {
+      console.log('⚠️ Response too long, using fallback');
+      return generateContextualFallback(scenario, userMessage, conversationHistory);
+    }
+    
     const shouldEnd = shouldEndConversation(conversationHistory);
-    const emotion = determineEmotion(conversationHistory);
+    const emotion = determineEmotion(conversationHistory, scenario);
 
-    console.log('✅ Gemini response generated successfully');
+    console.log('✅ Enhanced Gemini response generated successfully');
 
     return Response.json({
       success: true,
@@ -67,20 +94,20 @@ export async function POST(request: Request) {
         character: scenario.character_name,
         emotion: emotion,
         shouldEndConversation: shouldEnd,
-        model: 'gemini-2.0-flash'
+        model: 'gemini-2.0-flash-enhanced'
       }
     });
 
   } catch (error) {
     console.error('❌ AI Conversation error:', error);
     
-    // Only use fallback as last resort
-    const { scenario } = await request.json().catch(() => ({}));
-    return generateIntelligentFallback(scenario, error);
+    // Use contextual fallback for any errors
+    const { scenario, userMessage, conversationHistory } = await request.json().catch(() => ({}));
+    return generateContextualFallback(scenario, userMessage, conversationHistory);
   }
 }
 
-function buildClearConversationPrompt(scenario: any, userMessage: string, conversationHistory: any[]): string {
+function buildEnhancedConversationPrompt(scenario: any, userMessage: string, conversationHistory: any[]): string {
   const userRole = getUserRole(scenario.role);
   const exchanges = Math.floor(conversationHistory.length / 2);
   
@@ -91,66 +118,127 @@ function buildClearConversationPrompt(scenario: any, userMessage: string, conver
     `${msg.speaker === 'user' ? userRole : scenario.character_name}: "${msg.message}"`
   ).join('\n');
 
-  return `You are ${scenario.character_name}, a ${scenario.character_role}. You are in a professional roleplay scenario where a ${userRole} is practicing their communication skills with you.
+  // Determine conversation stage
+  const stage = exchanges < 3 ? 'opening' : exchanges < 6 ? 'middle' : 'closing';
+  
+  return `You are ${scenario.character_name}, a ${scenario.character_role}. You are having a realistic professional conversation with a ${userRole} who is practicing their communication skills.
 
-SCENARIO CONTEXT:
-- Title: "${scenario.title}"
-- You are: ${scenario.character_name} (${scenario.character_role})
-- They are: A ${userRole} practicing their skills
-- Difficulty: ${scenario.difficulty}
+CRITICAL INSTRUCTIONS:
+- You are NOT an AI assistant or helper
+- You are a REAL ${scenario.character_role} with genuine needs and concerns
+- Respond as ${scenario.character_name} would in this real situation
+- Have natural reactions, ask follow-up questions, show genuine interest or concern
+- Challenge them appropriately but professionally
+- Give them opportunities to practice the scenario objectives
+- Keep responses short and conversational (1-2 sentences max)
+- Be authentic and realistic
 
-SCENARIO OBJECTIVES (what the ${userRole} should accomplish):
+SCENARIO: "${scenario.title}"
+Your role: ${scenario.character_name} (${scenario.character_role})
+Their role: ${userRole}
+Difficulty: ${scenario.difficulty}
+Conversation stage: ${stage}
+
+WHAT THE ${userRole.toUpperCase()} SHOULD PRACTICE:
 ${objectives.map((obj, i) => `${i + 1}. ${obj}`).join('\n')}
 
-CONVERSATION HISTORY:
+CONVERSATION SO FAR:
 ${recentHistory}
 
-CURRENT SITUATION:
-The ${userRole} just said: "${userMessage}"
+THE ${userRole.toUpperCase()} JUST SAID: "${userMessage}"
 
-YOUR ROLE AS ${scenario.character_name.toUpperCase()}:
-- You are the CLIENT/CUSTOMER/STAKEHOLDER that the ${userRole} is practicing with
-- Respond as ${scenario.character_name} would in this professional situation
-- Be realistic and professional, but provide appropriate challenges
-- Help the ${userRole} practice by being a realistic conversation partner
-- Give them opportunities to demonstrate the scenario objectives
-- Keep responses conversational (1-2 sentences)
-- Stay in character throughout
+RESPONSE GUIDELINES FOR ${stage.toUpperCase()} STAGE:
+${getStageGuidelines(stage, scenario.role, userRole)}
 
-CONVERSATION PROGRESSION:
-- Current exchanges: ${exchanges}
-- ${exchanges < 4 ? 'Early conversation - be welcoming but present your needs/concerns' : 
-     exchanges < 8 ? 'Mid conversation - engage with their proposals and ask clarifying questions' :
-     'Later conversation - work toward resolution or next steps'}
+NOW RESPOND AS ${scenario.character_name}:
+- Be authentic and realistic as a ${scenario.character_role}
+- React naturally to what they said
+- Ask relevant follow-up questions when appropriate
+- Present realistic challenges or needs
+- Keep it conversational (1-2 sentences)
+- Stay completely in character
+- DO NOT sound like an AI assistant
 
-Respond as ${scenario.character_name}:`;
+Your response as ${scenario.character_name}:`;
+}
+
+function getStageGuidelines(stage: string, role: string, userRole: string): string {
+  const guidelines: Record<string, Record<string, string>> = {
+    opening: {
+      sales: `Be welcoming but busy. You have specific needs. Ask clarifying questions about their offering.`,
+      'project-manager': `Be professional and focused. You need to understand scope and timeline. Ask about deliverables.`,
+      'product-manager': `Be curious about their proposal. You need to understand user impact. Ask about requirements.`,
+      'support-agent': `Be helpful but need to understand the issue. Ask specific questions about the problem.`,
+      'manager': `Be approachable but direct. You need to understand the situation. Ask for context.`,
+      'leader': `Be strategic and forward-thinking. You need to understand bigger picture. Ask about vision.`,
+      'default': `Be professional and engaged. Show interest but ask clarifying questions.`
+    },
+    middle: {
+      sales: `Engage with their proposal. Present your specific challenges. Ask about ROI and implementation.`,
+      'project-manager': `Discuss details and challenges. Ask about resources, timeline, and risks.`,
+      'product-manager': `Dive into features and user needs. Ask about prioritization and technical feasibility.`,
+      'support-agent': `Work through the solution steps. Ask follow-up questions to ensure understanding.`,
+      'manager': `Discuss implications and next steps. Ask about resources and support needed.`,
+      'leader': `Explore strategic alignment. Ask about change management and organizational impact.`,
+      'default': `Engage with their ideas. Ask detailed questions and present realistic challenges.`
+    },
+    closing: {
+      sales: `Consider next steps. Ask about pricing, timeline, and decision process.`,
+      'project-manager': `Wrap up with clear action items. Ask about next meeting and deliverables.`,
+      'product-manager': `Summarize decisions. Ask about implementation timeline and success metrics.`,
+      'support-agent': `Confirm resolution. Ask if there are any other questions or concerns.`,
+      'manager': `Establish follow-up plans. Ask about check-ins and support needed.`,
+      'leader': `Align on vision and next steps. Ask about communication and rollout strategy.`,
+      'default': `Work toward resolution. Ask about next steps and follow-up actions.`
+    }
+  };
+
+  return guidelines[stage][role] || guidelines[stage]['default'];
 }
 
 function shouldEndConversation(conversationHistory: any[]): boolean {
   const exchanges = Math.floor(conversationHistory.length / 2);
   
-  // Natural ending after 8+ exchanges, but let conversation flow naturally
-  if (exchanges >= 10) return true;
+  // Natural ending after 8+ exchanges
+  if (exchanges >= 12) return true;
   if (exchanges >= 8) {
     // Check if conversation seems to be concluding
-    const lastMessages = conversationHistory.slice(-2);
+    const lastMessages = conversationHistory.slice(-4);
     const recentText = lastMessages.map(msg => msg.message.toLowerCase()).join(' ');
     
-    const conclusionWords = ['thank you', 'thanks', 'appreciate', 'sounds good', 'perfect', 'great', 'next steps', 'follow up', 'talk soon'];
-    return conclusionWords.some(word => recentText.includes(word));
+    const conclusionWords = [
+      'thank you', 'thanks', 'appreciate', 'sounds good', 'perfect', 'great', 
+      'next steps', 'follow up', 'talk soon', 'meeting', 'call', 'email',
+      'decision', 'think about', 'discuss internally', 'get back'
+    ];
+    
+    const conclusionCount = conclusionWords.filter(word => recentText.includes(word)).length;
+    return conclusionCount >= 2;
   }
   
   return false;
 }
 
-function determineEmotion(conversationHistory: any[]): string {
+function determineEmotion(conversationHistory: any[], scenario: any): string {
   const exchanges = Math.floor(conversationHistory.length / 2);
+  const userMessages = conversationHistory.filter(msg => msg.speaker === 'user');
+  const recentUserText = userMessages.slice(-2).map(msg => msg.message.toLowerCase()).join(' ');
+  
+  // Analyze user engagement and scenario type
+  const positiveWords = ['great', 'excellent', 'perfect', 'interested', 'love', 'amazing'];
+  const concernWords = ['concerned', 'worried', 'issue', 'problem', 'challenge', 'difficult'];
+  const questionWords = ['what', 'how', 'when', 'why', 'where', 'can you', 'would you'];
+  
+  const positiveCount = positiveWords.filter(word => recentUserText.includes(word)).length;
+  const concernCount = concernWords.filter(word => recentUserText.includes(word)).length;
+  const questionCount = questionWords.filter(word => recentUserText.includes(word)).length;
   
   if (exchanges >= 8) return 'satisfied';
-  if (exchanges >= 6) return 'engaged';
-  if (exchanges >= 4) return 'interested';
-  if (exchanges >= 2) return 'professional';
-  return 'welcoming';
+  if (positiveCount > 0) return 'pleased';
+  if (concernCount > 0) return 'concerned';
+  if (questionCount > 1) return 'curious';
+  if (exchanges >= 4) return 'engaged';
+  return 'professional';
 }
 
 function getUserRole(scenarioRole: string): string {
@@ -228,51 +316,110 @@ function getScenarioObjectives(role: string): string[] {
 
 function cleanAIResponse(response: string): string {
   return response
-    .replace(/^\*\*|\*\*$/g, '')
-    .replace(/^\*|\*$/g, '')
-    .replace(/^["']|["']$/g, '')
-    .replace(/\n+/g, ' ')
-    .replace(/\s+/g, ' ')
+    .replace(/^\*\*|\*\*$/g, '') // Remove markdown bold
+    .replace(/^\*|\*$/g, '') // Remove markdown italic
+    .replace(/^["']|["']$/g, '') // Remove quotes
+    .replace(/\n+/g, ' ') // Replace newlines with spaces
+    .replace(/\s+/g, ' ') // Replace multiple spaces with single space
+    .replace(/^(As |I am |I'm |My name is |Hello,? I'm |Hi,? I'm )/i, '') // Remove AI-like introductions
+    .replace(/(How can I help|How may I assist|What can I do for)/i, '') // Remove assistant language
     .trim();
 }
 
-function generateIntelligentFallback(scenario: any, error: any) {
-  console.log('🔄 Using intelligent fallback due to:', error?.message);
+function generateContextualFallback(scenario: any, userMessage: string, conversationHistory: any[]) {
+  console.log('🔄 Using enhanced contextual fallback');
   
-  // Generate contextual response based on scenario
-  const fallbackResponses: Record<string, string[]> = {
-    'sales': [
-      "That's interesting. Tell me more about what you're looking for.",
-      "I see. What challenges are you currently facing in this area?",
-      "How would solving this problem impact your business?"
-    ],
-    'project-manager': [
-      "Thanks for that update. What do you see as our next priority?",
-      "I understand. What timeline are we working with for this?",
-      "What resources do we need to make this successful?"
-    ],
-    'support-agent': [
-      "I understand your concern. Let me help you with that.",
-      "Thank you for explaining. Can you walk me through what happened?",
-      "I appreciate your patience. Let's work through this together."
-    ]
+  const exchanges = Math.floor((conversationHistory?.length || 0) / 2);
+  const userRole = getUserRole(scenario?.role || 'sales');
+  
+  // Context-aware responses based on what user said and conversation stage
+  const responseTemplates: Record<string, any> = {
+    'sales': {
+      opening: [
+        "That's interesting. Can you tell me more about how this would specifically help our company?",
+        "I see. What makes your solution different from what we're currently using?",
+        "Help me understand - what kind of results have other companies like ours seen?"
+      ],
+      middle: [
+        "That's a good point. What would the implementation process look like for us?",
+        "I appreciate that information. What kind of timeline are we looking at?",
+        "That sounds promising. What are the costs involved?"
+      ],
+      closing: [
+        "I need to think about this. What are the next steps if we want to move forward?",
+        "This seems like it could work for us. Who else would need to be involved in this decision?",
+        "Let me discuss this with my team. When could we schedule a follow-up?"
+      ]
+    },
+    'project-manager': {
+      opening: [
+        "Thanks for bringing this up. What are the main challenges we need to address?",
+        "I understand. How does this affect our current timeline?",
+        "That's helpful context. What resources would we need for this?"
+      ],
+      middle: [
+        "Good point. How should we communicate this to the stakeholders?",
+        "I see the complexity here. What are the biggest risks we should consider?",
+        "That makes sense. How do we ensure we stay on track with deliverables?"
+      ],
+      closing: [
+        "Alright, let's define the action items. Who's responsible for what?",
+        "I think we have a path forward. When should we check in on progress?",
+        "This sounds like a solid plan. What do you need from me to make this successful?"
+      ]
+    },
+    'support-agent': {
+      opening: [
+        "I understand your frustration. Let me see how I can help resolve this issue.",
+        "That sounds concerning. Can you walk me through exactly what happened?",
+        "I appreciate you explaining that. Let me check what options we have available."
+      ],
+      middle: [
+        "That makes sense. Have you tried restarting the application?",
+        "I see the problem. Let me check if this is a known issue on our end.",
+        "That's helpful information. Can you try these steps and let me know what happens?"
+      ],
+      closing: [
+        "Great! It sounds like that resolved the issue. Is there anything else I can help with?",
+        "Perfect. I'll make sure to document this solution for future reference.",
+        "I'm glad we got that sorted out. Don't hesitate to reach out if you need more help."
+      ]
+    }
   };
-
-  const responses = fallbackResponses[scenario?.role] || fallbackResponses['sales'];
-  const randomResponse = responses[Math.floor(Math.random() * responses.length)];
+  
+  // Determine conversation stage
+  const stage = exchanges < 3 ? 'opening' : exchanges < 6 ? 'middle' : 'closing';
+  
+  // Get appropriate responses for the role and stage
+  const roleResponses = responseTemplates[scenario?.role] || responseTemplates['sales'];
+  const stageResponses = roleResponses[stage] || roleResponses['opening'];
+  
+  // Select a contextual response
+  let selectedResponse = stageResponses[Math.floor(Math.random() * stageResponses.length)];
+  
+  // Make response more contextual based on user message
+  if (userMessage?.toLowerCase().includes('price') || userMessage?.toLowerCase().includes('cost')) {
+    if (scenario?.role === 'sales') {
+      selectedResponse = "That's an important consideration. Can you help me understand your budget range for this type of solution?";
+    }
+  } else if (userMessage?.toLowerCase().includes('time') || userMessage?.toLowerCase().includes('when')) {
+    selectedResponse = "Good question about timing. What's driving the urgency on your end?";
+  } else if (userMessage?.toLowerCase().includes('team') || userMessage?.toLowerCase().includes('people')) {
+    selectedResponse = "That's a key point about the team. How many people would this impact?";
+  }
 
   return Response.json({
     success: true,
     data: {
-      response: randomResponse,
-      character: scenario?.character_name || 'AI Assistant',
-      emotion: 'professional',
-      shouldEndConversation: false,
-      model: 'intelligent-fallback'
+      response: selectedResponse,
+      character: scenario?.character_name || 'Professional Contact',
+      emotion: determineEmotion(conversationHistory || [], scenario),
+      shouldEndConversation: shouldEndConversation(conversationHistory || []),
+      model: 'enhanced-contextual-fallback'
     }
   });
 }
 
 function generateFallbackResponse(scenario: any) {
-  return generateIntelligentFallback(scenario, new Error('API key missing'));
+  return generateContextualFallback(scenario, '', []);
 }
