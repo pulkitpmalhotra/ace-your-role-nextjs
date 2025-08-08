@@ -1,0 +1,82 @@
+{
+  "name": "Ace Your Role - AI Voice Training",
+  "short_name": "Ace Your Role",
+  "description": "Practice conversations with AI-powered voice roleplay scenarios",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#667eea",
+  "theme_color": "#667eea",
+  "orientation": "portrait-primary",
+  "categories": ["education", "productivity", "business"],
+  "icons": [
+    {
+      "src": "/icons/icon-72x72.png",
+      "sizes": "72x72",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-96x96.png",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-128x128.png",
+      "sizes": "128x128",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-144x144.png",
+      "sizes": "144x144",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-152x152.png",
+      "sizes": "152x152",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-384x384.png",
+      "sizes": "384x384",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Start Practice",
+      "short_name": "Practice",
+      "description": "Start a new voice conversation practice",
+      "url": "/dashboard",
+      "icons": [{ "src": "/icons/shortcut-practice.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "View Progress",
+      "short_name": "Progress",
+      "description": "Check your training progress",
+      "url": "/analytics",
+      "icons": [{ "src": "/icons/shortcut-analytics.png", "sizes": "96x96" }]
+    }
+  ],
+  "features": [
+    "voice-recognition",
+    "speech-synthesis",
+    "microphone-access"
+  ]
+}
