@@ -1,4 +1,4 @@
-// app/api/sessions/route.ts - Fixed Sessions Route with Proper Completion Tracking
+// app/api/sessions/route.ts - Debug Version with Enhanced Logging
 import { createClient } from '@supabase/supabase-js';
 
 // Create a new session
@@ -81,7 +81,7 @@ export async function POST(request: Request) {
     // Verify scenario exists
     const { data: scenario, error: scenarioError } = await supabaseAnon
       .from('scenarios')
-      .select('id, title, character_name, role')
+      .select('id, title, character_name')
       .eq('id', scenario_id)
       .single();
 
@@ -139,7 +139,7 @@ export async function POST(request: Request) {
   }
 }
 
-// Update session with proper completion tracking
+// Update session
 export async function PUT(request: Request) {
   try {
     const { 
@@ -187,6 +187,8 @@ export async function PUT(request: Request) {
     if (overall_score !== undefined) updateData.overall_score = overall_score;
     if (conversation_metadata) updateData.conversation_metadata = conversation_metadata;
 
+    console.log('🔄 Updating session:', session_id, 'with data:', updateData);
+
     // Update session
     const { data: session, error } = await supabase
       .from('sessions')
@@ -205,6 +207,8 @@ export async function PUT(request: Request) {
         { status: 500 }
       );
     }
+
+    console.log('✅ Session updated successfully:', session_id);
 
     // If session is being completed, update user stats and progress
     if (session_status === 'completed' && currentSession?.session_status !== 'completed') {
@@ -236,8 +240,6 @@ export async function PUT(request: Request) {
       }
     }
 
-    console.log(`✅ Session ${session_status ? 'completed' : 'updated'}:`, session_id);
-
     return Response.json({
       success: true,
       data: session
@@ -252,7 +254,7 @@ export async function PUT(request: Request) {
   }
 }
 
-// Get sessions with proper filtering
+// ENHANCED GET METHOD - Fixed for history page
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -260,7 +262,10 @@ export async function GET(request: Request) {
     const user_email = searchParams.get('user_email');
     const status = searchParams.get('status');
     
+    console.log('📊 GET Sessions API called with:', { session_id, user_email, status });
+    
     if (!session_id && !user_email) {
+      console.error('❌ Missing required parameters');
       return Response.json(
         { success: false, error: 'Session ID or user email is required' },
         { status: 400 }
@@ -271,6 +276,7 @@ export async function GET(request: Request) {
     const supabaseKey = process.env.SUPABASE_ANON_KEY;
     
     if (!supabaseUrl || !supabaseKey) {
+      console.error('❌ Missing Supabase configuration for GET');
       return Response.json(
         { success: false, error: 'Database configuration missing' },
         { status: 500 }
@@ -279,47 +285,84 @@ export async function GET(request: Request) {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
     
+    console.log('🔍 Building query...');
+    
     let query = supabase
       .from('sessions')
       .select(`
         *,
-        scenarios:scenarios(title, character_name, character_role, role, difficulty)
+        scenarios (
+          id,
+          title,
+          character_name,
+          character_role,
+          role,
+          difficulty
+        )
       `);
     
     if (session_id) {
+      console.log('🔍 Querying by session_id:', session_id);
       query = query.eq('id', session_id);
     } else if (user_email) {
+      console.log('🔍 Querying by user_email:', user_email);
       query = query.eq('user_email', user_email);
       
       // Filter by status if provided
       if (status) {
+        console.log('🔍 Filtering by status:', status);
         query = query.eq('session_status', status);
       }
       
       query = query.order('start_time', { ascending: false });
     }
 
+    console.log('🔍 Executing query...');
     const { data: sessions, error } = await query;
 
     if (error) {
-      console.error('❌ Error fetching sessions:', error);
+      console.error('❌ Supabase query error:', error);
       return Response.json(
-        { success: false, error: 'Failed to fetch sessions' },
+        { success: false, error: 'Failed to fetch sessions', details: error.message },
         { status: 500 }
       );
     }
 
-    console.log(`✅ Retrieved ${sessions?.length || 0} sessions`);
+    console.log('✅ Query successful. Found sessions:', sessions?.length || 0);
+    
+    // Log first session for debugging
+    if (sessions && sessions.length > 0) {
+      console.log('📊 First session sample:', {
+        id: sessions[0].id,
+        user_email: sessions[0].user_email,
+        session_status: sessions[0].session_status,
+        start_time: sessions[0].start_time,
+        scenario_title: sessions[0].scenarios?.title
+      });
+    }
+
+    // Ensure we always return an array for user_email queries
+    const responseData = session_id ? sessions?.[0] : (sessions || []);
+    
+    console.log('📊 Returning data:', session_id ? 'single session' : `${sessions?.length || 0} sessions`);
 
     return Response.json({
       success: true,
-      data: session_id ? sessions?.[0] : sessions
+      data: responseData,
+      meta: {
+        total: sessions?.length || 0,
+        query_type: session_id ? 'single' : 'list',
+        user_email: user_email,
+        filters: { status }
+      }
     });
 
   } catch (error) {
     console.error('💥 Sessions GET API error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    
     return Response.json(
-      { success: false, error: 'Internal server error' },
+      { success: false, error: 'Internal server error', details: errorMessage },
       { status: 500 }
     );
   }
