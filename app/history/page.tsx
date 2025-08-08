@@ -10,17 +10,27 @@ interface Session {
   overall_score: number;
   session_status: string;
   created_at: string;
+  updated_at: string;
+  user_email: string;
+  conversation: Array<{
+    speaker: 'user' | 'ai';
+    message: string;
+    timestamp: number;
+  }>;
   scenarios: {
+    id: string;
     title: string;
     character_name: string;
     character_role: string;
     role: string;
     difficulty: string;
-  };
+  } | null;
   conversation_metadata?: {
     natural_ending?: boolean;
     session_quality?: string;
     total_exchanges?: number;
+    objectives_completed?: number;
+    objectives_total?: number;
   };
 }
 
@@ -43,7 +53,6 @@ export default function HistoryPage() {
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'completed' | 'recent'>('all');
   const [selectedRole, setSelectedRole] = useState<string>('all');
   const [error, setError] = useState('');
-  const [downloadingPdf, setDownloadingPdf] = useState<string | null>(null);
   
   const router = useRouter();
 
@@ -71,12 +80,16 @@ export default function HistoryPage() {
       const sessionToken = localStorage.getItem('sessionToken');
       const authProvider = localStorage.getItem('authProvider');
       
+      console.log('📊 History page - checking auth:', { email: !!email, sessionToken: !!sessionToken, authProvider });
+      
       if (!email || !sessionToken || authProvider !== 'google') {
+        console.log('❌ No valid auth found, redirecting...');
         router.push('/');
         return;
       }
 
       setUserEmail(email);
+      console.log('📊 Loading history for user:', email);
       await loadHistoryData(email);
     } catch (error) {
       console.error('History initialization error:', error);
@@ -88,32 +101,69 @@ export default function HistoryPage() {
 
   const loadHistoryData = async (email: string) => {
     try {
-      // Load user sessions
-      const sessionsResponse = await fetch(`/api/sessions?user_email=${encodeURIComponent(email)}`);
+      console.log('📊 Fetching sessions from API for:', email);
+      
+      // Load user sessions with detailed logging
+      const sessionsUrl = `/api/sessions?user_email=${encodeURIComponent(email)}`;
+      console.log('📊 Sessions API URL:', sessionsUrl);
+      
+      const sessionsResponse = await fetch(sessionsUrl);
+      console.log('📊 Sessions API response status:', sessionsResponse.status);
       
       if (!sessionsResponse.ok) {
-        throw new Error('Failed to load session history');
+        const errorText = await sessionsResponse.text();
+        console.error('❌ Sessions API failed:', sessionsResponse.status, errorText);
+        throw new Error(`Failed to load session history: ${sessionsResponse.status}`);
       }
 
       const sessionsData = await sessionsResponse.json();
+      console.log('📊 Sessions API response:', sessionsData);
       
       if (!sessionsData.success) {
+        console.error('❌ Sessions API returned error:', sessionsData.error);
         throw new Error(sessionsData.error || 'Failed to load sessions');
       }
 
-      const sessions = sessionsData.data || [];
-      
+      let sessions = sessionsData.data || [];
+      console.log('📊 Raw sessions data:', sessions.length, 'sessions');
+
+      // Ensure sessions is an array
+      if (!Array.isArray(sessions)) {
+        console.error('❌ Sessions data is not an array:', typeof sessions);
+        sessions = [];
+      }
+
+      // Log first session for debugging
+      if (sessions.length > 0) {
+        console.log('📊 First session sample:', JSON.stringify(sessions[0], null, 2));
+      }
+
+      // Filter and process sessions
+      const validSessions = sessions.filter((session: any) => {
+        const isValid = session && session.id && session.start_time;
+        if (!isValid) {
+          console.warn('⚠️ Invalid session found:', session);
+        }
+        return isValid;
+      });
+
+      console.log('📊 Valid sessions:', validSessions.length);
+
       // Calculate summary statistics
-      const completedSessions = sessions.filter((s: Session) => s.session_status === 'completed');
+      const completedSessions = validSessions.filter((s: Session) => s.session_status === 'completed');
+      console.log('📊 Completed sessions:', completedSessions.length);
+
       const totalMinutes = completedSessions.reduce((sum: number, s: Session) => sum + (s.duration_minutes || 0), 0);
       const averageScore = completedSessions.length > 0 
         ? completedSessions.reduce((sum: number, s: Session) => sum + (s.overall_score || 0), 0) / completedSessions.length
         : 0;
-      const bestScore = Math.max(...completedSessions.map((s: Session) => s.overall_score || 0), 0);
+      const bestScore = completedSessions.length > 0 
+        ? Math.max(...completedSessions.map((s: Session) => s.overall_score || 0))
+        : 0;
       
-      // Fix TypeScript Set iteration issue with proper typing
+      // Get unique roles practiced
       const rolesSet = new Set<string>();
-      sessions.forEach((s: Session) => {
+      validSessions.forEach((s: Session) => {
         if (s.scenarios?.role) {
           rolesSet.add(s.scenarios.role);
         }
@@ -121,20 +171,26 @@ export default function HistoryPage() {
       const rolesPracticed = Array.from(rolesSet);
 
       const summary = {
-        total_sessions: sessions.length,
+        total_sessions: validSessions.length,
         total_minutes: totalMinutes,
-        average_score: averageScore,
-        best_score: bestScore,
+        average_score: Math.round(averageScore * 100) / 100,
+        best_score: Math.round(bestScore * 100) / 100,
         completed_sessions: completedSessions.length,
         roles_practiced: rolesPracticed
       };
 
-      setHistoryData({ sessions, summary });
-      console.log(`✅ Loaded ${sessions.length} sessions for user`);
+      console.log('📊 Summary calculated:', summary);
+
+      setHistoryData({ 
+        sessions: validSessions, 
+        summary 
+      });
+      
+      console.log(`✅ Successfully loaded ${validSessions.length} sessions`);
       
     } catch (error) {
-      console.error('Error loading history data:', error);
-      setError('Failed to load session history');
+      console.error('❌ Error loading history data:', error);
+      setError(`Failed to load session history: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -158,13 +214,21 @@ export default function HistoryPage() {
   );
 
   const viewFeedback = (session: Session) => {
+    if (session.session_status !== 'completed') {
+      alert('Feedback is only available for completed sessions.');
+      return;
+    }
+
     // Store session data for feedback page
     const sessionData = {
       scenario: session.scenarios,
       sessionId: session.id,
       duration: session.duration_minutes || 0,
-      exchanges: session.conversation_metadata?.total_exchanges || 0,
+      exchanges: Math.floor((session.conversation?.length || 0) / 2),
       userEmail: userEmail,
+      conversation: session.conversation || [],
+      objectives: [], // Will be reconstructed in feedback page
+      objectivesCompleted: session.conversation_metadata?.objectives_completed || 0,
       sessionContext: {
         startTime: new Date(session.start_time).getTime(),
         naturalEnding: session.conversation_metadata?.natural_ending || false,
@@ -172,64 +236,8 @@ export default function HistoryPage() {
       }
     };
     
-    localStorage.setItem('viewSessionData', JSON.stringify(sessionData));
-    router.push(`/feedback/view/${session.id}`);
-  };
-
-  const downloadFeedbackPDF = async (session: Session) => {
-    setDownloadingPdf(session.id);
-    
-    try {
-      // Generate feedback data
-      const sessionData = {
-        scenario: session.scenarios,
-        sessionId: session.id,
-        duration: session.duration_minutes || 0,
-        score: session.overall_score || 0,
-        date: new Date(session.start_time).toLocaleDateString(),
-        naturalEnding: session.conversation_metadata?.natural_ending || false,
-        exchanges: session.conversation_metadata?.total_exchanges || 0
-      };
-
-      // Create PDF content (you'll need to implement PDF generation)
-      const pdfContent = generatePDFContent(sessionData);
-      
-      // Create and download file
-      const blob = new Blob([pdfContent], { type: 'application/pdf' });
-      const url = URL.createObjectURL(blob);
-      
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `feedback-${session.scenarios?.title.replace(/[^a-zA-Z0-9]/g, '-')}-${session.id.slice(0, 8)}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-      
-    } catch (error) {
-      console.error('Error downloading PDF:', error);
-      alert('Failed to generate PDF. Please try again.');
-    } finally {
-      setDownloadingPdf(null);
-    }
-  };
-
-  const generatePDFContent = (sessionData: any): string => {
-    // This is a simplified PDF generation - you'd want to use a proper PDF library
-    return `
-    Session Feedback Report
-    
-    Scenario: ${sessionData.scenario.title}
-    Character: ${sessionData.scenario.character_name}
-    Role Practiced: ${sessionData.scenario.role}
-    Date: ${sessionData.date}
-    Duration: ${sessionData.duration} minutes
-    Score: ${sessionData.score}/5.0
-    Exchanges: ${sessionData.exchanges}
-    Natural Ending: ${sessionData.naturalEnding ? 'Yes' : 'No'}
-    
-    Generated by Ace Your Role - AI-Powered Professional Training
-    `;
+    localStorage.setItem('lastSession', JSON.stringify(sessionData));
+    router.push('/feedback');
   };
 
   const getScoreColor = (score: number) => {
@@ -247,20 +255,42 @@ export default function HistoryPage() {
   };
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffTime = Math.abs(now.getTime() - date.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    if (diffDays === 1) return 'Today';
-    if (diffDays === 2) return 'Yesterday';
-    if (diffDays <= 7) return `${diffDays} days ago`;
-    
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric',
-      year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
-    });
+    try {
+      const date = new Date(dateString);
+      const now = new Date();
+      const diffTime = Math.abs(now.getTime() - date.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      if (diffDays === 1) return 'Today';
+      if (diffDays === 2) return 'Yesterday';
+      if (diffDays <= 7) return `${diffDays} days ago`;
+      
+      return date.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric',
+        year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
+      });
+    } catch (error) {
+      console.error('Date formatting error:', error);
+      return 'Unknown date';
+    }
+  };
+
+  const getRoleDisplayName = (role: string) => {
+    const roleNames: Record<string, string> = {
+      'sales': 'Sales',
+      'project-manager': 'Project Manager',
+      'product-manager': 'Product Manager',
+      'leader': 'Leadership',
+      'manager': 'People Manager',
+      'strategy-lead': 'Strategy Lead',
+      'support-agent': 'Customer Support',
+      'data-analyst': 'Data Analyst',
+      'engineer': 'Engineering',
+      'nurse': 'Healthcare - Nursing',
+      'doctor': 'Healthcare - Doctor'
+    };
+    return roleNames[role] || role.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
 
   if (loading) {
@@ -284,7 +314,11 @@ export default function HistoryPage() {
           <p className="text-gray-700 mb-6">{error}</p>
           <div className="space-y-3">
             <button
-              onClick={() => window.location.reload()}
+              onClick={() => {
+                setError('');
+                setLoading(true);
+                initializeHistory();
+              }}
               className="w-full bg-blue-500 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-600 transition-colors"
             >
               Retry Loading
@@ -309,7 +343,7 @@ export default function HistoryPage() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-4xl font-bold text-gray-900 mb-2">Session History</h1>
-            <p className="text-xl text-gray-600">Review your practice sessions and feedback</p>
+            <p className="text-xl text-gray-600">Review your practice sessions and track your progress</p>
           </div>
           <button
             onClick={() => router.push('/dashboard')}
@@ -320,61 +354,63 @@ export default function HistoryPage() {
         </div>
 
         {/* Summary Statistics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-2xl p-6 shadow-lg border border-white/20">
-            <div className="flex items-center justify-between mb-4">
-              <div className="text-3xl">🎯</div>
-              <div className="text-right">
-                <div className="text-3xl font-bold text-blue-600">{historyData?.summary.total_sessions}</div>
-                <div className="text-sm text-gray-600">Total Sessions</div>
-              </div>
-            </div>
-            <div className="text-xs text-gray-500">
-              {historyData?.summary.completed_sessions} completed
-            </div>
-          </div>
-
-          <div className="bg-white rounded-2xl p-6 shadow-lg border border-white/20">
-            <div className="flex items-center justify-between mb-4">
-              <div className="text-3xl">⏱️</div>
-              <div className="text-right">
-                <div className="text-3xl font-bold text-green-600">{historyData?.summary.total_minutes}</div>
-                <div className="text-sm text-gray-600">Minutes Practiced</div>
-              </div>
-            </div>
-            <div className="text-xs text-gray-500">
-              {Math.round((historyData?.summary.total_minutes || 0) / 60)}+ hours total
-            </div>
-          </div>
-
-          <div className="bg-white rounded-2xl p-6 shadow-lg border border-white/20">
-            <div className="flex items-center justify-between mb-4">
-              <div className="text-3xl">📈</div>
-              <div className="text-right">
-                <div className={`text-3xl font-bold ${getScoreColor(historyData?.summary.average_score || 0)}`}>
-                  {historyData?.summary.average_score ? historyData.summary.average_score.toFixed(1) : '0.0'}
+        {historyData && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div className="bg-white rounded-2xl p-6 shadow-lg border border-white/20">
+              <div className="flex items-center justify-between mb-4">
+                <div className="text-3xl">🎯</div>
+                <div className="text-right">
+                  <div className="text-3xl font-bold text-blue-600">{historyData.summary.total_sessions}</div>
+                  <div className="text-sm text-gray-600">Total Sessions</div>
                 </div>
-                <div className="text-sm text-gray-600">Average Score</div>
+              </div>
+              <div className="text-xs text-gray-500">
+                {historyData.summary.completed_sessions} completed
               </div>
             </div>
-            <div className="text-xs text-gray-500">
-              Best: {historyData?.summary.best_score ? historyData.summary.best_score.toFixed(1) : '0.0'}/5.0
-            </div>
-          </div>
 
-          <div className="bg-white rounded-2xl p-6 shadow-lg border border-white/20">
-            <div className="flex items-center justify-between mb-4">
-              <div className="text-3xl">🎭</div>
-              <div className="text-right">
-                <div className="text-3xl font-bold text-purple-600">{historyData?.summary.roles_practiced.length}</div>
-                <div className="text-sm text-gray-600">Roles Practiced</div>
+            <div className="bg-white rounded-2xl p-6 shadow-lg border border-white/20">
+              <div className="flex items-center justify-between mb-4">
+                <div className="text-3xl">⏱️</div>
+                <div className="text-right">
+                  <div className="text-3xl font-bold text-green-600">{historyData.summary.total_minutes}</div>
+                  <div className="text-sm text-gray-600">Minutes Practiced</div>
+                </div>
+              </div>
+              <div className="text-xs text-gray-500">
+                {Math.round((historyData.summary.total_minutes || 0) / 60)}+ hours total
               </div>
             </div>
-            <div className="text-xs text-gray-500">
-              Professional variety
+
+            <div className="bg-white rounded-2xl p-6 shadow-lg border border-white/20">
+              <div className="flex items-center justify-between mb-4">
+                <div className="text-3xl">📈</div>
+                <div className="text-right">
+                  <div className={`text-3xl font-bold ${getScoreColor(historyData.summary.average_score || 0)}`}>
+                    {historyData.summary.average_score ? historyData.summary.average_score.toFixed(1) : '0.0'}
+                  </div>
+                  <div className="text-sm text-gray-600">Average Score</div>
+                </div>
+              </div>
+              <div className="text-xs text-gray-500">
+                Best: {historyData.summary.best_score ? historyData.summary.best_score.toFixed(1) : '0.0'}/5.0
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl p-6 shadow-lg border border-white/20">
+              <div className="flex items-center justify-between mb-4">
+                <div className="text-3xl">🎭</div>
+                <div className="text-right">
+                  <div className="text-3xl font-bold text-purple-600">{historyData.summary.roles_practiced.length}</div>
+                  <div className="text-sm text-gray-600">Roles Practiced</div>
+                </div>
+              </div>
+              <div className="text-xs text-gray-500">
+                Professional variety
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Filters */}
         <div className="bg-white rounded-2xl shadow-lg border border-white/20 p-6 mb-8">
@@ -402,14 +438,14 @@ export default function HistoryPage() {
                 <option value="all">All Roles</option>
                 {historyData?.summary.roles_practiced.map(role => (
                   <option key={role} value={role}>
-                    {roleEmojis[role]} {role.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                    {roleEmojis[role]} {getRoleDisplayName(role)}
                   </option>
                 ))}
               </select>
             </div>
 
             <div className="text-sm text-gray-600">
-              Showing {sortedSessions.length} of {historyData?.sessions.length} sessions
+              Showing {sortedSessions.length} of {historyData?.sessions.length || 0} sessions
             </div>
           </div>
         </div>
@@ -422,11 +458,11 @@ export default function HistoryPage() {
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center space-x-4">
                     <div className="text-3xl">
-                      {roleEmojis[session.scenarios?.role] || '💬'}
+                      {roleEmojis[session.scenarios?.role || ''] || '💬'}
                     </div>
                     <div>
                       <h3 className="text-xl font-semibold text-gray-900">
-                        {session.scenarios?.title || 'Unknown Scenario'}
+                        {session.scenarios?.title || 'Practice Session'}
                       </h3>
                       <p className="text-gray-600">
                         with {session.scenarios?.character_name || 'AI Character'} • {session.scenarios?.difficulty || 'Unknown'} level
@@ -452,7 +488,7 @@ export default function HistoryPage() {
                       </div>
                     </div>
 
-                    {/* Action Buttons */}
+                    {/* Action Button */}
                     <div className="flex flex-col space-y-2">
                       <button
                         onClick={() => viewFeedback(session)}
@@ -463,26 +499,7 @@ export default function HistoryPage() {
                             : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                         }`}
                       >
-                        📊 View Feedback
-                      </button>
-                      
-                      <button
-                        onClick={() => downloadFeedbackPDF(session)}
-                        disabled={session.session_status !== 'completed' || downloadingPdf === session.id}
-                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                          session.session_status === 'completed' && downloadingPdf !== session.id
-                            ? 'bg-green-500 text-white hover:bg-green-600'
-                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                        }`}
-                      >
-                        {downloadingPdf === session.id ? (
-                          <>
-                            <div className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                            Generating...
-                          </>
-                        ) : (
-                          '📄 Download PDF'
-                        )}
+                        {session.session_status === 'completed' ? '📊 View Feedback' : '⏳ In Progress'}
                       </button>
                     </div>
                   </div>
@@ -492,14 +509,14 @@ export default function HistoryPage() {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-lg">
                   <div className="text-center">
                     <div className="text-lg font-semibold text-gray-900">
-                      {session.conversation_metadata?.total_exchanges || 0}
+                      {session.conversation_metadata?.total_exchanges || Math.floor((session.conversation?.length || 0) / 2)}
                     </div>
                     <div className="text-xs text-gray-600">Exchanges</div>
                   </div>
                   
                   <div className="text-center">
                     <div className="text-lg font-semibold text-gray-900">
-                      {session.scenarios?.role.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Unknown'}
+                      {getRoleDisplayName(session.scenarios?.role || '')}
                     </div>
                     <div className="text-xs text-gray-600">Role Practiced</div>
                   </div>
@@ -545,15 +562,17 @@ export default function HistoryPage() {
         ) : (
           <div className="text-center py-16">
             <div className="text-6xl mb-4">📚</div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">No Sessions Found</h3>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+              {historyData?.sessions.length === 0 ? 'No Sessions Yet' : 'No Sessions Found'}
+            </h3>
             <p className="text-gray-600 mb-6">
-              {selectedFilter !== 'all' || selectedRole !== 'all' 
-                ? 'No sessions match your current filters. Try adjusting your search criteria.'
-                : 'You haven\'t completed any practice sessions yet. Start practicing to see your history here!'
+              {historyData?.sessions.length === 0 
+                ? "You haven't completed any practice sessions yet. Start practicing to see your history here!"
+                : 'No sessions match your current filters. Try adjusting your search criteria.'
               }
             </p>
             <div className="space-x-4">
-              {(selectedFilter !== 'all' || selectedRole !== 'all') && (
+              {historyData?.sessions.length !== 0 && (
                 <button
                   onClick={() => {
                     setSelectedFilter('all');
@@ -577,18 +596,26 @@ export default function HistoryPage() {
         {/* Action Buttons */}
         <div className="mt-8 flex justify-center space-x-4">
           <button
-            onClick={() => router.push('/analytics')}
-            className="bg-purple-500 text-white px-6 py-3 rounded-lg font-medium hover:bg-purple-600 transition-colors"
-          >
-            📊 Detailed Analytics
-          </button>
-          <button
             onClick={() => router.push('/dashboard')}
             className="bg-blue-500 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-600 transition-colors"
           >
             🎯 New Practice Session
           </button>
         </div>
+
+        {/* Debug Information (remove in production) */}
+        {process.env.NODE_ENV === 'development' && historyData && (
+          <div className="mt-8 p-4 bg-gray-100 rounded-lg">
+            <h3 className="font-bold mb-2">Debug Info:</h3>
+            <div className="text-xs text-gray-600 space-y-1">
+              <div>Total Sessions: {historyData.sessions.length}</div>
+              <div>Filtered Sessions: {sortedSessions.length}</div>
+              <div>User Email: {userEmail}</div>
+              <div>Selected Filter: {selectedFilter}</div>
+              <div>Selected Role: {selectedRole}</div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
