@@ -401,59 +401,25 @@ export default function RootLayout({
         {/* Main App Content */}
         {children}
         
-        {/* Enhanced Google Analytics for voice feature tracking */}
-        <Script
-          src="https://www.googletagmanager.com/gtag/js?id=GA_MEASUREMENT_ID"
-          strategy="afterInteractive"
-        />
-        <Script id="google-analytics" strategy="afterInteractive">
-          {`
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('js', new Date());
-            gtag('config', 'GA_MEASUREMENT_ID', {
-              page_title: document.title,
-              page_location: window.location.href,
-              custom_map: {
-                'dimension1': 'voice_features_supported',
-                'dimension2': 'browser_compatibility',
-                'dimension3': 'microphone_permission'
-              }
-            });
-            
-            // Track voice feature support
-            window.addEventListener('voiceFeaturesDetected', (event) => {
-              gtag('event', 'voice_features_detected', {
-                'custom_parameter_1': JSON.stringify(event.detail),
-                'event_category': 'voice_features',
-                'event_label': 'feature_detection'
-              });
-            });
-            
-            // Track voice errors
-            window.addEventListener('voiceSystemError', (event) => {
-              gtag('event', 'voice_system_error', {
-                'custom_parameter_1': event.detail.message,
-                'event_category': 'voice_errors',
-                'event_label': 'system_error'
-              });
-            });
-          `}
-        </Script>
-        
         {/* Enhanced Service Worker Registration */}
         <Script id="service-worker" strategy="afterInteractive">
           {`
-            if ('serviceWorker' in navigator) {
+            if ('serviceWorker' in navigator && typeof window !== 'undefined') {
               window.addEventListener('load', async () => {
                 try {
+                  // Check if service worker file exists first
+                  const response = await fetch('/sw.js', { method: 'HEAD' });
+                  if (!response.ok) {
+                    console.log('⚠️ Service Worker not found, skipping registration');
+                    return;
+                  }
+                  
                   const registration = await navigator.serviceWorker.register('/sw.js', {
                     scope: '/'
                   });
                   
                   console.log('✅ Service Worker registered:', registration.scope);
                   
-                  // Listen for service worker updates
                   registration.addEventListener('updatefound', () => {
                     console.log('🔄 Service Worker update found');
                   });
