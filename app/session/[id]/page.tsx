@@ -1,4 +1,4 @@
-// app/session/[id]/page.tsx - Fixed Session Page (Complete)
+// app/session/[id]/page.tsx - Fixed Session with Proper Speech Flow
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -40,12 +40,13 @@ export default function FixedSessionPage({ params }: { params: { id: string } })
   const [objectives, setObjectives] = useState<ObjectiveProgress[]>([]);
   const [objectivesCompleted, setObjectivesCompleted] = useState(0);
   
-  // Speech state
+  // Speech state - Fixed state management
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentTranscript, setCurrentTranscript] = useState('');
   const [hasPermission, setHasPermission] = useState(false);
+  const [microphoneEnabled, setMicrophoneEnabled] = useState(false);
   const [error, setError] = useState('');
   
   // Natural ending state
@@ -55,6 +56,7 @@ export default function FixedSessionPage({ params }: { params: { id: string } })
   // Refs
   const recognitionRef = useRef<any>(null);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const isProcessingRef = useRef(false); // Ref to track processing state
   
   const router = useRouter();
 
@@ -179,12 +181,20 @@ export default function FixedSessionPage({ params }: { params: { id: string } })
   };
 
   const cleanup = useCallback(() => {
-    // Stop all speech activities
+    console.log('🧹 Cleaning up speech components...');
+    
+    // Stop speech recognition
     if (recognitionRef.current) {
-      recognitionRef.current.stop();
+      try {
+        recognitionRef.current.stop();
+        recognitionRef.current.abort();
+      } catch (e) {
+        console.log('Recognition already stopped');
+      }
       recognitionRef.current = null;
     }
     
+    // Cancel speech synthesis
     if (window.speechSynthesis) {
       window.speechSynthesis.cancel();
     }
@@ -193,19 +203,25 @@ export default function FixedSessionPage({ params }: { params: { id: string } })
       utteranceRef.current = null;
     }
     
+    // Reset states
     setIsListening(false);
     setIsSpeaking(false);
     setIsProcessing(false);
+    setMicrophoneEnabled(false);
+    isProcessingRef.current = false;
   }, []);
 
   const startConversation = async () => {
     if (!scenario || !sessionId) return;
 
     try {
-      // Request microphone permission
+      // Request microphone permission and enable microphone
       await navigator.mediaDevices.getUserMedia({ audio: true });
       setHasPermission(true);
+      setMicrophoneEnabled(true);
       setError('');
+      
+      console.log('🎤 Microphone enabled, starting conversation...');
       
       // Generate proper character greeting
       const greeting = getCharacterGreeting(scenario);
@@ -225,12 +241,13 @@ export default function FixedSessionPage({ params }: { params: { id: string } })
       // Speak greeting
       await speakMessage(greeting);
       
-      // Start listening
+      // Start listening after AI finishes speaking
       setTimeout(() => {
-        if (isActive && !isEnding) {
+        if (isActive && !isEnding && microphoneEnabled) {
+          console.log('🎤 Starting to listen for user input...');
           startListening();
         }
-      }, 1500);
+      }, 1000);
       
     } catch (err) {
       console.error('Microphone permission error:', err);
@@ -269,6 +286,7 @@ export default function FixedSessionPage({ params }: { params: { id: string } })
         return;
       }
       
+      console.log('🔊 AI speaking:', text.substring(0, 50) + '...');
       setIsSpeaking(true);
       
       // Cancel any existing speech
@@ -282,12 +300,14 @@ export default function FixedSessionPage({ params }: { params: { id: string } })
       utteranceRef.current = utterance;
       
       utterance.onend = () => {
+        console.log('🔊 AI finished speaking');
         setIsSpeaking(false);
         utteranceRef.current = null;
         resolve();
       };
       
-      utterance.onerror = () => {
+      utterance.onerror = (event) => {
+        console.error('Speech synthesis error:', event);
         setIsSpeaking(false);
         utteranceRef.current = null;
         resolve();
@@ -298,7 +318,15 @@ export default function FixedSessionPage({ params }: { params: { id: string } })
   };
 
   const startListening = useCallback(() => {
-    if (!isActive || isSpeaking || isProcessing || isEnding) {
+    // Check if we should be listening
+    if (!isActive || !microphoneEnabled || isSpeaking || isProcessingRef.current || isEnding) {
+      console.log('🎤 Cannot start listening:', { 
+        isActive, 
+        microphoneEnabled, 
+        isSpeaking, 
+        isProcessing: isProcessingRef.current, 
+        isEnding 
+      });
       return;
     }
 
@@ -307,22 +335,38 @@ export default function FixedSessionPage({ params }: { params: { id: string } })
       return;
     }
 
+    // Stop any existing recognition
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {
+        console.log('Previous recognition already stopped');
+      }
+    }
+
+    console.log('🎤 Starting speech recognition...');
+    
     const SpeechRecognition = (window as any).webkitSpeechRecognition;
     const recognition = new SpeechRecognition();
     
-    recognition.continuous = true;
+    recognition.continuous = false; // Changed to false for better control
     recognition.interimResults = true;
     recognition.lang = 'en-US';
+    recognition.maxAlternatives = 1;
     
     recognitionRef.current = recognition;
     setIsListening(true);
     setCurrentTranscript('');
 
     let finalTranscript = '';
-    let isProcessingFinal = false;
 
-    recognition.onresult = async (event: any) => {
-      if (!isActive || isSpeaking || isProcessingFinal || isEnding) return;
+    recognition.onstart = () => {
+      console.log('🎤 Speech recognition started');
+      setIsListening(true);
+    };
+
+    recognition.onresult = (event: any) => {
+      if (!isActive || !microphoneEnabled || isProcessingRef.current || isEnding) return;
 
       let interimTranscript = '';
       let confidence = 0;
@@ -330,33 +374,48 @@ export default function FixedSessionPage({ params }: { params: { id: string } })
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i];
         const transcript = result[0].transcript;
-        confidence = result[0].confidence;
+        confidence = result[0].confidence || 0.8;
         
         if (result.isFinal) {
-          finalTranscript += transcript;
+          finalTranscript = transcript;
+          console.log('🎤 Final transcript:', finalTranscript);
         } else {
-          interimTranscript += transcript;
+          interimTranscript = transcript;
         }
       }
 
+      // Update interim transcript display
       setCurrentTranscript(interimTranscript);
 
-      if (finalTranscript.trim() && !isProcessingFinal) {
-        isProcessingFinal = true;
-        await processUserSpeech(finalTranscript.trim(), confidence);
+      // Process final transcript
+      if (finalTranscript.trim() && !isProcessingRef.current) {
+        setIsListening(false);
+        setCurrentTranscript('');
+        processUserSpeech(finalTranscript.trim(), confidence);
       }
     };
 
     recognition.onerror = (event: any) => {
-      console.error('Speech recognition error:', event.error);
+      console.error('🎤 Speech recognition error:', event.error);
       setIsListening(false);
+      setCurrentTranscript('');
       
       if (event.error === 'not-allowed') {
         setError('Microphone access denied. Please refresh and allow access.');
-      } else if (event.error !== 'no-speech' && event.error !== 'aborted') {
+        setMicrophoneEnabled(false);
+      } else if (event.error === 'no-speech') {
+        console.log('🎤 No speech detected, restarting...');
+        // Restart listening after a short delay
+        setTimeout(() => {
+          if (isActive && microphoneEnabled && !isSpeaking && !isProcessingRef.current && !isEnding) {
+            startListening();
+          }
+        }, 1000);
+      } else if (event.error !== 'aborted') {
+        console.log('🎤 Recognition error, will restart...');
         // Restart listening after error
         setTimeout(() => {
-          if (isActive && !isSpeaking && !isProcessing && !isEnding) {
+          if (isActive && microphoneEnabled && !isSpeaking && !isProcessingRef.current && !isEnding) {
             startListening();
           }
         }, 2000);
@@ -364,24 +423,38 @@ export default function FixedSessionPage({ params }: { params: { id: string } })
     };
 
     recognition.onend = () => {
+      console.log('🎤 Speech recognition ended');
       setIsListening(false);
       
-      // Restart listening if still active
-      if (isActive && !isSpeaking && !isProcessing && !isEnding) {
+      // Auto-restart if no final transcript was captured and conditions are met
+      if (!finalTranscript && isActive && microphoneEnabled && !isSpeaking && !isProcessingRef.current && !isEnding) {
+        console.log('🎤 Auto-restarting speech recognition...');
         setTimeout(() => {
           startListening();
-        }, 1000);
+        }, 500);
       }
     };
 
-    recognition.start();
-  }, [isActive, isSpeaking, isProcessing, isEnding]);
+    try {
+      recognition.start();
+    } catch (error) {
+      console.error('🎤 Failed to start recognition:', error);
+      setIsListening(false);
+    }
+  }, [isActive, microphoneEnabled, isSpeaking, isEnding]);
 
   const processUserSpeech = async (userMessage: string, confidence: number) => {
-    if (!userMessage || !scenario || !sessionId || !isActive || isEnding) return;
+    if (!userMessage || !scenario || !sessionId || !isActive || isEnding || isProcessingRef.current) {
+      console.log('🚫 Cannot process speech:', { userMessage: !!userMessage, scenario: !!scenario, sessionId: !!sessionId, isActive, isEnding, isProcessing: isProcessingRef.current });
+      return;
+    }
     
-    setIsListening(false);
+    console.log('🔄 Processing user speech:', userMessage);
+    
+    // Set processing state
+    isProcessingRef.current = true;
     setIsProcessing(true);
+    setIsListening(false);
     setCurrentTranscript('');
     
     const userMsg: ConversationMessage = {
@@ -397,6 +470,7 @@ export default function FixedSessionPage({ params }: { params: { id: string } })
 
     try {
       // Get AI response
+      console.log('🤖 Getting AI response...');
       const aiResponse = await getAIResponse(scenario, userMessage, updatedConversation);
       
       const aiMsg: ConversationMessage = {
@@ -417,28 +491,33 @@ export default function FixedSessionPage({ params }: { params: { id: string } })
         setAiSuggestedEnd(true);
       }
       
+      // Reset processing state before speaking
+      isProcessingRef.current = false;
+      setIsProcessing(false);
+      
       // Speak response
       await speakMessage(aiResponse.response);
       
-      setIsProcessing(false);
-      
-      // Continue listening
+      // Start listening again after AI finishes speaking
+      console.log('🎤 Ready to listen again...');
       setTimeout(() => {
-        if (isActive && !isSpeaking && !isEnding) {
+        if (isActive && microphoneEnabled && !isEnding && !isProcessingRef.current) {
           startListening();
         }
-      }, 1500);
+      }, 500);
       
     } catch (err) {
-      console.error('Error processing speech:', err);
-      setError('Having trouble processing your message. Please try again.');
+      console.error('❌ Error processing speech:', err);
+      isProcessingRef.current = false;
       setIsProcessing(false);
+      setError('Having trouble processing your message. Please try again.');
       
+      // Restart listening after error
       setTimeout(() => {
-        if (isActive && !isEnding) {
+        if (isActive && microphoneEnabled && !isEnding) {
           startListening();
         }
-      }, 3000);
+      }, 2000);
     }
   };
 
@@ -455,19 +534,19 @@ export default function FixedSessionPage({ params }: { params: { id: string } })
       
       // Basic pattern matching for different objectives
       if (obj.text.includes('rapport') || obj.text.includes('trust')) {
-        const rapportWords = ['nice to meet', 'pleasure', 'understand', 'appreciate', 'thanks'];
+        const rapportWords = ['nice to meet', 'pleasure', 'understand', 'appreciate', 'thanks', 'hello', 'good morning', 'good afternoon'];
         completed = rapportWords.some(word => conversationText.includes(word));
         if (completed) evidence = 'Used positive language and showed appreciation';
       }
       
-      if (obj.text.includes('needs') || obj.text.includes('requirements')) {
-        const questionWords = ['what', 'how', 'why', 'when', 'where', 'tell me', 'explain'];
+      if (obj.text.includes('needs') || obj.text.includes('requirements') || obj.text.includes('questions')) {
+        const questionWords = ['what', 'how', 'why', 'when', 'where', 'tell me', 'explain', 'can you', 'would you', '?'];
         completed = questionWords.some(word => conversationText.includes(word));
         if (completed) evidence = 'Asked questions to understand needs';
       }
       
-      if (obj.text.includes('solution') || obj.text.includes('benefits')) {
-        const solutionWords = ['we can', 'this will', 'help you', 'benefit', 'solution'];
+      if (obj.text.includes('solution') || obj.text.includes('benefits') || obj.text.includes('present')) {
+        const solutionWords = ['we can', 'this will', 'help you', 'benefit', 'solution', 'offer', 'provide', 'recommend'];
         completed = solutionWords.some(word => conversationText.includes(word));
         if (completed) evidence = 'Presented solutions or benefits';
       }
@@ -529,8 +608,11 @@ export default function FixedSessionPage({ params }: { params: { id: string } })
   const endSession = async () => {
     if (isEnding) return;
     
+    console.log('🛑 Ending session...');
+    
     setIsEnding(true);
-    cleanup();
+    setMicrophoneEnabled(false); // Disable microphone
+    cleanup(); // Clean up all speech components
     setIsActive(false);
     
     // Save session data
@@ -619,6 +701,10 @@ export default function FixedSessionPage({ params }: { params: { id: string } })
         color: aiSuggestedEnd ? 'bg-green-600' : 'bg-green-500'
       };
     }
+
+    if (microphoneEnabled && !isListening && !isSpeaking && !isProcessing) {
+      return { icon: '⏸️', title: 'Ready to Listen', message: 'Microphone is active', color: 'bg-blue-500' };
+    }
     
     return { icon: '💬', title: 'In Conversation', message: `${exchanges} exchanges completed`, color: 'bg-blue-600' };
   };
@@ -687,19 +773,31 @@ export default function FixedSessionPage({ params }: { params: { id: string } })
               </div>
             </div>
             
-            <button
-              onClick={endSession}
-              disabled={isEnding}
-              className={`px-8 py-3 rounded-xl font-bold text-lg transition-all ${
-                isEnding 
-                  ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
-                  : aiSuggestedEnd
-                    ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700 animate-pulse'
-                    : 'bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700'
-              }`}
-            >
-              {isEnding ? 'Ending...' : aiSuggestedEnd ? '🎉 Get Feedback' : '🛑 End Session'}
-            </button>
+            {/* Microphone Status Indicator */}
+            <div className="flex items-center space-x-4">
+              <div className={`flex items-center space-x-2 px-3 py-2 rounded-lg ${
+                microphoneEnabled ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
+              }`}>
+                <span className="text-lg">{microphoneEnabled ? '🎤' : '🔇'}</span>
+                <span className="text-sm font-medium">
+                  {microphoneEnabled ? 'Mic Active' : 'Mic Disabled'}
+                </span>
+              </div>
+              
+              <button
+                onClick={endSession}
+                disabled={isEnding}
+                className={`px-8 py-3 rounded-xl font-bold text-lg transition-all ${
+                  isEnding 
+                    ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
+                    : aiSuggestedEnd
+                      ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700 animate-pulse'
+                      : 'bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700'
+                }`}
+              >
+                {isEnding ? 'Ending...' : aiSuggestedEnd ? '🎉 Get Feedback' : '🛑 End Session'}
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -786,6 +884,20 @@ export default function FixedSessionPage({ params }: { params: { id: string } })
                 <div className="text-sm text-blue-800">Objectives Completed</div>
               </div>
             </div>
+
+            {/* Speech Control Debug Info (remove in production) */}
+            {process.env.NODE_ENV === 'development' && (
+              <div className="mt-4 p-3 bg-gray-100 rounded-lg">
+                <h4 className="text-xs font-bold text-gray-700 mb-2">Debug Info:</h4>
+                <div className="text-xs text-gray-600 space-y-1">
+                  <div>Microphone: {microphoneEnabled ? '✅' : '❌'}</div>
+                  <div>Listening: {isListening ? '✅' : '❌'}</div>
+                  <div>Speaking: {isSpeaking ? '✅' : '❌'}</div>
+                  <div>Processing: {isProcessing ? '✅' : '❌'}</div>
+                  <div>Active: {isActive ? '✅' : '❌'}</div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -809,7 +921,7 @@ export default function FixedSessionPage({ params }: { params: { id: string } })
                       onClick={startConversation}
                       className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-8 py-4 rounded-xl text-lg font-semibold hover:from-blue-600 hover:to-indigo-700 transition-all shadow-lg"
                     >
-                      🎤 Start Conversation
+                      🎤 Start Conversation & Enable Microphone
                     </button>
                   ) : (
                     <div className="text-blue-600">
@@ -882,6 +994,16 @@ export default function FixedSessionPage({ params }: { params: { id: string } })
                         <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
                         <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                         <span className="text-purple-600 text-sm ml-2">{scenario.character_name} is thinking...</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Listening indicator */}
+                  {isListening && !currentTranscript && (
+                    <div className="flex items-center justify-center py-4">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                        <span className="text-green-600 text-sm">Listening for your response...</span>
                       </div>
                     </div>
                   )}
