@@ -339,7 +339,7 @@ export default function EnhancedSessionPage({ params }: { params: { id: string }
     }
   }, [isActive, microphoneEnabled, isSpeaking, isEnding, conversation.length]);
 
-  // Enhanced speech synthesis with better timing
+  // Enhanced speech synthesis with consistent voice
   const speakMessage = async (text: string): Promise<void> => {
     return new Promise((resolve) => {
       if (!window.speechSynthesis) {
@@ -357,20 +357,48 @@ export default function EnhancedSessionPage({ params }: { params: { id: string }
       
       const utterance = new SpeechSynthesisUtterance(text);
       
-      // Enhanced voice settings for better quality
+      // Enhanced voice settings for consistency
       utterance.rate = 0.85;
       utterance.pitch = 1.0;
       utterance.volume = 0.9;
+      utterance.lang = 'en-US';
       
-      // Try to use a natural voice
+      // Force consistent voice selection
       const voices = window.speechSynthesis.getVoices();
-      const preferredVoice = voices.find(voice => 
-        voice.name.includes('Natural') || 
-        voice.name.includes('Neural') || 
-        voice.name.includes('Google')
-      );
-      if (preferredVoice) {
-        utterance.voice = preferredVoice;
+      let selectedVoice = null;
+      
+      // Priority order for voice selection (consistent, professional voices)
+      const preferredVoices = [
+        'Google US English',
+        'Microsoft David - English (United States)',
+        'Alex',
+        'Samantha',
+        'Daniel'
+      ];
+      
+      // Find the first available preferred voice
+      for (const voiceName of preferredVoices) {
+        selectedVoice = voices.find(voice => voice.name.includes(voiceName));
+        if (selectedVoice) break;
+      }
+      
+      // Fallback to first English voice if preferred not found
+      if (!selectedVoice) {
+        selectedVoice = voices.find(voice => 
+          voice.lang.startsWith('en') && 
+          !voice.name.toLowerCase().includes('female') &&
+          !voice.name.toLowerCase().includes('woman')
+        );
+      }
+      
+      // Final fallback to any English voice
+      if (!selectedVoice) {
+        selectedVoice = voices.find(voice => voice.lang.startsWith('en'));
+      }
+      
+      if (selectedVoice) {
+        utterance.voice = selectedVoice;
+        console.log('🎤 Using voice:', selectedVoice.name);
       }
       
       utteranceRef.current = utterance;
@@ -420,8 +448,8 @@ export default function EnhancedSessionPage({ params }: { params: { id: string }
       console.log('🎯 Starting enhanced conversation...');
       setSessionStatus('active');
       
-      // Generate contextual greeting
-      const greeting = getContextualGreeting(scenario);
+      // Simple, consistent greeting
+      const greeting = `Hello! I'm ${scenario.character_name}. How can I help you today?`;
       
       const aiMessage: ConversationMessage = {
         speaker: 'ai',
@@ -436,7 +464,7 @@ export default function EnhancedSessionPage({ params }: { params: { id: string }
       // Save to database
       await saveConversation(initialConversation);
       
-      console.log('🔊 AI will speak enhanced greeting...');
+      console.log('🔊 AI will speak greeting...');
       
       // Speak greeting with enhanced timing
       await speakMessage(greeting);
@@ -536,6 +564,22 @@ export default function EnhancedSessionPage({ params }: { params: { id: string }
   // Initialize session (same as before but with enhanced status tracking)
   useEffect(() => {
     initializeSession();
+    
+    // Ensure consistent voice selection
+    if (window.speechSynthesis) {
+      // Load voices and set up voice selection
+      const loadVoices = () => {
+        const voices = window.speechSynthesis.getVoices();
+        console.log('🎤 Available voices:', voices.map(v => v.name));
+      };
+      
+      // Load voices immediately if available
+      loadVoices();
+      
+      // Also load on voiceschanged event
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+    }
+    
     return () => {
       cleanup();
     };
