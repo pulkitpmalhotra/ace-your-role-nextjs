@@ -1,4 +1,4 @@
-// Update your app/lib/api.ts to send the user email header
+// app/lib/api.ts - Complete API utilities with security headers
 export function getSecureHeaders() {
   const userEmail = localStorage.getItem('userEmail');
   const authProvider = localStorage.getItem('authProvider');
@@ -13,7 +13,14 @@ export function getSecureHeaders() {
   };
 }
 
-// Updated API functions with security headers
+// Basic headers for public endpoints
+export function getBasicHeaders() {
+  return {
+    'Content-Type': 'application/json'
+  };
+}
+
+// Secure API functions
 export async function fetchUserSessions(userEmail: string) {
   const url = `/api/sessions?user_email=${encodeURIComponent(userEmail)}`;
   const response = await fetch(url, {
@@ -72,4 +79,24 @@ export async function fetchUserProgress(userEmail: string) {
   }
   
   return response.json();
+}
+
+// Public API functions (no auth headers needed)
+export async function fetchScenarios() {
+  const response = await fetch('/api/scenarios', {
+    headers: getBasicHeaders()
+  });
+  
+  if (!response.ok) {
+    throw new Error(`Failed to fetch scenarios: ${response.status}`);
+  }
+  
+  return response.json();
+}
+
+// Error handling utility
+export function isAuthError(error: Error): boolean {
+  return error.message.includes('Authentication required') || 
+         error.message.includes('401') ||
+         error.message.includes('403');
 }
