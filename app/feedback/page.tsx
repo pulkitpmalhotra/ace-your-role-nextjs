@@ -100,14 +100,12 @@ export default function FocusedFeedbackPage() {
 
   const initializeFeedback = async () => {
     try {
-      // Check authentication
       const email = localStorage.getItem('userEmail');
       if (!email) {
         router.push('/');
         return;
       }
 
-      // Load session data
       const lastSession = localStorage.getItem('lastSession');
       if (!lastSession) {
         router.push('/dashboard');
@@ -124,7 +122,6 @@ export default function FocusedFeedbackPage() {
         return;
       }
 
-      // Validate session data
       if (!sessionData.scenario || !sessionData.conversation || sessionData.conversation.length < 2) {
         setError('Incomplete session data. Please try a new session.');
         setLoading(false);
@@ -132,8 +129,6 @@ export default function FocusedFeedbackPage() {
       }
 
       setSessionData(sessionData);
-      
-      // Generate focused speech analysis
       await generateFocusedFeedback(sessionData);
       
     } catch (err) {
@@ -243,11 +238,30 @@ export default function FocusedFeedbackPage() {
     router.push('/dashboard');
   };
 
-  // Loading state
   if (loading || !sessionData) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
         <div className="text-center bg-white rounded-2xl p-8 shadow-xl max-w-md">
+          <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">
+            {analyzing ? 'Analyzing Your Speech...' : 'Loading Your Results'}
+          </h2>
+          <p className="text-gray-600">
+            {analyzing ? 'Gemini AI is analyzing your communication patterns' : 'Just a moment...'}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error && !feedback) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-red-50 to-pink-100 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md text-center">
+          <div className="text-6xl mb-6">😓</div>
+          <h2 className="text-2xl font-bold text-red-600 mb-4">Analysis Error</h2>
+          <p className="text-gray-700 mb-6 leading-relaxed">{error}</p>
+          
           <div className="space-y-3">
             <button
               onClick={() => generateFocusedFeedback(sessionData)}
@@ -273,7 +287,6 @@ export default function FocusedFeedbackPage() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4">
       <div className="max-w-6xl mx-auto">
         
-        {/* Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full mb-6">
             <span className="text-3xl text-white">🎤</span>
@@ -284,7 +297,6 @@ export default function FocusedFeedbackPage() {
           </p>
         </div>
 
-        {/* Session Overview */}
         <div className="bg-white rounded-2xl shadow-xl p-8 mb-8 border border-white/20">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-4">
@@ -307,7 +319,6 @@ export default function FocusedFeedbackPage() {
             </div>
           </div>
 
-          {/* Session Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 p-4 bg-gray-50 rounded-lg">
             <div className="text-center">
               <div className="text-2xl font-bold text-blue-600">{feedback.conversation_stats.total_exchanges}</div>
@@ -328,12 +339,11 @@ export default function FocusedFeedbackPage() {
           </div>
         </div>
 
-        {/* Navigation Tabs */}
         <div className="flex space-x-4 mb-8 overflow-x-auto">
           {[
-            { id: 'overview', label: '📊 Overview', icon: '📊' },
-            { id: 'speech', label: '🎤 Speech Analysis', icon: '🎤' },
-            { id: 'objectives', label: '🎯 Objectives', icon: '🎯' }
+            { id: 'overview', label: '📊 Overview' },
+            { id: 'speech', label: '🎤 Speech Analysis' },
+            { id: 'objectives', label: '🎯 Objectives' }
           ].map((tab) => (
             <button
               key={tab.id}
@@ -349,10 +359,8 @@ export default function FocusedFeedbackPage() {
           ))}
         </div>
 
-        {/* Overview Tab */}
         {activeTab === 'overview' && (
           <div className="space-y-8">
-            {/* Quick Summary */}
             <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-8 border border-blue-200">
               <h3 className="text-xl font-bold text-blue-900 mb-4 flex items-center">
                 <span className="text-2xl mr-3">📋</span>
@@ -374,10 +382,8 @@ export default function FocusedFeedbackPage() {
               </div>
             </div>
 
-            {/* Key Metrics Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               
-              {/* Filler Words */}
               <div className="bg-white rounded-2xl shadow-lg p-6 border border-white/20">
                 <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
                   <span className="text-xl mr-3">🗣️</span>
@@ -399,7 +405,6 @@ export default function FocusedFeedbackPage() {
                 )}
               </div>
 
-              {/* Speaking Speed */}
               <div className="bg-white rounded-2xl shadow-lg p-6 border border-white/20">
                 <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
                   <span className="text-xl mr-3">⚡</span>
@@ -419,7 +424,6 @@ export default function FocusedFeedbackPage() {
                 </p>
               </div>
 
-              {/* Weak Words */}
               <div className="bg-white rounded-2xl shadow-lg p-6 border border-white/20">
                 <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
                   <span className="text-xl mr-3">💪</span>
@@ -439,11 +443,9 @@ export default function FocusedFeedbackPage() {
           </div>
         )}
 
-        {/* Speech Analysis Tab */}
         {activeTab === 'speech' && (
           <div className="space-y-8">
             
-            {/* Filler Words Analysis */}
             <div className="bg-white rounded-2xl shadow-lg p-8 border border-white/20">
               <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
                 <span className="text-2xl mr-3">🗣️</span>
@@ -476,10 +478,8 @@ export default function FocusedFeedbackPage() {
               </div>
             </div>
 
-            {/* Speaking Speed & Talk Time */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               
-              {/* Speaking Speed */}
               <div className="bg-white rounded-2xl shadow-lg p-8 border border-white/20">
                 <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
                   <span className="text-2xl mr-3">⚡</span>
@@ -509,7 +509,6 @@ export default function FocusedFeedbackPage() {
                 </div>
               </div>
 
-              {/* Talk Time */}
               <div className="bg-white rounded-2xl shadow-lg p-8 border border-white/20">
                 <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
                   <span className="text-2xl mr-3">⏰</span>
@@ -549,288 +548,7 @@ export default function FocusedFeedbackPage() {
               </div>
             </div>
 
-            {/* Language Quality */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               
-              {/* Inclusive Language */}
               <div className="bg-white rounded-2xl shadow-lg p-6 border border-white/20">
                 <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
-                  <span className="text-xl mr-3">🤝</span>
-                  Inclusive Language
-                </h3>
-                <div className={`p-4 rounded-lg border ${getImpactColor(feedback.speech_analysis.inclusive_language.issues)}`}>
-                  <p className="text-sm font-medium mb-2">Assessment:</p>
-                  <p className="text-sm">{feedback.speech_analysis.inclusive_language.issues}</p>
-                </div>
-                {feedback.speech_analysis.inclusive_language.examples.length > 0 && (
-                  <div className="mt-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-                    <p className="text-sm text-yellow-800">
-                      <strong>Examples to review:</strong> {feedback.speech_analysis.inclusive_language.examples.join(', ')}
-                    </p>
-                  </div>
-                )}
-                <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-gray-700">
-                    <strong>Suggestion:</strong> {feedback.speech_analysis.inclusive_language.suggestions}
-                  </p>
-                </div>
-              </div>
-
-              {/* Weak Words */}
-              <div className="bg-white rounded-2xl shadow-lg p-6 border border-white/20">
-                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
-                  <span className="text-xl mr-3">💪</span>
-                  Word Confidence
-                </h3>
-                <div className="space-y-3">
-                  <div>
-                    <p className="text-sm font-medium text-gray-700 mb-1">Professional Impact:</p>
-                    <div className={`p-3 rounded-lg border ${getImpactColor(feedback.speech_analysis.weak_words.professional_impact)}`}>
-                      <p className="text-sm">{feedback.speech_analysis.weak_words.professional_impact}</p>
-                    </div>
-                  </div>
-                  
-                  {feedback.speech_analysis.weak_words.weak_words.length > 0 && (
-                    <div>
-                      <p className="text-sm font-medium text-gray-700 mb-1">Weak Words Found:</p>
-                      <div className="flex flex-wrap gap-1 mb-2">
-                        {feedback.speech_analysis.weak_words.weak_words.slice(0, 5).map((word, index) => (
-                          <span key={index} className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded">
-                            {word}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {feedback.speech_analysis.weak_words.strong_alternatives.length > 0 && (
-                    <div>
-                      <p className="text-sm font-medium text-gray-700 mb-1">Strong Alternatives:</p>
-                      <div className="bg-green-50 p-3 rounded-lg border border-green-200">
-                        <ul className="text-sm text-green-800 list-disc list-inside">
-                          {feedback.speech_analysis.weak_words.strong_alternatives.slice(0, 3).map((alt, index) => (
-                            <li key={index}>{alt}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Repetition Analysis */}
-            <div className="bg-white rounded-2xl shadow-lg p-8 border border-white/20">
-              <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
-                <span className="text-2xl mr-3">🔄</span>
-                Repetition Analysis
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <h4 className="font-semibold text-gray-900 mb-3">Frequency Assessment</h4>
-                  <p className="text-sm text-gray-600 mb-3">{feedback.speech_analysis.repetition.frequency}</p>
-                  
-                  {feedback.speech_analysis.repetition.repeated_words.length > 0 && 
-                   !feedback.speech_analysis.repetition.repeated_words[0].includes('Analysis limited') && (
-                    <div>
-                      <p className="text-sm font-medium text-gray-700 mb-2">Repeated Words/Phrases:</p>
-                      <div className="flex flex-wrap gap-1">
-                        {feedback.speech_analysis.repetition.repeated_words.slice(0, 5).map((word, index) => (
-                          <span key={index} className="px-2 py-1 bg-orange-100 text-orange-800 text-xs rounded">
-                            {word}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <h4 className="font-semibold text-gray-900 mb-3">Impact on Communication</h4>
-                  <div className={`p-4 rounded-lg border ${getImpactColor(feedback.speech_analysis.repetition.impact)}`}>
-                    <p className="text-sm">{feedback.speech_analysis.repetition.impact}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Objectives Tab */}
-        {activeTab === 'objectives' && (
-          <div className="space-y-8">
-            
-            {/* Objectives Overview */}
-            <div className="bg-white rounded-2xl shadow-lg p-8 border border-white/20">
-              <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
-                <span className="text-2xl mr-3">🎯</span>
-                Scenario Objectives Analysis
-              </h3>
-              
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                
-                {/* Completed Objectives */}
-                <div className="bg-green-50 rounded-lg p-6 border border-green-200">
-                  <h4 className="text-lg font-semibold text-green-800 mb-4 flex items-center">
-                    <span className="text-xl mr-2">✅</span>
-                    Objectives Achieved
-                  </h4>
-                  {feedback.objectives_analysis.completed.length > 0 ? (
-                    <ul className="space-y-2">
-                      {feedback.objectives_analysis.completed.map((objective, index) => (
-                        <li key={index} className="flex items-start space-x-2">
-                          <span className="text-green-600 mt-1">✓</span>
-                          <span className="text-green-800 text-sm">{objective}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-green-700 text-sm">No specific objectives identified as completed</p>
-                  )}
-                </div>
-
-                {/* Missed Objectives */}
-                <div className="bg-orange-50 rounded-lg p-6 border border-orange-200">
-                  <h4 className="text-lg font-semibold text-orange-800 mb-4 flex items-center">
-                    <span className="text-xl mr-2">📋</span>
-                    Areas for Focus
-                  </h4>
-                  {feedback.objectives_analysis.missed.length > 0 ? (
-                    <ul className="space-y-2">
-                      {feedback.objectives_analysis.missed.map((objective, index) => (
-                        <li key={index} className="flex items-start space-x-2">
-                          <span className="text-orange-600 mt-1">→</span>
-                          <span className="text-orange-800 text-sm">{objective}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-orange-700 text-sm">No specific missed objectives identified</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Evidence */}
-              <div className="mt-6 p-6 bg-blue-50 rounded-lg border border-blue-200">
-                <h4 className="font-semibold text-blue-900 mb-3">Evidence from Conversation</h4>
-                <p className="text-blue-800 text-sm leading-relaxed">
-                  {feedback.objectives_analysis.evidence}
-                </p>
-              </div>
-
-              {/* Next Steps */}
-              <div className="mt-6 p-6 bg-purple-50 rounded-lg border border-purple-200">
-                <h4 className="font-semibold text-purple-900 mb-3">Next Steps for Improvement</h4>
-                <p className="text-purple-800 text-sm leading-relaxed">
-                  {feedback.objectives_analysis.next_steps}
-                </p>
-              </div>
-            </div>
-
-            {/* Action Plan */}
-            <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-2xl p-8 border border-purple-200">
-              <h3 className="text-xl font-bold text-purple-900 mb-6 flex items-center">
-                <span className="text-2xl mr-3">📋</span>
-                Your Improvement Plan
-              </h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="bg-white rounded-lg p-6 border border-purple-200">
-                  <h4 className="font-semibold text-purple-900 mb-4">Speech Focus Areas</h4>
-                  <ul className="space-y-2 text-sm text-purple-800">
-                    <li className="flex items-start">
-                      <span className="text-purple-600 mr-2">•</span>
-                      <span>Reduce filler words: Practice pausing instead of using "um" or "uh"</span>
-                    </li>
-                    <li className="flex items-start">
-                      <span className="text-purple-600 mr-2">•</span>
-                      <span>Optimize speaking speed: {feedback.speech_analysis.speaking_speed.recommendation}</span>
-                    </li>
-                    <li className="flex items-start">
-                      <span className="text-purple-600 mr-2">•</span>
-                      <span>Strengthen language: Replace weak words with confident alternatives</span>
-                    </li>
-                  </ul>
-                </div>
-                
-                <div className="bg-white rounded-lg p-6 border border-purple-200">
-                  <h4 className="font-semibold text-purple-900 mb-4">Objective Achievement</h4>
-                  <ul className="space-y-2 text-sm text-purple-800">
-                    <li className="flex items-start">
-                      <span className="text-purple-600 mr-2">•</span>
-                      <span>Focus on missed objectives in next session</span>
-                    </li>
-                    <li className="flex items-start">
-                      <span className="text-purple-600 mr-2">•</span>
-                      <span>Build on completed objectives for consistency</span>
-                    </li>
-                    <li className="flex items-start">
-                      <span className="text-purple-600 mr-2">•</span>
-                      <span>Practice specific scenarios for your role</span>
-                    </li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Action Buttons */}
-        <div className="flex flex-col sm:flex-row gap-4 justify-center mt-8">
-          <button
-            onClick={startNewSession}
-            className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-4 rounded-xl text-lg font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 shadow-lg"
-          >
-            🎯 Practice Again
-          </button>
-          <button
-            onClick={() => router.push('/analytics')}
-            className="bg-purple-600 text-white px-8 py-4 rounded-xl text-lg font-semibold hover:bg-purple-700 transition-colors"
-          >
-            📊 View Analytics
-          </button>
-          <button
-            onClick={backToDashboard}
-            className="bg-gray-600 text-white px-8 py-4 rounded-xl text-lg font-semibold hover:bg-gray-700 transition-colors"
-          >
-            🏠 Dashboard
-          </button>
-        </div>
-
-        {/* Analysis Source Info */}
-        <div className="text-center mt-8 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
-          <h4 className="text-lg font-semibold text-blue-800 mb-3">
-            🧠 Powered by Gemini AI
-          </h4>
-          <p className="text-blue-700 text-sm leading-relaxed">
-            This analysis was generated by Gemini AI, focusing on 7 key areas: filler words, speaking speed, 
-            inclusive language, word confidence, repetition patterns, talk time balance, and scenario objective completion.
-          </p>
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs text-blue-600">
-            <span className="bg-blue-100 px-3 py-1 rounded-full">🎤 Speech Patterns</span>
-            <span className="bg-blue-100 px-3 py-1 rounded-full">💪 Word Confidence</span>
-            <span className="bg-blue-100 px-3 py-1 rounded-full">🎯 Objective Analysis</span>
-            <span className="bg-blue-100 px-3 py-1 rounded-full">📈 Improvement Tracking</span>
-          </div>
-        </div>
-      </div>="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">
-            {analyzing ? 'Analyzing Your Speech...' : 'Loading Your Results'}
-          </h2>
-          <p className="text-gray-600">
-            {analyzing ? 'Gemini AI is analyzing your communication patterns' : 'Just a moment...'}
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  // Error state
-  if (error && !feedback) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-red-50 to-pink-100 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md text-center">
-          <div className="text-6xl mb-6">😓</div>
-          <h2 className="text-2xl font-bold text-red-600 mb-4">Analysis Error</h2>
-          <p className="text-gray-700 mb-6 leading-relaxed">{error}</p>
-          
-          <div className
