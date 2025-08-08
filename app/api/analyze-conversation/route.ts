@@ -1,4 +1,4 @@
-// app/api/analyze-conversation/route.ts - Enhanced Gemini Speech Analysis
+// app/api/analyze-conversation/route.ts - Focused Gemini Speech Analysis
 export async function POST(request: Request) {
   try {
     const { conversation, scenario, sessionId, sessionData } = await request.json();
@@ -10,7 +10,7 @@ export async function POST(request: Request) {
       );
     }
 
-    console.log('🧠 Enhanced speech analysis with Gemini...', {
+    console.log('🧠 Focused speech analysis with Gemini...', {
       sessionId,
       messageCount: conversation.length,
       role: scenario.role
@@ -22,36 +22,36 @@ export async function POST(request: Request) {
       console.warn('⚠️ No Gemini API key, using fallback analysis');
       return Response.json({
         success: true,
-        data: generateFallbackSpeechAnalysis(conversation, scenario, sessionData),
+        data: generateFallbackAnalysis(conversation, scenario, sessionData),
         source: 'fallback'
       });
     }
 
-    // Perform enhanced speech analysis
-    const analysisResult = await performEnhancedSpeechAnalysis(conversation, scenario, sessionData);
+    // Perform focused speech analysis
+    const analysisResult = await performFocusedSpeechAnalysis(conversation, scenario, sessionData);
     
-    console.log('✅ Enhanced Gemini speech analysis completed');
+    console.log('✅ Focused Gemini speech analysis completed');
 
     return Response.json({
       success: true,
       data: analysisResult,
-      source: 'gemini-enhanced'
+      source: 'gemini-focused'
     });
 
   } catch (error) {
-    console.error('❌ Enhanced analysis error:', error);
+    console.error('❌ Focused analysis error:', error);
     
     const { conversation, scenario, sessionData } = await request.json().catch(() => ({ conversation: [], scenario: {}, sessionData: {} }));
     
     return Response.json({
       success: true,
-      data: generateFallbackSpeechAnalysis(conversation, scenario, sessionData),
+      data: generateFallbackAnalysis(conversation, scenario, sessionData),
       source: 'error-fallback'
     });
   }
 }
 
-async function performEnhancedSpeechAnalysis(conversation: any[], scenario: any, sessionData: any) {
+async function performFocusedSpeechAnalysis(conversation: any[], scenario: any, sessionData: any) {
   const GOOGLE_AI_API_KEY = process.env.GOOGLE_AI_API_KEY!;
   
   const userMessages = conversation.filter(msg => msg.speaker === 'user');
@@ -59,8 +59,8 @@ async function performEnhancedSpeechAnalysis(conversation: any[], scenario: any,
   const totalDuration = sessionData?.duration || 0;
   const userSpeakingTime = calculateUserSpeakingTime(userMessages, totalDuration);
   
-  // Build comprehensive analysis prompt
-  const analysisPrompt = buildEnhancedSpeechAnalysisPrompt(
+  // Build focused analysis prompt
+  const analysisPrompt = buildFocusedAnalysisPrompt(
     conversation, 
     scenario, 
     userRole, 
@@ -76,32 +76,32 @@ async function performEnhancedSpeechAnalysis(conversation: any[], scenario: any,
       body: JSON.stringify({
         contents: [{ parts: [{ text: analysisPrompt }] }],
         generationConfig: {
-          temperature: 0.3, // Lower temperature for more consistent analysis
+          temperature: 0.2, // Lower for more consistent analysis
           topK: 40,
           topP: 0.9,
-          maxOutputTokens: 2000,
+          maxOutputTokens: 1500,
           candidateCount: 1,
         }
       }),
-      signal: AbortSignal.timeout(45000) // Longer timeout for comprehensive analysis
+      signal: AbortSignal.timeout(30000)
     }
   );
 
   if (!response.ok) {
-    throw new Error(`Gemini enhanced analysis failed: ${response.status}`);
+    throw new Error(`Gemini focused analysis failed: ${response.status}`);
   }
 
   const data = await response.json();
   const aiAnalysis = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
   if (!aiAnalysis) {
-    throw new Error('No enhanced analysis from Gemini');
+    throw new Error('No focused analysis from Gemini');
   }
 
-  return parseEnhancedSpeechAnalysis(aiAnalysis, conversation, scenario, sessionData, userSpeakingTime);
+  return parseFocusedAnalysis(aiAnalysis, conversation, scenario, sessionData, userSpeakingTime);
 }
 
-function buildEnhancedSpeechAnalysisPrompt(
+function buildFocusedAnalysisPrompt(
   conversation: any[], 
   scenario: any, 
   userRole: string, 
@@ -118,7 +118,7 @@ function buildEnhancedSpeechAnalysisPrompt(
   const wordCount = userText.split(' ').length;
   const estimatedWPM = userSpeakingTime > 0 ? Math.round(wordCount / (userSpeakingTime / 60)) : 0;
 
-  return `You are an expert speech coach analyzing a ${userRole} practice session. Provide detailed analysis focusing on specific speech patterns and professional communication effectiveness.
+  return `You are an expert speech coach analyzing a ${userRole} practice session. Focus ONLY on these 7 specific areas:
 
 SESSION DETAILS:
 - Scenario: "${scenario.title}"
@@ -135,60 +135,50 @@ USER'S COMPLETE TEXT TO ANALYZE:
 SCENARIO OBJECTIVES FOR ${userRole.toUpperCase()}:
 ${scenarioObjectives.map(obj => `- ${obj}`).join('\n')}
 
-Analyze the user's speech patterns and provide feedback in this EXACT format:
+Analyze ONLY these 7 areas and provide feedback in this EXACT format:
 
 OVERALL_SCORE: [Rate 1-5 based on professional communication effectiveness]
 
 FILLER_WORDS:
-Frequency: [Count of um, uh, like, you know, etc.]
-Examples: [List specific instances]
-Impact: [How fillers affected professionalism]
+Count: [Exact number of um, uh, like, you know, actually, basically, sort of, kind of found]
+Examples: [List specific instances with quotes]
+Impact: [How fillers affected professionalism - rate as Minimal/Moderate/High impact]
 
 SPEAKING_SPEED:
-Speed: [${estimatedWPM} WPM - Too Fast/Too Slow/Appropriate]
-Assessment: [Detailed analysis for this scenario type]
-Recommendation: [Specific speed adjustment advice]
+Speed: [${estimatedWPM} WPM]
+Assessment: [Too Fast/Too Slow/Appropriate for ${userRole} conversations]
+Recommendation: [Specific advice for optimal speed in this scenario type]
 
 INCLUSIVE_LANGUAGE:
-Issues: [Flag any non-inclusive language or assumptions]
-Examples: [Specific instances if found]
-Suggestions: [How to improve inclusivity]
+Issues: [Flag any non-inclusive language, assumptions, or biased terms]
+Examples: [Quote specific instances if found]
+Suggestions: [How to improve inclusivity and avoid bias]
 
-WORD_CHOICE:
-Weak_Words: [Identify hesitant language like "maybe", "I think", "sort of"]
+WEAK_WORDS:
+Weak_Words: [List hesitant language: maybe, I think, sort of, kind of, probably, possibly]
 Strong_Alternatives: [Suggest confident replacements]
-Professional_Tone: [Assessment of business language appropriateness]
+Professional_Impact: [How weak words affected authority and credibility]
 
-REPETITION_ANALYSIS:
-Repeated_Words: [Words/phrases used multiple times]
+REPETITION:
+Repeated_Words: [Words/phrases used 3+ times]
 Frequency: [How often each was repeated]
-Impact: [Effect on message clarity]
+Impact: [Effect on message clarity and professionalism]
 
 TALK_TIME:
 User_Speaking: ${userSpeakingTime} minutes (${Math.round((userSpeakingTime/totalDuration)*100)}% of session)
-Balance_Assessment: [Too much/Too little/Appropriate for ${userRole}]
-Recommendation: [How to optimize talk time]
+Balance_Assessment: [Too much/Too little/Appropriate for ${userRole} role]
+Recommendation: [How to optimize speaking vs listening balance]
 
 OBJECTIVES_ANALYSIS:
-Completed: [Which scenario objectives were achieved]
-Missed: [Which objectives weren't addressed]
-Evidence: [Specific examples from conversation]
-Improvement_Strategy: [Detailed plan for future sessions]
+Completed: [Which scenario objectives were clearly achieved with evidence]
+Missed: [Which objectives weren't addressed or were handled poorly]
+Evidence: [Specific examples from the conversation supporting assessments]
+Next_Steps: [Concrete actions to improve objective completion]
 
-PROFESSIONAL_COMMUNICATION:
-Strengths: [Specific communication strengths demonstrated]
-Weaknesses: [Areas needing development]
-Industry_Language: [Use of appropriate ${scenario.role} terminology]
-
-FUTURE_IMPROVEMENT:
-Priority_Focus: [Top 3 areas to work on next]
-Practice_Recommendations: [Specific exercises or techniques]
-Next_Session_Goals: [Measurable objectives for improvement]
-
-Focus exclusively on speech patterns, word choice, and professional communication effectiveness.`;
+Focus exclusively on speech patterns, communication effectiveness, and scenario objective completion. Provide specific, actionable feedback.`;
 }
 
-function parseEnhancedSpeechAnalysis(
+function parseFocusedAnalysis(
   aiResponse: string, 
   conversation: any[], 
   scenario: any, 
@@ -206,36 +196,36 @@ function parseEnhancedSpeechAnalysis(
   return {
     overall_score: overallScore,
     
-    // Enhanced speech analysis data
+    // Focused speech analysis data
     speech_analysis: {
       filler_words: {
-        frequency: extractValue(sections.filler_words, 'Frequency') || 'Not detected',
-        examples: extractValue(sections.filler_words, 'Examples') || [],
-        impact: extractValue(sections.filler_words, 'Impact') || 'No significant impact detected'
+        count: extractNumericValue(sections.filler_words, 'Count') || 0,
+        examples: extractListValue(sections.filler_words, 'Examples') || [],
+        impact: extractValue(sections.filler_words, 'Impact') || 'Unable to assess'
       },
       
       speaking_speed: {
         speed: extractValue(sections.speaking_speed, 'Speed') || 'Unable to assess',
-        assessment: extractValue(sections.speaking_speed, 'Assessment') || 'Speed analysis unavailable',
+        assessment: extractValue(sections.speaking_speed, 'Assessment') || 'Assessment unavailable',
         recommendation: extractValue(sections.speaking_speed, 'Recommendation') || 'Continue at current pace'
       },
       
       inclusive_language: {
         issues: extractValue(sections.inclusive_language, 'Issues') || 'No issues detected',
-        examples: extractValue(sections.inclusive_language, 'Examples') || [],
+        examples: extractListValue(sections.inclusive_language, 'Examples') || [],
         suggestions: extractValue(sections.inclusive_language, 'Suggestions') || 'Continue using inclusive language'
       },
       
-      word_choice: {
-        weak_words: extractValue(sections.word_choice, 'Weak_Words') || [],
-        strong_alternatives: extractValue(sections.word_choice, 'Strong_Alternatives') || [],
-        professional_tone: extractValue(sections.word_choice, 'Professional_Tone') || 'Professional tone maintained'
+      weak_words: {
+        weak_words: extractListValue(sections.weak_words, 'Weak_Words') || [],
+        strong_alternatives: extractListValue(sections.weak_words, 'Strong_Alternatives') || [],
+        professional_impact: extractValue(sections.weak_words, 'Professional_Impact') || 'No significant impact detected'
       },
       
       repetition: {
-        repeated_words: extractValue(sections.repetition_analysis, 'Repeated_Words') || [],
-        frequency: extractValue(sections.repetition_analysis, 'Frequency') || 'No significant repetition',
-        impact: extractValue(sections.repetition_analysis, 'Impact') || 'No negative impact detected'
+        repeated_words: extractListValue(sections.repetition, 'Repeated_Words') || [],
+        frequency: extractValue(sections.repetition, 'Frequency') || 'No significant repetition',
+        impact: extractValue(sections.repetition, 'Impact') || 'No negative impact detected'
       },
       
       talk_time: {
@@ -250,19 +240,7 @@ function parseEnhancedSpeechAnalysis(
       completed: extractListValue(sections.objectives_analysis, 'Completed') || [],
       missed: extractListValue(sections.objectives_analysis, 'Missed') || [],
       evidence: extractValue(sections.objectives_analysis, 'Evidence') || 'Evidence not available',
-      improvement_strategy: extractValue(sections.objectives_analysis, 'Improvement_Strategy') || 'Continue current approach'
-    },
-    
-    professional_communication: {
-      strengths: extractListValue(sections.professional_communication, 'Strengths') || [],
-      weaknesses: extractListValue(sections.professional_communication, 'Weaknesses') || [],
-      industry_language: extractValue(sections.professional_communication, 'Industry_Language') || 'Appropriate for role'
-    },
-    
-    future_improvement: {
-      priority_focus: extractListValue(sections.future_improvement, 'Priority_Focus') || [],
-      practice_recommendations: extractListValue(sections.future_improvement, 'Practice_Recommendations') || [],
-      next_session_goals: extractListValue(sections.future_improvement, 'Next_Session_Goals') || []
+      next_steps: extractValue(sections.objectives_analysis, 'Next_Steps') || 'Continue current approach'
     },
     
     // Session metadata
@@ -278,7 +256,7 @@ function parseEnhancedSpeechAnalysis(
       natural_ending: sessionData?.naturalEnding || false
     },
     
-    analysis_type: 'enhanced-speech-analysis',
+    analysis_type: 'gemini-focused-speech-analysis',
     timestamp: new Date().toISOString()
   };
 }
@@ -286,9 +264,8 @@ function parseEnhancedSpeechAnalysis(
 function parseAnalysisSections(aiResponse: string) {
   const sections: any = {};
   const sectionNames = [
-    'filler_words', 'speaking_speed', 'inclusive_language', 'word_choice',
-    'repetition_analysis', 'talk_time', 'objectives_analysis', 
-    'professional_communication', 'future_improvement'
+    'filler_words', 'speaking_speed', 'inclusive_language', 'weak_words',
+    'repetition', 'talk_time', 'objectives_analysis'
   ];
   
   for (const sectionName of sectionNames) {
@@ -306,16 +283,22 @@ function extractValue(section: string, key: string): string {
   return match ? match[1].trim() : '';
 }
 
+function extractNumericValue(section: string, key: string): number {
+  const value = extractValue(section, key);
+  const match = value.match(/(\d+)/);
+  return match ? parseInt(match[1]) : 0;
+}
+
 function extractListValue(section: string, key: string): string[] {
   const value = extractValue(section, key);
-  if (!value) return [];
+  if (!value || value.toLowerCase().includes('none') || value.toLowerCase().includes('no ')) return [];
   
   // Split by common delimiters and clean up
   return value
     .split(/[,\n\-•]/)
-    .map(item => item.trim())
-    .filter(item => item.length > 0)
-    .slice(0, 5); // Limit to 5 items
+    .map(item => item.trim().replace(/^["'\[\]]+|["'\[\]]+$/g, ''))
+    .filter(item => item.length > 0 && !item.toLowerCase().includes('none'))
+    .slice(0, 8); // Limit to 8 items
 }
 
 function calculateUserSpeakingTime(userMessages: any[], totalDuration: number): number {
@@ -407,8 +390,8 @@ function getScenarioObjectives(role: string): string[] {
   return objectives[role] || objectives['sales'];
 }
 
-function generateFallbackSpeechAnalysis(conversation: any[], scenario: any, sessionData: any) {
-  console.log('📊 Generating fallback speech analysis...');
+function generateFallbackAnalysis(conversation: any[], scenario: any, sessionData: any) {
+  console.log('📊 Generating fallback focused analysis...');
   
   const userMessages = conversation.filter(msg => msg.speaker === 'user');
   const userRole = getUserRole(scenario.role);
@@ -421,23 +404,23 @@ function generateFallbackSpeechAnalysis(conversation: any[], scenario: any, sess
   const estimatedWPM = userSpeakingTime > 0 ? Math.round(wordCount / (userSpeakingTime / 60)) : 0;
   
   // Basic pattern detection
-  const fillerWords = (userText.match(/\b(um|uh|like|you know|actually|basically)\b/gi) || []).length;
-  const weakWords = (userText.match(/\b(maybe|I think|sort of|kind of|probably)\b/gi) || []).length;
+  const fillerWords = (userText.match(/\b(um|uh|like|you know|actually|basically|sort of|kind of)\b/gi) || []).length;
+  const weakWords = (userText.match(/\b(maybe|I think|sort of|kind of|probably|possibly)\b/gi) || []).length;
   
   return {
     overall_score: Math.min(5.0, 2.5 + (exchanges >= 4 ? 1 : 0) + (duration >= 5 ? 1 : 0) + (fillerWords < 5 ? 0.5 : 0)),
     
     speech_analysis: {
       filler_words: {
-        frequency: fillerWords,
+        count: fillerWords,
         examples: fillerWords > 0 ? ['Basic analysis detected filler words'] : [],
-        impact: fillerWords > 5 ? 'Moderate impact on professionalism' : 'Minimal impact detected'
+        impact: fillerWords > 5 ? 'High impact on professionalism' : fillerWords > 2 ? 'Moderate impact' : 'Minimal impact'
       },
       
       speaking_speed: {
-        speed: `${estimatedWPM} WPM - ${estimatedWPM > 180 ? 'Too Fast' : estimatedWPM < 120 ? 'Too Slow' : 'Appropriate'}`,
-        assessment: `For ${userRole} conversations, your pace appears ${estimatedWPM > 180 ? 'rushed' : estimatedWPM < 120 ? 'slow' : 'well-balanced'}`,
-        recommendation: estimatedWPM > 180 ? 'Try slowing down for better clarity' : estimatedWPM < 120 ? 'Consider speaking with more confidence' : 'Maintain current speaking pace'
+        speed: `${estimatedWPM} WPM`,
+        assessment: estimatedWPM > 180 ? 'Too Fast' : estimatedWPM < 120 ? 'Too Slow' : 'Appropriate',
+        recommendation: estimatedWPM > 180 ? 'Slow down for better clarity' : estimatedWPM < 120 ? 'Speak with more confidence' : 'Maintain current pace'
       },
       
       inclusive_language: {
@@ -446,10 +429,10 @@ function generateFallbackSpeechAnalysis(conversation: any[], scenario: any, sess
         suggestions: 'Continue being mindful of inclusive language in professional settings'
       },
       
-      word_choice: {
+      weak_words: {
         weak_words: weakWords > 0 ? ['Hesitant language detected'] : [],
         strong_alternatives: weakWords > 0 ? ['Use more confident, direct language'] : [],
-        professional_tone: weakWords > 3 ? 'Could be more assertive' : 'Generally professional'
+        professional_impact: weakWords > 3 ? 'Reduced authority and credibility' : 'Minimal impact on professionalism'
       },
       
       repetition: {
@@ -461,7 +444,7 @@ function generateFallbackSpeechAnalysis(conversation: any[], scenario: any, sess
       talk_time: {
         user_speaking_minutes: userSpeakingTime,
         percentage: Math.round((userSpeakingTime / duration) * 100),
-        balance_assessment: userSpeakingTime > duration * 0.7 ? 'Talking too much' : userSpeakingTime < duration * 0.3 ? 'Not speaking enough' : 'Good balance',
+        balance_assessment: userSpeakingTime > duration * 0.7 ? 'Talking too much' : userSpeakingTime < duration * 0.3 ? 'Not speaking enough' : 'Appropriate balance',
         recommendation: 'Aim for balanced conversation with active listening'
       }
     },
@@ -470,19 +453,7 @@ function generateFallbackSpeechAnalysis(conversation: any[], scenario: any, sess
       completed: ['Basic conversation engagement'],
       missed: ['Advanced analysis unavailable in fallback mode'],
       evidence: `Completed ${exchanges} exchanges showing basic communication`,
-      improvement_strategy: 'Continue practicing to develop more advanced conversation skills'
-    },
-    
-    professional_communication: {
-      strengths: ['Active participation', 'Maintained conversation flow'],
-      weaknesses: ['Detailed analysis requires enhanced mode'],
-      industry_language: 'Basic professional language maintained'
-    },
-    
-    future_improvement: {
-      priority_focus: ['Reduce filler words', 'Increase confidence', 'Achieve specific objectives'],
-      practice_recommendations: ['Regular conversation practice', 'Record and review sessions'],
-      next_session_goals: ['Extend conversation length', 'Focus on specific objectives']
+      next_steps: 'Continue practicing to develop more advanced conversation skills'
     },
     
     conversation_stats: {
@@ -497,7 +468,7 @@ function generateFallbackSpeechAnalysis(conversation: any[], scenario: any, sess
       natural_ending: sessionData?.naturalEnding || false
     },
     
-    analysis_type: 'fallback-speech-analysis',
+    analysis_type: 'fallback-focused-analysis',
     timestamp: new Date().toISOString()
   };
 }
