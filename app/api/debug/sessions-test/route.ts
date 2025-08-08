@@ -1,6 +1,10 @@
 // app/api/debug/sessions-test/route.ts - Create this file to test sessions API
 import { createClient } from '@supabase/supabase-js';
 
+// Force dynamic rendering
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
