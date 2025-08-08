@@ -749,13 +749,13 @@ export default function DashboardPage() {
                 <p className="text-gray-600">Track your improvement across different professional roles</p>
               </div>
               {userProgress.length > 0 && (
-                {userProgress.length > 0 && (
-  <div className="text-center">
-    <p className="text-gray-600 mb-4">
-      You've practiced {userProgress.length} different roles with great progress!
-    </p>
-  </div>
-)}
+                <div className="text-center">
+                  <p className="text-gray-600 mb-4">
+                    You've practiced {userProgress.length} different roles with great progress!
+                  </p>
+                </div>
+              )}
+            </div>
 
             {userProgress.length > 0 ? (
               <div className="space-y-4">
